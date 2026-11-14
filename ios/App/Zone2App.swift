@@ -39,6 +39,10 @@ struct Zone2App: App {
             default: break
             }
         }
+        // Background URLSession finished uploads while the app was suspended/terminated.
+        .backgroundTask(.urlSession(BackgroundUploader.identifier)) {
+            await model.health.uploader.waitForEvents()
+        }
         #if DEBUG
         .backgroundTask(.appRefresh(WakeMonitor.refreshTaskId)) {
             WakeMonitor.scheduleRefresh()

@@ -38,7 +38,8 @@ struct HomeView: View {
                         }
                     } else {
                         LabeledContent("Uploaded", value: "\(health.state.uploaded)")
-                        LabeledContent("In queue", value: "\(health.state.pending.count)")
+                        LabeledContent("Uploading (background)", value: "\(health.uploadingCount + health.exportedCount)")
+                        LabeledContent("Waiting for export", value: "\(health.queuedCount)")
                         if let last = health.state.lastSync {
                             LabeledContent("Last sync", value: last.formatted(date: .abbreviated, time: .shortened))
                         }
@@ -55,7 +56,7 @@ struct HomeView: View {
                 } header: {
                     Text("Apple Health")
                 } footer: {
-                    Text("Workouts are uploaded with full detail (heart rate, power, route). First sync uploads your whole history, newest first.")
+                    Text("Workouts are uploaded with full detail (heart rate, power, route). Export from Apple Health needs the app open and the phone unlocked; uploads then continue in the background. First sync covers your whole history, newest first.")
                 }
 
                 Section("Server") {
