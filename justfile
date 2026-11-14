@@ -103,20 +103,34 @@ ci: check lint test ios-build
 # Secrets come from 1Password item "zone2-<target> app secrets" (create with `just app-secrets`).
 deploy-api target="staging": (_guard target)
     #!/usr/bin/env zsh
+    # Normally CI deploys staging on push to main (.github/workflows/ci.yml); this is the manual path.
     set -euo pipefail
     ref={{ if target == "prod" { prod_ref } else { staging_ref } }}
     version=$(git rev-parse --short HEAD)$([[ -z "$(git status --porcelain -- backend supabase)" ]] || echo -dirty)
-    supabase secrets set --yes --remote=$ref \
-      ZONE2_ENV={{target}} \
-      ZONE2_PUBLIC_BASE_URL={{ if target == "prod" { "https://api.zone2.day" } else { "https://api-staging.zone2.day" } }} \
-      ZONE2_RP_ID=zone2.day \
-      ZONE2_SECRET_KEY="$(tools/secret.sh {{target}} secret_key)" >/dev/null
     # The version is baked into the bundle, so /health always reports the code that is actually live.
     trap 'git checkout -- supabase/functions/api/build.ts' EXIT
     echo "export const BUILD_VERSION = \"$version\";" > supabase/functions/api/build.ts
     # Local (Docker) bundling: server-side bundling (--use-api) times out on our bundle size.
     supabase functions deploy api --yes --remote=$ref | grep -E "Deployed Functions|rror" | cut -c1-120
     echo "deployed $version"
+
+# Set runtime secrets of the function (rarely changes; CI does not touch them)
+deploy-secrets target="staging": (_guard target)
+    supabase secrets set --yes --remote={{ if target == "prod" { prod_ref } else { staging_ref } }} \
+      ZONE2_ENV={{target}} \
+      ZONE2_PUBLIC_BASE_URL={{ if target == "prod" { "https://api.zone2.day" } else { "https://api-staging.zone2.day" } }} \
+      ZONE2_RP_ID=zone2.day \
+      ZONE2_SECRET_KEY="$(tools/secret.sh {{target}} secret_key)"
+
+# Put CI deploy secrets into GitHub (SUPABASE_ACCESS_TOKEN must be in .env.staging.local first)
+gh-secrets:
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    token=$(grep '^ZONE2_SUPABASE_ACCESS_TOKEN=' .env.staging.local | cut -d= -f2-)
+    [[ -n $token ]] || { echo "add ZONE2_SUPABASE_ACCESS_TOKEN to .env.staging.local"; exit 1; }
+    print -rn -- "$token" | gh secret set SUPABASE_ACCESS_TOKEN
+    tools/secret.sh staging db_password | gh secret set STAGING_DB_PASSWORD
+    gh secret list
 
 # Create the 1Password item with app secrets for a target (once)
 app-secrets target="staging": (_guard target)
