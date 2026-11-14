@@ -43,6 +43,28 @@ export function buildUpstreamRequest(req: Request, env: ProxyEnv): Request {
   });
 }
 
+/**
+ * Undo hosting-platform header rewrites (Supabase: text/html → text/plain, CSP → sandbox)
+ * using the originals the backend put into x-zone2-*; drop upstream cookies (we use none,
+ * and Supabase's bot cookies are scoped to supabase.co anyway).
+ */
+export function restoreHeaders(res: Response): Response {
+  const type = res.headers.get("x-zone2-content-type");
+  const hasCookies = res.headers.has("set-cookie");
+  if (!type && !hasCookies) return res;
+  const headers = new Headers(res.headers);
+  headers.delete("set-cookie");
+  if (type) {
+    headers.set("content-type", type);
+    const csp = res.headers.get("x-zone2-csp");
+    if (csp) headers.set("content-security-policy", csp);
+    else headers.delete("content-security-policy");
+    headers.delete("x-zone2-content-type");
+    headers.delete("x-zone2-csp");
+  }
+  return new Response(res.body, { status: res.status, statusText: res.statusText, headers });
+}
+
 export async function proxy(
   req: Request,
   env: ProxyEnv,
@@ -52,7 +74,7 @@ export async function proxy(
     return Response.json({ error: "proxy_misconfigured" }, { status: 500 });
   }
   try {
-    return await fetcher(buildUpstreamRequest(req, env));
+    return restoreHeaders(await fetcher(buildUpstreamRequest(req, env)));
   } catch (err) {
     return Response.json(
       { error: "upstream_unreachable", detail: err instanceof Error ? err.message : String(err) },

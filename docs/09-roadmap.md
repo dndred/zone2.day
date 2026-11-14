@@ -18,13 +18,13 @@
 - [x] Cloudflare: Worker `edge-proxy` на `api-staging.zone2.day` (staging). Prod (`api.zone2.day`) — по явной команде.
 - [x] iOS-скелет: `project.yml`, пакет `Zone2Core` (`Zone2Kit`, `Zone2UI`, en/ru), приложение показывает статус сервера; `swift test` и сборка под симулятор работают. `HealthBridge`/`WorkoutBridge` — в S1.
 - [ ] `tools/mcp-cli` — вызов MCP-инструментов из терминала (вместе с S2).
-- [ ] Среда симулятора iOS 27 (для запуска приложения и UI-тестов в симуляторе).
+- [ ] Среда симулятора iOS 27 (для запуска приложения и UI-тестов в симуляторе; target приложения — iOS 26).
 
 ### 0.2 Спайки
 | # | Риск | Как проверяем | Критерий успеха | План Б |
 |---|---|---|---|---|
-| **S1** 👤 | HealthKit и WorkoutKit на бесплатной Personal Team | Мини-приложение на телефоне: разрешения HealthKit, чтение последней тренировки, `WorkoutScheduler.schedule` для бега с HR-алертом, вело и **бассейна** | Тренировки видны в «Тренировке» на Ultra 2, HealthKit читается | Попросить друга добавить в его команду (Developer) |
-| **S2** | claude.ai находит OAuth через прокси на `api.zone2.day` + Edge Function | Минимальный AS (DCR, authorize с passkey, token) + MCP с инструментом `ping`; подключить коннектор в claude.ai (web и mobile) | `ping` вызывается из claude.ai | Supabase Auth OAuth server или перенос API на Cloud Run |
+| **S1** 👤 | HealthKit и WorkoutKit на бесплатной Personal Team | Мини-приложение на телефоне: разрешения HealthKit, чтение последней тренировки, `WorkoutScheduler.schedule` для бега с HR-алертом, вело и **бассейна**; требует ли `schedule(_:at:)` час или хватает даты | Тренировки видны в «Тренировке» на Ultra 2, HealthKit читается | Попросить друга добавить в его команду (Developer) |
+| **S2** ✅ web / ⏳ mobile | claude.ai находит OAuth через прокси на `api.zone2.day` + Edge Function | Минимальный AS (DCR, authorize с passkey, token) + MCP с инструментом `ping`; подключить коннектор в claude.ai (web и mobile) | `ping` вызывается из claude.ai | Supabase Auth OAuth server или перенос API на Cloud Run |
 | **S3** | Дамп HealthKit → FIT | Экспорт реальной пробежки, `@garmin/fitsdk` encode → decode → сверка; загрузка FIT в intervals.icu как внешний валидатор | Файл валиден, ряды и круги совпадают | Своя минимальная реализация FIT-энкодера |
 | **S4** 👤 | Частота фоновых пробуждений без push | Debug-сборка логирует каждое пробуждение (BGAppRefresh, HK observer) на сервер; 3–5 дней обычной жизни | Медианный интервал между пробуждениями днём ≤ 1–2 ч | Ускорить переход на платный аккаунт (push) |
 | **S5** | intervals.icu отдаёт оригинальный FIT заездов MyWhoosh | Атлет подключает MyWhoosh → intervals.icu; скрипт с API-ключом скачивает файл | Оригинальный FIT с мощностью и каденсом | Strava-стримы + генерация FIT |
@@ -40,23 +40,25 @@ S6 можно провести в начале фазы 2, остальные �
 ## Фаза 1 — MVP: «план в часах, факт в базе»
 
 ### 1.1 Бэкенд: основа 🛠
-- [ ] Схема БД и миграции: users, identities, oauth, devices, profiles, metrics_history, planned_workouts, activities, activity_files, strength_*, exercises, daily_metrics, events, notebook_pages, change_log, sync_feed, deliveries, integrations, client_logs, request_log.
-- [ ] Auth: OAuth 2.1 AS (DCR, PKCE, refresh rotation, revoke), passkey-регистрация по инвайту, страница входа (en/ru), first-party client для iOS.
+- [ ] Схема БД и миграции: devices, profiles (+ поездки), metrics_history, weeks, planned_workouts, activities, activity_files, strength_*, exercises, daily_metrics, events, journal, gear, notebook_pages, change_log, sync_feed, deliveries, integrations, client_logs, request_log. (Auth-таблицы — готовы в S2.)
+- [x] Auth: OAuth 2.1 AS (DCR, PKCE, refresh rotation, revoke), passkey-регистрация по инвайту, страница входа (en/ru). Осталось: first-party client для iOS.
+- [ ] Часовые пояса: эффективный пояс даты (дом + поездки) во всех расчётах дат.
 - [ ] Репозитории с изоляцией по `user_id` + change_log + sync_feed в одной транзакции.
-- [ ] Domain: структура тренировки (Zod), валидация, резолв таргетов, оценки длительности и нагрузки, зоны.
+- [ ] Domain: структура тренировки (Zod), валидация, резолв таргетов, оценки длительности и нагрузки (без порогов — по истории атлета), зоны (в т.ч. custom), пороги-диапазоны.
 
 ### 1.2 MCP 🛠
 - [ ] Сервер, регистрация инструментов, общие хелперы (`now`, ошибки, `howToRead`), снапшот-тест.
-- [ ] `get_context`; профиль; план (`plan_workouts`, `update_*`, `delete`, `copy`, `get_changes`, `revert_change`, `get_delivery_status`); старты; блокнот.
-- [ ] Активности: `list`, `get` (summary + laps + intervals), `streams`, `file`, `fit`, `update_activity`.
-- [ ] Силовые: `get_strength_log`, `get_exercise_history`, `update_strength_log`, `merge_exercises`.
-- [ ] Здоровье: `get_daily_metrics`, `get_load`, `get_zone_distribution`.
+- [ ] `get_context`; профиль; недели (`upsert_week`); план (`plan_workouts`, `update_*` с `skipped`, `delete`, `copy`, `get_changes`, `revert_change`, `get_delivery_status`); старты; блокнот (лимит закреплённого); журнал; снаряжение.
+- [ ] Активности: `list`, `get` (summary + laps + intervals + GAP + погода), `streams`, `file`, `fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), `create_activity`, `import_activity_file` (FIT/GPX).
+- [ ] Силовые: `get_strength_log`, `get_exercise_history`, `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion).
+- [ ] Здоровье и аналитика: `get_daily_metrics`, `get_load` (объём + sRPE×мин), `get_zone_distribution`, `get_efficiency_trend`, Pw:HR / декаплинг по ровным участкам.
 - [ ] Экспорт `.zwo`, интеграции, debug-инструменты.
 - [ ] Descriptions по правилам; ревью descriptions «глазами модели» в живом чате.
 
 ### 1.3 Ingest и интеграции 🛠
-- [ ] HealthKit dump → streams, laps, сопоставление с планом, интервалы, compliance, зоны, нагрузка, FIT.
-- [ ] FIT → activity; склейка с HealthKit-активностью по времени.
+- [ ] HealthKit dump → streams (+GAP), laps, погода, сопоставление с планом, интервалы, compliance, зоны, нагрузка, ровные участки, обувь по умолчанию, FIT.
+- [ ] Удаления из Health → мягкое удаление / отцепление источника.
+- [ ] FIT (MyWhoosh, пульс внутри) → activity целиком → запись в Health приложением; склейка с записью часов — запасной путь.
 - [ ] intervals.icu: хранение ключа (шифрование), job `intervals-poll` (pg_cron), дедупликация, `health_export`.
 
 ### 1.4 Sync API 🛠
@@ -66,21 +68,22 @@ S6 можно провести в начале фазы 2, остальные �
 ### 1.5 iOS: данные 🛠
 - [ ] Вход (`ASWebAuthenticationSession`, Keychain), регистрация устройства.
 - [ ] GRDB-схема и миграции, SyncEngine (pull + apply), outbox, триггеры: foreground, BGAppRefresh, HK observers, BGProcessing.
-- [ ] HealthBridge: разрешения, экспорт дампа тренировки, суточные метрики (+бэкфилл 180 дней), запись внешних активностей в Health.
+- [ ] HealthBridge: разрешения, anchored query (новые + удалённые), экспорт дампа тренировки, суточные метрики, **бэкфилл всей истории**, запись внешних активностей в Health.
 - [ ] WorkoutBridge: маппинг структуры → WorkoutKit, `WorkoutScheduleReconciler`, delivery acks.
 - [ ] Клиентские логи и отчёты о состоянии устройства.
 
 ### 1.6 iOS: UI 🛠👤
 - [ ] **Макеты** Today, Planned workout, Completed, Gym → согласование с атлетом.
 - [ ] Zone2UI: цвета, компоненты, снапшоты.
-- [ ] Экраны: Today, Calendar, Planned workout, Completed/Activity, Activities, Gym mode, Profile, Debug.
+- [ ] Экраны: Today (шапка недели, тренировки по `order`), Calendar (недели, журнал в днях), Planned workout (последнее изменение, блокнот), Completed/Activity (официальный результат, слова атлета), Activities, Gym mode, Profile (+ блокнот офлайн), Debug.
 - [ ] Share `.zwo`, «Open in Workout app».
 - [ ] Локализация en/ru.
 
 ### 1.7 Эксплуатация 🛠
 - [ ] `just deploy-*`, `just smoke`, `just resign` + launchd-задача раз в неделю.
 - [ ] Бэкапы: еженедельный `pg_dump` в Storage (у free-плана Supabase нет бэкапов).
-- [ ] Импорт истории: последние N месяцев тренировок из HealthKit (бэкфилл), чтобы AI сразу видел контекст.
+- [ ] Импорт истории: **вся история** HealthKit (бэкфилл, без заранее сгенерированных FIT для старых), замер объёма Storage.
+- [ ] Перенос истории весов из Notion через `log_strength_session` (AI в чате) 👤.
 
 **Готово, когда** (👤 в реальной жизни, неделя тренировок):
 сценарии 1–4 из [01-requirements §7](01-requirements.md#7-ключевые-сценарии-acceptance) проходят; AI в claude.ai планирует неделю, тренировки сами появляются на часах, выполненные — в базе с разбором; лог зала доходит до AI; заезды MyWhoosh приходят с оригинальным FIT.
@@ -95,7 +98,9 @@ S6 можно провести в начале фазы 2, остальные �
 - [ ] Паритет записи со штатным приложением (тест на улице) 👤.
 - [ ] Виджеты (экран блокировки и домой), усложнение на циферблате.
 - [ ] Аналитика: рекорды, оценка порогов по данным (с `confidence`), прогрессия интервалов.
-- [ ] Шаблоны тренировок (`save_template` / `search_templates`).
+- [ ] Шаблоны тренировок (`save_template` / `search_templates`); до них «Зал A/B» — через `copy_planned_workouts`.
+- [ ] Трассы (`courses`): GPX, участки, автоузнавание, сравнение визитов.
+- [ ] Экран старта в приложении (план, раскладка, питание офлайн) — низкий приоритет.
 
 **Готово, когда:** сценарий 5 (лёгкий бег под сторожем 2+ часа) проходит; Pulsalarm удалён с часов.
 

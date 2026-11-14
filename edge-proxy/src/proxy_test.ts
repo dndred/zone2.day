@@ -46,6 +46,43 @@ Deno.test("forwards POST body", async () => {
   assertEquals(seen, "POST a=1");
 });
 
+Deno.test("restores HTML content type and CSP rewritten by the platform, drops cookies", async () => {
+  const res = await proxy(
+    new Request("https://api.zone2.day/oauth/authorize"),
+    env,
+    () =>
+      Promise.resolve(
+        new Response("<html></html>", {
+          headers: {
+            "content-type": "text/plain",
+            "content-security-policy": "default-src 'none'; sandbox",
+            "x-zone2-content-type": "text/html; charset=UTF-8",
+            "x-zone2-csp": "default-src 'none'; script-src 'unsafe-inline'",
+            "set-cookie": "__cf_bm=x; Domain=supabase.co",
+          },
+        }),
+      ),
+  );
+  assertEquals(res.headers.get("content-type"), "text/html; charset=UTF-8");
+  assertEquals(
+    res.headers.get("content-security-policy"),
+    "default-src 'none'; script-src 'unsafe-inline'",
+  );
+  assertEquals(res.headers.get("set-cookie"), null);
+  assertEquals(res.headers.get("x-zone2-content-type"), null);
+  assertEquals(await res.text(), "<html></html>");
+});
+
+Deno.test("leaves JSON responses untouched", async () => {
+  const upstream = Response.json({ ok: true });
+  const res = await proxy(
+    new Request("https://api.zone2.day/health"),
+    env,
+    () => Promise.resolve(upstream),
+  );
+  assertEquals(res, upstream);
+});
+
 Deno.test("returns 502 when upstream is unreachable", async () => {
   const res = await proxy(new Request("https://api.zone2.day/health"), env, () => {
     throw new Error("boom");

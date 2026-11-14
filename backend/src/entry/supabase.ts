@@ -4,6 +4,7 @@
 // request to the app unchanged, so the app's own 404/error handlers apply everywhere.
 import { createApp } from "../app.ts";
 import { loadConfig } from "../config.ts";
+import { createDeps } from "../deps.ts";
 
 export const FUNCTION_NAME = "api";
 
@@ -15,6 +16,7 @@ export function stripFunctionPrefix(req: Request, prefix = `/${FUNCTION_NAME}`):
 }
 
 export function createSupabaseHandler(): (req: Request) => Response | Promise<Response> {
-  const app = createApp(loadConfig());
+  const config = loadConfig();
+  const app = createApp(config, createDeps(config));
   return (req) => app.fetch(stripFunctionPrefix(req));
 }

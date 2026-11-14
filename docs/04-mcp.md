@@ -32,23 +32,24 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
 ### 3.1 Контекст
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
-| `get_context` | R | `days?` (по умолчанию 14) | Сейчас (дата и TZ); профиль с порогами и зонами в абсолютных единицах; план от вчера до +7 дней со статусами и доставкой; 14 дней план-vs-факт; последние активности с заметками; недельная нагрузка за 12 недель; метрики восстановления за 14 дней и базлайны; старты (принятые и идеи — раздельно); **закреплённые страницы блокнота целиком и индекс остальных**; недавние изменения плана (кто, что, `why`); состояние интеграций и устройств |
+| `get_context` | R | `days?` (по умолчанию 14) | Сейчас (дата и TZ); профиль с порогами и зонами в абсолютных единицах; план от вчера до +7 дней со статусами и доставкой; 14 дней план-vs-факт; последние активности с заметками; недельная нагрузка за 12 недель; метрики восстановления за 14 дней и базлайны; старты (принятые и идеи — раздельно); **шапка текущей и следующей недели** + 2–3 последних `review`; **открытые записи журнала** (с `due`, без `closed_at`); **закреплённые страницы блокнота целиком** (с общим лимитом и предупреждением) и индекс остальных; недавние изменения плана (кто, что, `why`); расхождение пояса устройства с эффективным; состояние интеграций и устройств |
 
 ### 3.2 Профиль
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
 | `get_profile` | R | — | Профиль целиком: пороги, зоны (границы и модель), оборудование, настройки сторожа пульса |
-| `update_profile` | W | частичный патч (всё опционально), `why` | Пороги, зоны, вес, TZ, оборудование, `mywhooshFtp`, `hrGuard`. Изменение порогов → новая версия будущих тренировок с относительными таргетами. Новые числа — только после согласия атлета |
+| `update_profile` | W | частичный патч (всё опционально), `why` | Пороги (число или диапазон `{low, high, basis}`), зоны (в т.ч. `custom` с явными границами), вес, домашний пояс и **поездки** (`travel[]`), оборудование, `mywhooshFtp`, `hrGuard`. Изменение порогов → новая версия будущих тренировок с относительными таргетами. Новые числа — только после согласия атлета |
 | `get_metric_history` | R | `kinds?`, `from?`, `to?` | История порогов и измерений с `source` |
 | `log_metric` | W | `items[{date, kind, value, source, note?}]` ≤20 | Измерение (тест, лаборатория, оценка). Профиль не меняет: для этого есть `update_profile` |
 
 ### 3.3 План
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
-| `get_plan` | R | `from`, `to` (≤62 дня), `include?` (`structure`) | Дни → тренировки (id, sport, title, goal, key, estimate, status, delivery), старты, связанные активности |
+| `get_plan` | R | `from`, `to` (≤62 дня), `include?` (`structure`) | **Недели** (title, header, review) → дни → тренировки (id, order, sport, title, goal, key, estimate, status, delivery, last_change), старты, записи журнала, связанные активности |
+| `upsert_week` | W | `weekStart` (понедельник), `title?`, `header?`, `review?`, `notebookRefs?`, `why?` | Шапка недели (вектор, что заморожено, правила) и её итог |
 | `get_planned_workout` | R | `id` | Полная структура + `resolved` таргеты + статус доставки + история версий (кратко) |
-| `plan_workouts` | W | `items[]` ≤40 (`date, time?, sport, title, goal, notes?, key?, tags?, structure \| templateId, execution?`), `why`, `dryRun?` | Создать тренировки. Пакет — атомарный |
-| `update_planned_workout` | W | `id`, патч (`date` = перенос, `structure`, `title`, `goal`, `notes`, `key`, `tags`, `time`, `execution`), `why` | Правка на месте; перенос — через `date` |
+| `plan_workouts` | W | `items[]` ≤40 (`date, order?, sport, title, goal, notes?, key?, tags?, notebookRefs?, structure \| templateId, execution?`), `why`, `dryRun?` | Создать тренировки. Пакет — атомарный. «Зал A/B» до появления шаблонов — через `copy_planned_workouts` |
+| `update_planned_workout` | W | `id`, патч (`date` = перенос, `order`, `structure`, `title`, `goal`, `notes`, `key`, `tags`, `notebookRefs`, `execution`, `skipped: {reason} \| null`), `why` | Правка на месте; перенос — через `date`; **пропуск — `skipped` с причиной**. Замена тренировки — удалить и создать новую |
 | `update_planned_workouts` | W | `edits[]` 2–80, `why`, `dryRun?` | Массовая однотипная правка |
 | `delete_planned_workouts` | W | `ids[]` ≤40, `why` | Удаление (мягкое, откатывается) |
 | `copy_planned_workouts` | W | `ids[]` или `fromDate`/`toDate`, `shiftDays` или `toDates[]`, `why` | «Повтори прошлую неделю» |
@@ -56,7 +57,7 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
 | `revert_change` | W | `changeId`, `why` | Откатить изменение (и зависимые, если есть — с предупреждением) |
 | `get_delivery_status` | R | `ids?` или `from`/`to` | По каждой тренировке и версии: `synced` на телефон (когда, какое устройство), `scheduled_watch`, ошибки, время последнего синка устройства. Справочный инструмент: зовётся, когда атлет спрашивает или что-то пошло не так, а не после каждой записи плана |
 
-### 3.4 Шаблоны (библиотека)
+### 3.4 Шаблоны (библиотека) — фаза 2
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
 | `search_templates` | R | `query?`, `sport?`, `tags?`, `durationMin?`/`durationMax?` | Свои шаблоны тренировок |
@@ -66,11 +67,13 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
 | `list_activities` | R | `from?`, `to?`, `sport?`, `limit?`, `cursor?` | Список со сводкой и связью с планом |
-| `get_activity` | R | `id`, `detail?` (`summary` \| `full`, по умолчанию `full`) | Сводка, круги, интервалы план-vs-факт с `compliance`, зоны (+`basis`), нагрузка (+`basis`), дрейф пульса, механика бега, бассейн, источники и файлы, `howToRead` |
-| `get_activity_streams` | R | `id`, `channels?`, `fromSec?`, `toSec?`, `bucketSec?` (1–600) или `maxPoints?` (≤600) | Ряды в CSV или колонками; по умолчанию около 300 точек на окно; zoom через `fromSec`/`toSec` |
+| `get_activity` | R | `id`, `detail?` (`summary` \| `full`, по умолчанию `full`) | Сводка (GAP, погода), официальный результат, sRPE, слова атлета, круги, интервалы план-vs-факт с `compliance`, зоны (+`basis`), нагрузка (+`basis`), Pw:HR / декаплинг по автоматически найденным ровным участкам, механика бега, бассейн (чистый темп и темп с остановками + `confidence`), обувь, трасса, источники и файлы, `howToRead` |
+| `get_activity_streams` | R | `id`, `channels?` (в т.ч. `gapSpeed`), `fromSec?`, `toSec?`, `bucketSec?` (1–600) или `maxPoints?` (≤600) | Ряды в CSV или колонками; по умолчанию около 300 точек на окно; zoom через `fromSec`/`toSec` |
 | `get_activity_file` | R | `id`, `kind` (`fit` \| `fit_original` \| `healthkit_dump` \| `streams`) | Подписанная ссылка (TTL 15 мин), размер, sha256. Для Claude Code и скриптов |
 | `get_activity_fit` | R | `id`, `messages?` (`session`, `lap`, `record`, `event`, `device_info`…), `limit?` | FIT, раскодированный в JSON (для чат-клиентов без доступа к бинарным файлам). `record` — с прореживанием |
-| `update_activity` | W | `id`, `title?`, `tags?`, `coachNotes?` (markdown ≤12000, `append?`), `grade?` (A–E), `plannedWorkoutId?` (связать или отвязать) | Разбор тренировки AI, теги, исправление связи с планом |
+| `update_activity` | W | `id`, `title?`, `tags?`, `coachNotes?` (markdown ≤12000, `append?`), `athleteNotes?` (слова атлета, `append?`), `rpe?` (1–10), `official?` (`{timeSec, distanceM, note}`), `gearId?`, `grade?` (A–E), `plannedWorkoutId?` (связать или отвязать) | Разбор AI, слова атлета, sRPE, официальный результат, обувь, теги (контекст + грунт: `asphalt`, `trail`, `sand`, `snow`, `ice`, `mud`, `track`, `treadmill`), связь с планом |
+| `create_activity` | W | `sport`, `start`, `durationSec`, `distanceM?`, `title?`, `athleteNotes?`, `rpe?`, `tags?`, `gearId?`, `why?` | Активность со слов атлета (`source: manual`) — когда записи нет |
+| `import_activity_file` | W | `url` или `uploadId` (файл FIT/GPX), `title?`, `tags?` | Импорт файла (`fit_upload` / `gpx_upload`); FIT сохраняется байт в байт |
 | `edit_activity_data` | W | `id`, `mode` (`trim` \| `split` \| `merge` \| `move` \| `revert`), параметры режима, `why` | Исправление записи; последствия пересчитывает сервер |
 
 ### 3.6 Силовые
@@ -80,20 +83,39 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
 | `get_exercise_history` | R | `exercise`, `sessions?` (2–20) | Прогрессия упражнения: лучший подход, e1RM (оценка), RPE vs план, перерывы. **Единственный источник для веса** в новых планах |
 | `update_strength_log` | W | `sessionId`, `sets[]` (патч), `why` | Исправление лога (например, атлет в чате сказал, что ошибся) |
 | `merge_exercises` | W | `names[]`, `into`, `why` | Склеить одно движение, записанное под разными именами |
+| `log_strength_session` | W | `date`, `plannedWorkoutId?`, `sets[]` (`exercise, reps, weightKg, holdSec?, rpe?, note?`), `notes?`, `why?` | Силовая задним числом (перенос весов из Notion, сессия со слов атлета) |
 
 ### 3.7 Здоровье и восстановление
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
 | `get_daily_metrics` | R | `from`, `to`, `kinds?` | HRV (SDNN), пульс покоя, сон, вес, VO2max + базлайны 7/28 дней, z-score, `howToRead` |
-| `get_load` | R | `from`, `to`, `groupBy?` (`day` \| `week`), `sport?` | Нагрузка по дням и неделям, острая/хроническая, объём по видам спорта, `basis` |
+| `get_load` | R | `from`, `to`, `groupBy?` (`day` \| `week`), `sport?` | Фаза 1: **объём по видам спорта** (время, дистанция) + **sRPE × минуты** по дням и неделям, `basis`. TSS-подобная модель — позже |
+| `get_efficiency_trend` | R | `sport`, `metric` (`pace_at_hr` \| `power_at_hr`), `hr?` (уд/мин или коридор), `from`, `to` | Тренд эффективности по ровным участкам (темп/мощность при заданном пульсе, GAP для бега) — **главный трекер базового периода**; с `basis` и числом участков |
 | `get_zone_distribution` | R | `from`, `to`, `sport?`, `metric?` | Распределение по зонам (поляризация), `basis` |
 
 ### 3.8 Старты
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
-| `list_events` | R | `status?` (по умолчанию все, кроме `cancelled`), `includePast?` | Старты и идеи стартов; неточные даты — окном `date_from`…`date_to` + `date_text` |
+| `list_events` | R | `status?` (по умолчанию все, кроме `cancelled`), `includePast?` | Старты и идеи стартов; неточные даты — окном `date_from`…`date_to` + `date_text`; пояс старта |
 | `upsert_event` | W | `id?` + поля события (см. [03-data-model §2.8](03-data-model.md#28-старты--events)) | Создать или изменить; идея → решение = смена `status`, уточнение даты = смена `date_precision` |
 | `delete_event` | W | `id`, `why` | Удалить (откатывается) |
+
+`notes` старта — markdown ≤20 000 (план, раскладка, питание); у старта — `notebookRefs`, `courseId`, `timezone`.
+
+### 3.8a Журнал атлета
+| Tool | Тип | Параметры | Назначение |
+|---|---|---|---|
+| `list_journal` | R | `from?`, `to?`, `tags?`, `open?` | Записи: симптомы, дни без активности, снаряжение, посадка, открытые вопросы |
+| `write_journal` | W | `id?`, `date`, `text`, `tags?`, `activityId?`, `eventId?`, `gearId?`, `due?`, `close?` | Создать / изменить / закрыть запись. Запись с `due` без закрытия остаётся открытой и всплывает в `get_context` |
+
+### 3.8b Снаряжение и трассы
+| Tool | Тип | Параметры | Назначение |
+|---|---|---|---|
+| `list_gear` | R | `includeRetired?` | Обувь с пробегом (начальный + активности) |
+| `upsert_gear` | W | `id?`, `name`, `kind?`, `initialDistanceM?`, `defaultForSport?`, `retired?` | Завести/изменить пару; пара по умолчанию привязывается к новым активностям |
+| `list_courses` | R | — | Трассы |
+| `upsert_course` | W | `id?`, `name`, `gpx` (`url`/`uploadId`), `segments?`, `notebookRefs?` | Трасса из GPX с кругами и участками |
+| `get_course_history` | R | `id`, `from?`, `to?` | Визиты трассы: время участков по визитам (год к году) |
 
 ### 3.9 Блокнот AI
 | Tool | Тип | Параметры | Назначение |
@@ -103,12 +125,14 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
 | `write_notebook` | W | `slug`, `title?`, `content`, `mode` (`replace` \| `append` \| `patch`), `pinned?`, `why?` | Создать или изменить. `patch` — замена фрагмента `find` → `replace` |
 | `delete_notebook` | W | `slug`, `why` | Удалить (откатывается) |
 
-Рекомендуемые страницы (описаны в description, AI создаёт сам): `athlete` (кто атлет, цели, ограничения — pinned), `health` (травмы, болезни — pinned), `season` (мысли о сезоне и стартах), `agreements` (о чём договорились с атлетом), `log` (короткие заметки с датами).
+Рекомендуемые страницы (описаны в description, AI создаёт сам): `athlete` (кто атлет, цели, ограничения — pinned), `principles` (принципы тренировки атлета — pinned), `health` (травмы, болезни — pinned), `fuel` (питание на тренировках и стартах), `season` (мысли о сезоне и стартах), `agreements` (о чём договорились с атлетом). Короткие датированные заметки — в журнале, не в блокноте.
+
+Закрепить можно любую страницу; при превышении общего лимита закреплённого `write_notebook` и `get_context` предупреждают. Блокнот синхронизируется в приложение и читается там офлайн.
 
 ### 3.10 Экспорт и интеграции
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
-| `export_workout` | R | `plannedWorkoutId`, `format` (`zwo`; позже `fit`) | Подписанная ссылка на файл + предупреждение, если `mywhooshFtp` ≠ `bike.ftp` |
+| `export_workout` | R | `plannedWorkoutId`, `format` (`zwo`; позже `fit`) | Подписанная ссылка на файл + предупреждение, если `mywhooshFtp` ≠ `bike.ftp`. `.zwo` — **только для тренировок с мощностными таргетами** |
 | `get_integrations` | R | — | Статус intervals.icu (последний импорт, ошибки); позже Strava |
 | `run_import` | W | `source` (`intervals_icu`), `since?` | Принудительный импорт сейчас |
 

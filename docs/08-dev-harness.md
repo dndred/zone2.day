@@ -8,7 +8,12 @@
 |---|---|
 | `just bootstrap` | Проверка и установка зависимостей (deno, supabase CLI, xcodegen, wrangler), `.env` из `.env.example` |
 | `just dev` | `supabase start` + локальный сервер API с hot reload на `:8787` |
-| `just db-reset` | Пересоздать локальную БД, применить миграции, засеять фикстуры |
+| `just test-db-up` | Поднять тестовый Postgres (Docker, `localhost:54329`); каждый прогон тестов создаёт и удаляет свою временную базу с настоящими миграциями |
+| `just db-push target=…` | Применить `supabase/migrations` к staging/prod |
+| `just db-ro "<sql>"` | Read-only SQL к staging (через Supabase CLI, без пароля) |
+| `just invite target=…` | Инвайт на регистрацию; код сохраняется в 1Password, не печатается |
+| `just cache-secrets` | Закэшировать секреты staging в `.env.staging.local` (prod не кэшируется) |
+| `just db-reset` | (позже) Пересоздать локальную БД, применить миграции, засеять фикстуры |
 | `just db-migrate name=…` | Сгенерировать SQL-миграцию из схемы Drizzle |
 | `just gen` | Zod → `schema/openapi.yaml` + `schema/mcp-tools.json`; генерация Swift-клиента |
 | `just test` | Все тесты, кроме тех, что требуют устройство |

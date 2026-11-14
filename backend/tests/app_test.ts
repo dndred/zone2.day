@@ -6,6 +6,8 @@ const testConfig: Config = {
   env: "test",
   version: "test-sha",
   publicBaseUrl: "http://localhost:8787",
+  rpId: "localhost",
+  secretKey: "x".repeat(40),
 };
 
 Deno.test("GET /health returns ok with env and version", async () => {
@@ -34,11 +36,27 @@ Deno.test("unknown route returns JSON 404", async () => {
 
 Deno.test("loadConfig applies defaults and strips trailing slash", () => {
   const cfg = loadConfig((name) =>
-    ({ ZONE2_ENV: "staging", ZONE2_PUBLIC_BASE_URL: "https://api-staging.zone2.day/" })[name]
+    ({
+      ZONE2_ENV: "staging",
+      ZONE2_PUBLIC_BASE_URL: "https://api-staging.zone2.day/",
+      ZONE2_RP_ID: "zone2.day",
+      ZONE2_SECRET_KEY: "k".repeat(40),
+    })[name]
   );
   assertEquals(cfg.env, "staging");
   assertEquals(cfg.version, "dev");
   assertEquals(cfg.publicBaseUrl, "https://api-staging.zone2.day");
+  assertEquals(cfg.rpId, "zone2.day");
+});
+
+Deno.test("loadConfig requires a real secret outside local/test", () => {
+  let threw = false;
+  try {
+    loadConfig((name) => (name === "ZONE2_ENV" ? "staging" : undefined));
+  } catch {
+    threw = true;
+  }
+  assert(threw);
 });
 
 Deno.test("loadConfig rejects unknown env", () => {

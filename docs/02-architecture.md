@@ -49,13 +49,13 @@
 | HTTP | **Hono** | Работает в Deno/Node/Workers/Bun без изменений (переносимость) |
 | MCP | **`@modelcontextprotocol/sdk`** (официальный), Streamable HTTP, stateless | Самая зрелая реализация удалённого MCP |
 | Валидация/схемы | **Zod** → JSON Schema (MCP tools) и OpenAPI (Sync API) | Один источник правды для MCP, API и Swift-моделей |
-| ORM/миграции | **Drizzle** + `postgres` (postgres-js) | Обычный Postgres, SQL-миграции в репозитории |
+| SQL/миграции | **`postgres` (postgres-js 3.4)** + SQL-миграции `supabase/migrations/*.sql` (`just db-push`) | Обычный Postgres; без ORM — SQL явный и переносимый; v4 драйвера пока несовместима с Deno |
 | БД | **Postgres** (Supabase) | Стандартный, переносимый |
 | Файлы | **Supabase Storage через S3 API** | Тот же код работает с R2/MinIO/S3 |
 | Auth | Свой OAuth 2.1 AS + WebAuthn (`@simplewebauthn/server`) | Не зависим от Supabase Auth; claude.ai требует OAuth + DCR |
 | FIT | `@garmin/fitsdk` (decode + encode) | Официальный SDK; проверяется спайком S3 |
 | Edge-прокси | **Cloudflare Worker** на `api.zone2.day` | Контроль корня домена (`/.well-known`), стабильные URL при переезде |
-| iOS | **Swift 6, SwiftUI, iOS 26** | Личное устройство, можно брать свежий SDK |
+| iOS | **Swift 6, SwiftUI; deployment target iOS 26, сборка Xcode 27 / SDK iOS 27, симулятор iOS 27** | Личное устройство, свежий SDK; target 26 — чтобы не зависеть от того, обновлён ли телефон |
 | Локальная БД iOS | **GRDB** | Предсказуемее SwiftData, отлично тестируется, наблюдаемые запросы |
 | API-клиент iOS | `swift-openapi-generator` из `schema/openapi.yaml` | Модели генерируются, а не пишутся руками |
 | Часы | WorkoutKit (ф.1); SwiftUI watchOS app + HealthKit `HKWorkoutSession` (ф.2) | См. [06-watch](06-watch.md) |
