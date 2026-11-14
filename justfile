@@ -99,8 +99,7 @@ fmt:
 # Full local gate: check + lint + tests
 ci: check lint test ios-build
 
-# Deploy the Supabase function (target=staging|prod; prod needs ZONE2_ALLOW_PROD=1).
-# Secrets come from 1Password item "zone2-<target> app secrets" (create with `just app-secrets`).
+# Deploy the Supabase function manually (CI does staging on push to main; prod needs ZONE2_ALLOW_PROD=1)
 deploy-api target="staging": (_guard target)
     #!/usr/bin/env zsh
     # Normally CI deploys staging on push to main (.github/workflows/ci.yml); this is the manual path.
