@@ -31,3 +31,4 @@ build/
 .build/
 .swiftpm/
 ios/App/Info.plist
+ios/App/Zone2.entitlements

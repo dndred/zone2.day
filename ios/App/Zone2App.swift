@@ -8,9 +8,20 @@ struct Zone2App: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(serverURL: client.baseURL) { [client] in
-                try await client.health()
+            #if DEBUG
+            TabView {
+                Tab("Status", systemImage: "antenna.radiowaves.left.and.right") { status }
+                Tab("S1", systemImage: "stethoscope") { S1SpikeView() }
             }
+            #else
+            status
+            #endif
+        }
+    }
+
+    private var status: some View {
+        RootView(serverURL: client.baseURL) { [client] in
+            try await client.health()
         }
     }
 }
