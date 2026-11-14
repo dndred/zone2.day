@@ -17,7 +17,7 @@
 - [x] Supabase: проекты `zone2-staging` и `zone2-prod`, `supabase/config.toml`, функция `api` (`verify_jwt=false`) задеплоена в staging.
 - [x] Cloudflare: Worker `edge-proxy` на `api-staging.zone2.day` (staging). Prod (`api.zone2.day`) — по явной команде.
 - [x] iOS-скелет: `project.yml`, пакет `Zone2Core` (`Zone2Kit`, `Zone2UI`, en/ru), приложение показывает статус сервера; `swift test` и сборка под симулятор работают. `HealthBridge`/`WorkoutBridge` — в S1.
-- [ ] `tools/mcp-cli` — вызов MCP-инструментов из терминала (вместе с S2).
+- [x] `just mcp <tool> '<json>'` — вызов MCP-инструментов на staging от служебного пользователя `smoke` (`just smoke-token`).
 - [ ] Среда симулятора iOS 27 (для запуска приложения и UI-тестов в симуляторе; target приложения — iOS 26).
 
 ### 0.2 Спайки
@@ -40,15 +40,17 @@ S6 можно провести в начале фазы 2, остальные �
 ## Фаза 1 — MVP: «план в часах, факт в базе»
 
 ### 1.1 Бэкенд: основа 🛠
-- [ ] Схема БД и миграции: devices, profiles (+ поездки), metrics_history, weeks, planned_workouts, activities, activity_files, strength_*, exercises, daily_metrics, events, journal, gear, notebook_pages, change_log, sync_feed, deliveries, integrations, client_logs, request_log. (Auth-таблицы — готовы в S2.)
+- [x] Документы (D35): profile (+ поездки), week, planned_workout, event, journal, notebook_page + change_log + sync_feed.
+- [ ] Схема БД и миграции: devices, metrics_history, activities, activity_files, strength_*, exercises, daily_metrics, events, journal, gear, notebook_pages, change_log, sync_feed, deliveries, integrations, client_logs, request_log. (Auth-таблицы — готовы в S2.)
 - [x] Auth: OAuth 2.1 AS (DCR, PKCE, refresh rotation, revoke), passkey-регистрация по инвайту, страница входа (en/ru). Осталось: first-party client для iOS.
-- [ ] Часовые пояса: эффективный пояс даты (дом + поездки) во всех расчётах дат.
+- [x] Часовые пояса: эффективный пояс даты (дом + поездки) — `domain/time.ts`, используется в MCP.
 - [ ] Репозитории с изоляцией по `user_id` + change_log + sync_feed в одной транзакции.
-- [ ] Domain: структура тренировки (Zod), валидация, резолв таргетов, оценки длительности и нагрузки (без порогов — по истории атлета), зоны (в т.ч. custom), пороги-диапазоны.
+- [x] Domain: структура тренировки (Zod), валидация, резолв %-таргетов (пороги-диапазоны → середина + basis), частичные оценки. Осталось: оценки по истории атлета (с активностями), нагрузка.
 
 ### 1.2 MCP 🛠
-- [ ] Сервер, регистрация инструментов, общие хелперы (`now`, ошибки, `howToRead`), снапшот-тест.
-- [ ] `get_context`; профиль; недели (`upsert_week`); план (`plan_workouts`, `update_*` с `skipped`, `delete`, `copy`, `get_changes`, `revert_change`, `get_delivery_status`); старты; блокнот (лимит закреплённого); журнал; снаряжение.
+- [x] Сервер, регистрация инструментов, общие хелперы (`now`, ошибки, `howToRead`), снапшот-тест (`schema/mcp-tools.json`).
+- [x] `get_context`; профиль; недели (`upsert_week`); план (`plan_workouts`, `update_planned_workout` с `skipped`, `delete`, `copy`, `get_changes`, `revert_change`); старты; блокнот (лимит закреплённого); журнал — **22 инструмента на staging**.
+- [ ] `get_delivery_status`, `update_planned_workouts` (массовая правка), снаряжение.
 - [ ] Активности: `list`, `get` (summary + laps + intervals + GAP + погода), `streams`, `file`, `fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), `create_activity`, `import_activity_file` (FIT/GPX).
 - [ ] Силовые: `get_strength_log`, `get_exercise_history`, `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion).
 - [ ] Здоровье и аналитика: `get_daily_metrics`, `get_load` (объём + sRPE×мин), `get_zone_distribution`, `get_efficiency_trend`, Pw:HR / декаплинг по ровным участкам.

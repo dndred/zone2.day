@@ -102,13 +102,15 @@ ci: check lint test ios-build
 # Deploy the Supabase function (target=staging|prod; prod needs ZONE2_ALLOW_PROD=1).
 # Secrets come from 1Password item "zone2-<target> app secrets" (create with `just app-secrets`).
 deploy-api target="staging": (_guard target)
+    # Bundle locally (Docker): server-side bundling (--use-api) times out on our bundle size.
+    supabase functions deploy api --yes --remote={{ if target == "prod" { prod_ref } else { staging_ref } }}
+    # Secrets last: ZONE2_VERSION must only change when the new code is really live.
     supabase secrets set --yes --remote={{ if target == "prod" { prod_ref } else { staging_ref } }} \
       ZONE2_ENV={{target}} \
       ZONE2_VERSION=$(git rev-parse --short HEAD)$([[ -z "$(git status --porcelain -- backend supabase)" ]] || echo -dirty) \
       ZONE2_PUBLIC_BASE_URL={{ if target == "prod" { "https://api.zone2.day" } else { "https://api-staging.zone2.day" } }} \
       ZONE2_RP_ID=zone2.day \
       ZONE2_SECRET_KEY="$(tools/secret.sh {{target}} secret_key)"
-    supabase functions deploy api --yes --remote={{ if target == "prod" { prod_ref } else { staging_ref } }} --use-api
 
 # Create the 1Password item with app secrets for a target (once)
 app-secrets target="staging": (_guard target)
@@ -136,6 +138,27 @@ cache-secrets:
 db-push target="staging": (_guard target)
     supabase db push --yes --remote={{ if target == "prod" { prod_ref } else { staging_ref } }} \
       -p "$(tools/secret.sh {{target}} db_password)"
+
+# Create the staging "smoke" user + long-lived MCP token (cached in .env.staging.local). Not your data.
+smoke-token:
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    if grep -q '^ZONE2_STAGING_SMOKE_TOKEN=' .env.staging.local 2>/dev/null; then echo "exists"; exit 0; fi
+    token="z2a_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
+    hash=$(printf %s "$token" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+    uid=00000000-0000-4000-8000-00000000500e
+    supabase db query --yes --remote={{staging_ref}} "insert into zone2.users (id, display_name) values ('$uid', 'smoke') on conflict do nothing; insert into zone2.oauth_clients (client_id, client_name, redirect_uris) values ('smoke-cli', 'smoke-cli', '{}') on conflict do nothing; insert into zone2.oauth_tokens (token_hash, kind, client_id, user_id, scopes, resource, family_id, expires_at) values ('$hash', 'access', 'smoke-cli', '$uid', '{mcp}', null, gen_random_uuid(), now() + interval '365 days')" >/dev/null
+    umask 077; echo "ZONE2_STAGING_SMOKE_TOKEN=$token" >> .env.staging.local
+    echo "smoke token created"
+
+# Call an MCP tool on staging as the smoke user, e.g. just mcp get_context
+mcp tool args="{}":
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    token=$(grep '^ZONE2_STAGING_SMOKE_TOKEN=' .env.staging.local | cut -d= -f2-)
+    body=$(python3 -c "import json,sys; print(json.dumps({'jsonrpc':'2.0','id':1,'method':'tools/call','params':{'name':sys.argv[1],'arguments':json.loads(sys.argv[2])}}))" "{{tool}}" '{{args}}')
+    curl -sS --max-time 60 https://api-staging.zone2.day/mcp -H "authorization: Bearer $token" -H 'content-type: application/json' -H 'accept: application/json, text/event-stream' -H 'mcp-protocol-version: 2025-06-18' -d "$body" \
+      | python3 -c "import json,sys; r=json.load(sys.stdin); res=r.get('result') or {}; t=(res.get('content') or [{}])[0].get('text'); print(json.dumps(json.loads(t), ensure_ascii=False, indent=2) if t else json.dumps(r, ensure_ascii=False, indent=2)); sys.exit(1 if res.get('isError') or r.get('error') else 0)"
 
 # Read-only SQL against a remote database, e.g. just db-ro "select count(*) from zone2.users"
 db-ro sql target="staging":

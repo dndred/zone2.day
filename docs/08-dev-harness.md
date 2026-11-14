@@ -22,7 +22,10 @@
 | `just test-kit` | `swift test` для SPM-пакетов на macOS (быстро, без симулятора) |
 | `just test-ios` | `xcodebuild test` в симуляторе (UI-тесты, снапшоты) |
 | `just snapshots-update` | Перезаписать эталонные снапшоты UI (осознанно) |
-| `just mcp tool=… args='{…}' env=local\|staging\|prod` | Вызвать MCP-инструмент с персональным токеном (`tools/mcp-cli`) |
+| `just mcp <tool> '<json>'` | Вызвать MCP-инструмент на staging от служебного пользователя `smoke` (его данные изолированы от реальных) |
+| `just smoke-token` | Один раз: создать пользователя `smoke` и долгоживущий токен (кэш в `.env.staging.local`) |
+| `just mcp-snapshot-update` | Принять изменение контракта MCP в `schema/mcp-tools.json` (смотреть diff!) |
+| `just ios-device` / `just ios-pull <path>` | Собрать/подписать/поставить/запустить на подключённом iPhone; забрать файл из контейнера приложения |
 | `just mcp-inspect` | MCP Inspector против локального сервера |
 | `just api method=… path=… env=…` | Вызов Sync API от имени тестового устройства |
 | `just logs env=… since=…` | Логи Edge Function (Supabase) |
