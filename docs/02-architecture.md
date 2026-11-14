@@ -67,8 +67,11 @@
 | Окружение | API | Supabase | Назначение |
 |---|---|---|---|
 | local | `http://localhost:8787` (+ `supabase start`) | локальный Docker | разработка, тесты |
-| staging | `https://api-staging.zone2.day` | проект `zone2-staging` (free, 2-й проект) | проверка перед продом, эксперименты агента |
-| prod | `https://api.zone2.day` | проект `zone2-prod` | реальные данные |
+| staging | `https://api-staging.zone2.day` | `zone2-staging`, ref `udlqrxzuzoygmulwptee`, eu-central-1 | проверка перед продом, эксперименты агента |
+| prod | `https://api.zone2.day` | `zone2-prod`, ref `tyeizwhaiigkkvipdvlz`, eu-central-1 | реальные данные |
+
+- Пароли БД — в 1Password, хранилище `dev tools`, записи `zone2-staging Supabase DB` / `zone2-prod Supabase DB` (тег `zone2.day`). Чтение: `op read "op://dev tools/zone2-prod Supabase DB/password"`.
+- Cloudflare: зона `zone2.day` (NS `elijah`/`robin.ns.cloudflare.com`), Worker деплоится через `wrangler` (OAuth-вход).
 
 - `zone2.day` (корень) — позже статическая страница / privacy policy.
 - **WebAuthn rpID = `zone2.day`** — passkey работает на всех поддоменах и переживает смену хостинга.
@@ -109,6 +112,7 @@ backend/src/
 3. Файлы — только через порт `BlobStore` (S3 API).
 4. Задачи по расписанию — HTTP-эндпоинты `jobs/*`; кто их дёргает (pg_cron, cron на VPS, Cloud Scheduler) — конфигурация.
 5. Никаких Supabase Realtime/RLS/Auth в логике: изоляция пользователей — в репозиториях по `user_id` (+ тесты).
+6. **Data API Supabase (PostgREST) не используется.** Все таблицы — в схеме Postgres `zone2`, которая не входит в exposed-схемы; `auto_expose_new_tables = false`. Иначе таблицы в `public` были бы доступны по публичному anon-ключу.
 
 ## 6. Аутентификация
 
@@ -149,12 +153,14 @@ backend/src/
     project.yml               # XcodeGen
     App/                      # iOS-таргет (тонкий)
     Watch/                    # watchOS-таргет (фаза 2)
-    Packages/
-      Zone2Kit/               # модели, API-клиент, GRDB store, SyncEngine, форматирование
-      Zone2UI/                # дизайн-система, компоненты, экраны; snapshot-тесты
-      HealthBridge/           # HealthKit: чтение/запись, формат дампа
-      WorkoutBridge/          # маппинг структуры → WorkoutKit
-      HRGuard/                # (ф.2) машина состояний сторожа пульса
+    Packages/                 # один SPM-пакет Zone2Core, модули — его targets
+      Package.swift
+      Sources/Zone2Kit/       # модели, API-клиент, GRDB store, SyncEngine, форматирование
+      Sources/Zone2UI/        # дизайн-система, компоненты, экраны (+ Localizable.xcstrings); snapshot-тесты
+      Sources/HealthBridge/   # (S1) HealthKit: чтение/запись, формат дампа
+      Sources/WorkoutBridge/  # (S1) маппинг структуры → WorkoutKit
+      Sources/HRGuard/        # (ф.2) машина состояний сторожа пульса
+      Tests/…                 # `swift test` на macOS
   fixtures/                   # дампы HealthKit, FIT, ожидаемые результаты
   tools/                      # скрипты: mcp-cli, resign, seed, генераторы
 ```

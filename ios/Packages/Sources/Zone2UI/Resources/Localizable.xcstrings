@@ -1,0 +1,26 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Checking…" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Проверяю…" } }
+      }
+    },
+    "Connected" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Подключено" } }
+      }
+    },
+    "Server" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Сервер" } }
+      }
+    },
+    "Unavailable" : {
+      "localizations" : {
+        "ru" : { "stringUnit" : { "state" : "translated", "value" : "Недоступен" } }
+      }
+    }
+  },
+  "version" : "1.0"
+}

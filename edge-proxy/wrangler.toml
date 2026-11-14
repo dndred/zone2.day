@@ -1,0 +1,19 @@
+# Cloudflare Worker: thin proxy api(.-staging).zone2.day → Supabase Edge Function "api".
+# Deploy: `just deploy-proxy env=staging` (prod only on explicit request).
+name = "zone2-edge-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = false
+
+[observability]
+enabled = true
+
+[env.staging]
+name = "zone2-edge-proxy-staging"
+routes = [{ pattern = "api-staging.zone2.day", custom_domain = true }]
+vars = { ORIGIN = "https://udlqrxzuzoygmulwptee.supabase.co/functions/v1/api" }
+
+[env.prod]
+name = "zone2-edge-proxy-prod"
+routes = [{ pattern = "api.zone2.day", custom_domain = true }]
+vars = { ORIGIN = "https://tyeizwhaiigkkvipdvlz.supabase.co/functions/v1/api" }

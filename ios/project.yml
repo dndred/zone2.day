@@ -1,0 +1,46 @@
+# XcodeGen spec — the .xcodeproj is generated (`just ios-gen`) and not committed.
+name: Zone2
+options:
+  bundleIdPrefix: day.zone2
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    # Personal Team id is set in spike S1 (docs/09-roadmap.md); simulator builds need no signing.
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+    LOCALIZATION_PREFERS_STRING_CATALOGS: YES
+packages:
+  Zone2Core:
+    path: Packages
+targets:
+  Zone2:
+    type: application
+    platform: iOS
+    sources:
+      - path: App
+    dependencies:
+      - package: Zone2Core
+        product: Zone2Kit
+      - package: Zone2Core
+        product: Zone2UI
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: zone2.day
+        CFBundleLocalizations: [en, ru]
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: day.zone2.app
+        TARGETED_DEVICE_FAMILY: "1"

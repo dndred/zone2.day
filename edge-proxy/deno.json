@@ -1,0 +1,8 @@
+{
+  "name": "@zone2/edge-proxy",
+  "version": "0.0.0",
+  "exports": "./src/index.ts",
+  "imports": {
+    "@std/assert": "jsr:@std/assert@^1"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "version": "5",
+  "specifiers": {
+    "jsr:@hono/hono@^4.13.18": "4.13.18",
+    "jsr:@std/assert@1": "1.0.19",
+    "jsr:@std/internal@^1.0.12": "1.0.14",
+    "npm:zod@^4.6.7": "4.6.7"
+  },
+  "jsr": {
+    "@hono/hono@4.13.18": {
+      "integrity": "2e9a294f8ed5ca8f0dddf08927ad46111e756f3329f1483db550cd60757f7e21"
+    },
+    "@std/assert@1.0.19": {
+      "integrity": "eaada96ee120cb980bc47e040f82814d786fe8162ecc53c91d8df60b8755991e",
+      "dependencies": [
+        "jsr:@std/internal"
+      ]
+    },
+    "@std/internal@1.0.14": {
+      "integrity": "291516b3d4c35024d6ffbc0a9df5bf4c64116e05b50012cf846710152d2ffdf7"
+    }
+  },
+  "npm": {
+    "zod@4.6.7": {
+      "integrity": "sha512-g8W2D2kU6a8untc053fX1uVBKzM7yqAxW/3zwk83+6RyF2+SKOuV+c0wBDhUwzV1PaGapmZH+rmcUzPf+3CGwg=="
+    }
+  },
+  "workspace": {
+    "members": {
+      "backend": {
+        "dependencies": [
+          "jsr:@hono/hono@^4.13.18",
+          "jsr:@std/assert@1",
+          "npm:zod@^4.6.7"
+        ]
+      },
+      "edge-proxy": {
+        "dependencies": [
+          "jsr:@std/assert@1"
+        ]
+      }
+    }
+  }
+}

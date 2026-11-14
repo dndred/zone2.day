@@ -1,0 +1,32 @@
+{
+  "workspace": [
+    "./backend",
+    "./edge-proxy"
+  ],
+  "fmt": {
+    "lineWidth": 100,
+    "exclude": [
+      "supabase/.temp/",
+      "ios/",
+      "docs/",
+      "*.md"
+    ]
+  },
+  "lint": {
+    "exclude": [
+      "supabase/.temp/",
+      "ios/"
+    ],
+    "rules": {
+      "exclude": [
+        "no-slow-types"
+      ]
+    }
+  },
+  "test": {
+    "include": [
+      "backend/",
+      "edge-proxy/"
+    ]
+  }
+}

@@ -11,13 +11,14 @@
 Цель: снять главные технические риски до того, как строить на них, и получить рабочий каркас для агента.
 
 ### 0.1 Каркас 🛠
-- [ ] Монорепо по структуре из [02-architecture §8](02-architecture.md#8-структура-репозитория), `git init`, `.gitignore`, `.env.example`.
-- [ ] `justfile` с базовыми командами (`bootstrap`, `dev`, `test`, `gen`).
-- [ ] Backend-скелет: Hono `app.ts`, `entry/local.ts`, `entry/supabase.ts`, конфиг, логирование, `/health`.
-- [ ] Supabase: проекты `zone2-staging` и `zone2-prod`, `supabase/config.toml`, функция `api` (`verify_jwt=false`).
-- [ ] Cloudflare: Worker `edge-proxy` на `api.zone2.day` и `api-staging.zone2.day`.
-- [ ] iOS-скелет: `project.yml` (iOS-приложение; часы позже), пакеты `Zone2Kit`, `Zone2UI`, `HealthBridge`, `WorkoutBridge`; `swift test` работает.
-- [ ] `tools/mcp-cli` — вызов MCP-инструментов из терминала.
+- [x] Монорепо по структуре из [02-architecture §8](02-architecture.md#8-структура-репозитория), `git init`, `.gitignore`, `.env.example`. Репозиторий: github.com/dndred/zone2.day (публичный).
+- [x] `justfile`: `bootstrap`, `dev`, `test`, `ci`, `deploy*`, `smoke`, `ios-*`, `secret` (`gen` — с появлением схем).
+- [x] Backend-скелет: Hono `app.ts`, `entry/local.ts`, `entry/supabase.ts`, конфиг (Zod), JSON-логи, request id, `/health`, JSON 404/500.
+- [x] Supabase: проекты `zone2-staging` и `zone2-prod`, `supabase/config.toml`, функция `api` (`verify_jwt=false`) задеплоена в staging.
+- [x] Cloudflare: Worker `edge-proxy` на `api-staging.zone2.day` (staging). Prod (`api.zone2.day`) — по явной команде.
+- [x] iOS-скелет: `project.yml`, пакет `Zone2Core` (`Zone2Kit`, `Zone2UI`, en/ru), приложение показывает статус сервера; `swift test` и сборка под симулятор работают. `HealthBridge`/`WorkoutBridge` — в S1.
+- [ ] `tools/mcp-cli` — вызов MCP-инструментов из терминала (вместе с S2).
+- [ ] Среда симулятора iOS 27 (для запуска приложения и UI-тестов в симуляторе).
 
 ### 0.2 Спайки
 | # | Риск | Как проверяем | Критерий успеха | План Б |
