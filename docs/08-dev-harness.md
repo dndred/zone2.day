@@ -92,4 +92,4 @@
 - **Секреты репозитория:** `SUPABASE_ACCESS_TOKEN` (персональный токен Supabase для CI), `STAGING_DB_PASSWORD`. Ставятся `just gh-secrets`.
 - Рантайм-секреты функции (ключ подписи и т.п.) CI не трогает — `just deploy-secrets` при изменении.
 - Prod — позже, ручным запуском (`workflow_dispatch`) с GitHub Environment `production`.
-- iOS в CI пока нет: на раннерах GitHub ещё нет Xcode 27. Локально — `just test-kit`, `just ios-build`.
+- **iOS в CI не собирается — по решению**: установка на телефон всё равно только локальная (`just ios-device`, Personal Team). Проверки — локально: `just test-kit`, `just ios-build`.
