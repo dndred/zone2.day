@@ -4,6 +4,8 @@ import { randomToken, sha256 } from "../../src/auth/crypto.ts";
 import { AuthStore } from "../../src/auth/store.ts";
 import type { Config } from "../../src/config.ts";
 import { DocumentStore } from "../../src/db/documents.ts";
+import { ActivityStore } from "../../src/db/activities.ts";
+import { MemoryBlobStore } from "../../src/ports/blob.ts";
 import type { AppDeps } from "../../src/deps.ts";
 import { createTestDb, type TestDb } from "./db.ts";
 import { fakePasskeys } from "./fake_passkeys.ts";
@@ -22,6 +24,9 @@ export interface McpHarness {
   app: ReturnType<typeof createApp>;
   userId: string;
   token: string;
+  appToken: string;
+  /** POST to the Sync API with the app-scope token. */
+  api: (path: string, body: BodyInit, type?: string) => Response | Promise<Response>;
   clock: { now: Date };
   // deno-lint-ignore no-explicit-any
   call: (tool: string, args?: Record<string, unknown>) => Promise<{ isError: boolean; data: any }>;
@@ -39,6 +44,8 @@ export async function mcpHarness(
     sql: db.sql,
     store: new AuthStore(db.sql),
     docs: new DocumentStore(db.sql),
+    activities: new ActivityStore(db.sql),
+    blobs: new MemoryBlobStore(),
     passkeys: fakePasskeys(),
     now: () => clock.now,
   };
@@ -55,7 +62,19 @@ export async function mcpHarness(
     values (${await sha256(token)}, 'access', 'test-client', ${userId}, ${[
     "mcp",
   ]}, ${`${BASE}/mcp`},
-            ${crypto.randomUUID()}, now() + interval '1 day')`;
+            ${crypto.randomUUID()}, now() + interval '3650 days')`;
+
+  const appToken = randomToken("z2a");
+  await db
+    .sql`insert into zone2.oauth_tokens (token_hash, kind, client_id, user_id, scopes, resource, family_id, expires_at)
+    values (${await sha256(appToken)}, 'access', 'zone2-ios', ${userId}, ${["app"]}, null,
+            ${crypto.randomUUID()}, now() + interval '3650 days')`;
+  const api = (path: string, body: BodyInit, type = "application/json") =>
+    app.request(path, {
+      method: "POST",
+      headers: { "content-type": type, authorization: `Bearer ${appToken}` },
+      body,
+    });
 
   let id = 0;
   const rpc = async (method: string, params: unknown = {}) => {
@@ -83,5 +102,5 @@ export async function mcpHarness(
     }
     return { isError: Boolean(r.result.isError), data };
   };
-  return { db, app, userId, token, clock, call, rpc, drop: () => db.drop() };
+  return { db, app, userId, token, appToken, api, clock, call, rpc, drop: () => db.drop() };
 }

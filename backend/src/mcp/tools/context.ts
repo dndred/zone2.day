@@ -8,7 +8,7 @@ import type {
   Week,
 } from "../../domain/entities.ts";
 import { PINNED_NOTEBOOK_LIMIT } from "../../domain/entities.ts";
-import { estimate } from "../../domain/plan.ts";
+import { estimate, workoutStatus } from "../../domain/plan.ts";
 import { addDays, mondayOf } from "../../domain/time.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool } from "../util.ts";
@@ -42,6 +42,11 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
       ctx.docs.changes(userId, { limit: 10 }),
     ]);
     const last = await ctx.docs.lastChanges(userId, "planned_workout", plan.map((d) => d.id));
+    const done = await ctx.activities.byPlanned(userId, plan.map((d) => d.id));
+    const recentActivities = await ctx.activities.list(userId, {
+      from: addDays(today, -14),
+      limit: 20,
+    });
 
     const weekBy = new Map(weeks.map((w) => [w.data.weekStart, w.data]));
     const recentReviews = weeks.map((w) => w.data)
@@ -65,7 +70,8 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
         goal: w.goal,
         key: w.key,
         execution: w.execution,
-        status: w.skipped ? "skipped" : "planned",
+        status: workoutStatus(w, done.has(w.id), today),
+        activityId: done.get(w.id)?.id,
         skipReason: w.skipped?.reason,
         estimate: est ? { durationSec: est.durationSec, distanceM: est.distanceM } : undefined,
         lastChange: lc ? { at: lc.at, why: lc.why } : undefined,
@@ -140,6 +146,21 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
           }
           : {}),
       },
+      recentActivities: recentActivities.map((a) => {
+        const s = a.summary as Record<string, unknown>;
+        return {
+          id: a.id,
+          date: a.localDate,
+          sport: a.sport,
+          subSport: a.subSport ?? undefined,
+          durationSec: a.durationSec,
+          distanceM: a.distanceM ?? undefined,
+          paceSecPerKm: s.paceSecPerKm ?? undefined,
+          hrAvg: (s.hr as { avg?: number } | null)?.avg,
+          plannedWorkoutId: a.plannedWorkoutId ?? undefined,
+          athleteNotes: a.athleteNotes ?? undefined,
+        };
+      }),
       recentChanges: changes.map((c) => ({
         at: c.at,
         actor: c.actor,
@@ -152,8 +173,8 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
       howToRead: [
         "Dates are the athlete's local calendar dates in the effective time zone (home or travel).",
         timezoneUnset_hint(profile.timezone),
-        "Workout status is 'planned' or 'skipped' until activities are imported.",
-        "Activities, health metrics and analytics are not connected yet.",
+        "Workout status: done (activity matched) / skipped / missed (date passed) / planned. recentActivities = last 14 days from Apple Health.",
+        "Health metrics (HRV, sleep) and interval-level analysis are not connected yet.",
       ].filter(Boolean),
     };
   });

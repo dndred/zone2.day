@@ -4,6 +4,8 @@ import { createApp } from "../src/app.ts";
 import { base64url, normalizeInviteCode, sha256 } from "../src/auth/crypto.ts";
 import { AuthStore } from "../src/auth/store.ts";
 import { DocumentStore } from "../src/db/documents.ts";
+import { ActivityStore } from "../src/db/activities.ts";
+import { MemoryBlobStore } from "../src/ports/blob.ts";
 import type { Config } from "../src/config.ts";
 import type { AppDeps } from "../src/deps.ts";
 import { createTestDb } from "./helpers/db.ts";
@@ -27,6 +29,8 @@ async function setup() {
     sql: db.sql,
     store: new AuthStore(db.sql),
     docs: new DocumentStore(db.sql),
+    activities: new ActivityStore(db.sql),
+    blobs: new MemoryBlobStore(),
     passkeys: fakePasskeys(),
     now: () => new Date(),
   };

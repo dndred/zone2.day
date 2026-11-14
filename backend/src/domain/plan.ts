@@ -167,6 +167,17 @@ export function unresolvedTargets(
   return out;
 }
 
+/** done = an activity is matched; missed = date passed without one; skipped = AI said so. */
+export function workoutStatus(
+  w: { date: string; skipped?: unknown },
+  matched: boolean,
+  today: string,
+): "done" | "skipped" | "missed" | "planned" {
+  if (matched) return "done";
+  if (w.skipped) return "skipped";
+  return w.date < today ? "missed" : "planned";
+}
+
 /** True when a bike workout has power targets (only then .zwo makes sense). */
 export function hasPowerTargets(structure: unknown): boolean {
   const parsed = EnduranceStructure.safeParse(structure);

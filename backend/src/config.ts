@@ -13,6 +13,9 @@ const ConfigSchema = z.object({
   secretKey: z.string().min(32),
   /** Postgres connection string. Supabase injects SUPABASE_DB_URL into Edge Functions. */
   databaseUrl: z.string().min(1).optional(),
+  /** Supabase Storage for raw files; without it an in-memory store is used (local/dev). */
+  supabaseUrl: z.string().min(1).optional(),
+  supabaseServiceKey: z.string().min(1).optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -32,6 +35,8 @@ export function loadConfig(read: EnvReader = (n) => Deno.env.get(n)): Config {
     rpId: read("ZONE2_RP_ID") ?? safeHostname(publicBaseUrl),
     secretKey: read("ZONE2_SECRET_KEY") ?? (devLike ? INSECURE_DEV_SECRET : undefined),
     databaseUrl: read("ZONE2_DATABASE_URL") ?? read("SUPABASE_DB_URL"),
+    supabaseUrl: read("SUPABASE_URL"),
+    supabaseServiceKey: read("SUPABASE_SERVICE_ROLE_KEY"),
   });
 }
 

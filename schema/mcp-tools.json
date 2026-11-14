@@ -143,6 +143,79 @@
       }
     },
     {
+      "name": "get_activity",
+      "title": "Get activity",
+      "description": "Full summary of one activity: moving/elapsed time, distance, pace, HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments with distance and HR, the matched planned workout, files. For curves use get_activity_streams.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "get_activity_streams",
+      "title": "Get activity streams",
+      "description": "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "channels": {
+            "default": [
+              "heartRate",
+              "distance"
+            ],
+            "minItems": 1,
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "fromSec": {
+            "type": "number",
+            "minimum": 0
+          },
+          "toSec": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "maxPoints": {
+            "type": "integer",
+            "minimum": 10,
+            "maximum": 600
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
       "name": "get_changes",
       "title": "Get change log",
       "description": "Who changed what and why (all AI clients and the app). Use to see what another chat did, or to find a changeId for revert_change.",
@@ -270,6 +343,46 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {}
+      }
+    },
+    {
+      "name": "list_activities",
+      "title": "List activities",
+      "description": "Completed workouts imported from Apple Health (and later intervals.icu): date, sport, duration, distance, pace/speed, HR, elevation, link to the planned workout. Newest first; `limit` counts rows (default 30), it is not a date window. Copies of the same session from a worse source (e.g. Strava's copy) are hidden unless includeDuplicates.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "bike",
+              "swim",
+              "strength",
+              "other"
+            ]
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "includeDuplicates": {
+            "type": "boolean"
+          }
+        }
       }
     },
     {

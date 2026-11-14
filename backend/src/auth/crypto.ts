@@ -25,6 +25,12 @@ export async function sha256(input: string): Promise<string> {
   return base64url(new Uint8Array(digest));
 }
 
+/** SHA-256 of bytes → hex (file checksums). */
+export async function sha256Bytes(bytes: Uint8Array): Promise<string> {
+  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", bytes as BufferSource));
+  return [...digest].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /** RFC 7636 S256 check. */
 export async function verifyPkceS256(verifier: string, challenge: string): Promise<boolean> {
   if (!/^[A-Za-z0-9\-._~]{43,128}$/.test(verifier)) return false;

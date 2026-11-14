@@ -4,7 +4,10 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import type { AuthContext } from "../auth/bearer.ts";
 import type { AuthStore } from "../auth/store.ts";
 import type { Config } from "../config.ts";
+import type { ActivityStore } from "../db/activities.ts";
 import type { DocumentStore } from "../db/documents.ts";
+import type { BlobStore } from "../ports/blob.ts";
+import { registerActivityTools } from "./tools/activities.ts";
 import { registerContextTool } from "./tools/context.ts";
 import { registerPing } from "./tools/ping.ts";
 import { registerPlanTools } from "./tools/plan.ts";
@@ -15,6 +18,8 @@ export interface McpContext {
   auth: AuthContext;
   store: AuthStore;
   docs: DocumentStore;
+  activities: ActivityStore;
+  blobs: BlobStore;
   now: () => Date;
 }
 
@@ -22,7 +27,7 @@ const INSTRUCTIONS = `zone2.day is the athlete's personal training system (run â
 You act as their coach: plans you write here reach their phone and Apple Watch automatically.
 Human-readable fields you write (titles, goals, notes) must be in the athlete's language.
 Start every conversation with get_context. Every write is logged with your \`why\` and can be undone with revert_change.
-Activities, health metrics and analytics are not connected yet.`;
+Completed workouts from Apple Health: list_activities / get_activity / get_activity_streams. Health metrics are not connected yet.`;
 
 export function buildMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
@@ -32,6 +37,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
   registerContextTool(server, ctx);
   registerPlanTools(server, ctx);
   registerRecordTools(server, ctx);
+  registerActivityTools(server, ctx);
   registerPing(server, ctx);
   return server;
 }

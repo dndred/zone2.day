@@ -10,7 +10,8 @@ import {
   Sport,
   Week,
 } from "../../domain/entities.ts";
-import { estimate, resolveStructure, unresolvedTargets } from "../../domain/plan.ts";
+import { estimate, resolveStructure, unresolvedTargets, workoutStatus } from "../../domain/plan.ts";
+import type { ActivityRow } from "../../db/activities.ts";
 import { addDays, daysBetween, mondayOf } from "../../domain/time.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, parseItem, ToolError, Why } from "../util.ts";
@@ -49,6 +50,8 @@ const PlanItem = z.object({
 function summary(
   doc: Doc<PlannedWorkout>,
   profile: Profile,
+  today: string,
+  activity: ActivityRow | undefined,
   lastChange?: { at: Date; why: string | null },
 ) {
   const w = doc.data;
@@ -66,8 +69,15 @@ function summary(
     key: w.key,
     tags: w.tags,
     execution: w.execution,
-    status: w.skipped ? "skipped" : "planned",
+    status: workoutStatus(w, Boolean(activity), today),
     skipped: w.skipped ?? undefined,
+    activity: activity
+      ? {
+        id: activity.id,
+        durationSec: activity.durationSec,
+        distanceM: activity.distanceM ?? undefined,
+      }
+      : undefined,
     estimate: est ? { durationSec: est.durationSec, distanceM: est.distanceM } : undefined,
     version: doc.version,
     lastChange: lastChange ? { at: lastChange.at.toISOString(), why: lastChange.why } : undefined,
@@ -96,12 +106,14 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     const profile = await env.profile();
     const docs = await ctx.docs.listByDate<PlannedWorkout>(env.userId, "planned_workout", from, to);
     const last = await ctx.docs.lastChanges(env.userId, "planned_workout", docs.map((d) => d.id));
+    const done = await ctx.activities.byPlanned(env.userId, docs.map((d) => d.id));
+    const today = (await env.now()).date;
     const weekIds: string[] = [];
     for (let m = mondayOf(from); m <= to; m = addDays(m, 7)) weekIds.push(m);
     const weeks = await ctx.docs.getMany<Week>(env.userId, "week", weekIds);
     const days = new Map<string, unknown[]>();
     for (const d of docs) {
-      const s = summary(d, profile, last.get(d.id));
+      const s = summary(d, profile, today, done.get(d.id), last.get(d.id));
       const item = include_structure
         ? { ...s, structure: d.data.structure, notes: d.data.notes }
         : s;
@@ -111,7 +123,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
       weeks: weeks.map((w) => w.data).sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
       days: [...days.entries()].map(([date, workouts]) => ({ date, workouts })),
       howToRead:
-        "status 'planned' until activities are imported; done/partial/missed will appear then. estimate is partial when steps are open or lack pace targets.",
+        "status: done (an imported activity is matched), skipped (with reason), missed (date passed, nothing matched), planned. estimate is partial when steps are open or lack pace targets.",
     };
   });
 
@@ -130,7 +142,10 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     if (!doc) throw new ToolError("not_found", `planned workout ${id} not found`);
     const profile = await env.profile();
     const w = doc.data;
-    const status = doc.deletedAt ? "deleted" : w.skipped ? "skipped" : "planned";
+    const activity = (await ctx.activities.byPlanned(env.userId, [id])).get(id);
+    const status = doc.deletedAt
+      ? "deleted"
+      : workoutStatus(w, Boolean(activity), (await env.now()).date);
     const history = await ctx.docs.changes(env.userId, {
       entity: "planned_workout",
       entityId: id,
@@ -139,6 +154,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     return {
       workout: { ...w, version: doc.version },
       status,
+      ...(activity ? { activityId: activity.id } : {}),
       ...(doc.deletedAt ? { deleted: true, deletedAt: doc.deletedAt } : {}),
       resolved: w.structure && w.sport !== "strength"
         ? resolveStructure(w.structure, w.sport, profile)
