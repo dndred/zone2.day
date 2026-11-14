@@ -39,6 +39,59 @@ public struct APIClient: Sendable {
         try await get("health")
     }
 
+    // MARK: - Authorized Sync API (scope "app")
+
+    public struct Me: Decodable, Sendable, Equatable {
+        public let userId: String
+        public let name: String?
+    }
+
+    public struct UploadResult: Decodable, Sendable, Equatable {
+        public let activityId: String
+        public let created: Bool
+        public let sport: String
+        public let localDate: String
+        public let plannedWorkoutId: String?
+        public let duplicateOf: String?
+    }
+
+    public func me(auth: AuthSession) async throws -> Me {
+        let data = try await authorized(auth, method: "GET", path: "v1/me", body: nil, contentType: nil)
+        return try JSONDecoder().decode(Me.self, from: data)
+    }
+
+    public func uploadHealthKit(_ json: Data, auth: AuthSession) async throws -> UploadResult {
+        let data = try await authorized(auth, method: "POST", path: "v1/activities/healthkit", body: json, contentType: "application/json")
+        return try JSONDecoder().decode(UploadResult.self, from: data)
+    }
+
+    public func reportHealthDeletions(_ uuids: [String], auth: AuthSession) async throws {
+        let body = try JSONEncoder().encode(["uuids": uuids])
+        _ = try await authorized(auth, method: "POST", path: "v1/health-deletions", body: body, contentType: "application/json")
+    }
+
+    /// Adds the bearer token; on 401 refreshes once and retries.
+    func authorized(_ auth: AuthSession, method: String, path: String, body: Data?, contentType: String?) async throws -> Data {
+        for attempt in 0..<2 {
+            let token = try await auth.accessToken(forceRefresh: attempt > 0)
+            var request = URLRequest(url: baseURL.appending(path: path))
+            request.httpMethod = method
+            request.httpBody = body
+            request.timeoutInterval = 60
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Accept")
+            request.setValue(UUID().uuidString.lowercased(), forHTTPHeaderField: "X-Request-Id")
+            if let contentType { request.setValue(contentType, forHTTPHeaderField: "Content-Type") }
+            let (data, response) = try await transport.data(for: request)
+            if response.statusCode == 401 && attempt == 0 { continue }
+            guard (200..<300).contains(response.statusCode) else {
+                throw APIError.status(response.statusCode, body: String(decoding: data, as: UTF8.self))
+            }
+            return data
+        }
+        throw AuthError.signedOut
+    }
+
     func get<T: Decodable>(_ path: String) async throws -> T {
         var request = URLRequest(url: baseURL.appending(path: path))
         request.httpMethod = "GET"

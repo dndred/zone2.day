@@ -1,10 +1,9 @@
 import SwiftUI
 import Zone2Kit
-import Zone2UI
 
 @main
 struct Zone2App: App {
-    private let client = APIClient(baseURL: AppEnvironment.serverURL())
+    @StateObject private var model = AppModel()
     @Environment(\.scenePhase) private var scenePhase
 
     init() {
@@ -17,34 +16,39 @@ struct Zone2App: App {
         WindowGroup {
             #if DEBUG
             TabView {
-                Tab("Status", systemImage: "antenna.radiowaves.left.and.right") { status }
+                Tab("Home", systemImage: "figure.run") { home }
                 Tab("S1", systemImage: "stethoscope") { S1SpikeView() }
                 Tab("S4", systemImage: "alarm") { S4WakeView() }
             }
             #else
-            status
+            home
             #endif
         }
-        #if DEBUG
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
+                #if DEBUG
                 WakeMonitor.scheduleRefresh()
                 Task { await WakeMonitor.record("foreground") }
-            case .background: WakeMonitor.scheduleRefresh()
+                #endif
+                Task { await model.health.sync() }
+            case .background:
+                #if DEBUG
+                WakeMonitor.scheduleRefresh()
+                #endif
             default: break
             }
         }
+        #if DEBUG
         .backgroundTask(.appRefresh(WakeMonitor.refreshTaskId)) {
             WakeMonitor.scheduleRefresh()
             await WakeMonitor.record("bg.refresh")
+            await model.health.sync(budget: 20)
         }
         #endif
     }
 
-    private var status: some View {
-        RootView(serverURL: client.baseURL) { [client] in
-            try await client.health()
-        }
+    private var home: some View {
+        HomeView(model: model, health: model.health)
     }
 }

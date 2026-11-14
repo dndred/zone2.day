@@ -146,3 +146,12 @@ Deno.test("sync API: requires app scope; rejects malformed dumps", async () => {
     await h.drop();
   }
 });
+
+Deno.test("contract fixture (shared with Swift tests) parses and summarizes", async () => {
+  const raw = await Deno.readTextFile(new URL("../../fixtures/healthkit/contract-v1.json", import.meta.url));
+  const dump = HealthKitDump.parse(JSON.parse(raw));
+  const s = summarize(dump);
+  assertEquals(s.sport, "run");
+  assertEquals(dump.workout.activities[0].location, "outdoor");
+  assertEquals(lapsOf(dump).length, 2);
+});
