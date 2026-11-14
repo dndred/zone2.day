@@ -1,0 +1,28 @@
+# OS / editors
+.DS_Store
+.idea/
+.vscode/
+
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Deno / Node
+node_modules/
+.deno/
+coverage/
+
+# Supabase
+supabase/.branches/
+supabase/.temp/
+
+# Cloudflare
+.wrangler/
+
+# Xcode
+ios/*.xcodeproj/
+ios/**/xcuserdata/
+DerivedData/
+build/
+*.xcresult
