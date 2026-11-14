@@ -102,15 +102,21 @@ ci: check lint test ios-build
 # Deploy the Supabase function (target=staging|prod; prod needs ZONE2_ALLOW_PROD=1).
 # Secrets come from 1Password item "zone2-<target> app secrets" (create with `just app-secrets`).
 deploy-api target="staging": (_guard target)
-    # Bundle locally (Docker): server-side bundling (--use-api) times out on our bundle size.
-    supabase functions deploy api --yes --remote={{ if target == "prod" { prod_ref } else { staging_ref } }}
-    # Secrets last: ZONE2_VERSION must only change when the new code is really live.
-    supabase secrets set --yes --remote={{ if target == "prod" { prod_ref } else { staging_ref } }} \
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    ref={{ if target == "prod" { prod_ref } else { staging_ref } }}
+    version=$(git rev-parse --short HEAD)$([[ -z "$(git status --porcelain -- backend supabase)" ]] || echo -dirty)
+    supabase secrets set --yes --remote=$ref \
       ZONE2_ENV={{target}} \
-      ZONE2_VERSION=$(git rev-parse --short HEAD)$([[ -z "$(git status --porcelain -- backend supabase)" ]] || echo -dirty) \
       ZONE2_PUBLIC_BASE_URL={{ if target == "prod" { "https://api.zone2.day" } else { "https://api-staging.zone2.day" } }} \
       ZONE2_RP_ID=zone2.day \
-      ZONE2_SECRET_KEY="$(tools/secret.sh {{target}} secret_key)"
+      ZONE2_SECRET_KEY="$(tools/secret.sh {{target}} secret_key)" >/dev/null
+    # The version is baked into the bundle, so /health always reports the code that is actually live.
+    trap 'git checkout -- supabase/functions/api/build.ts' EXIT
+    echo "export const BUILD_VERSION = \"$version\";" > supabase/functions/api/build.ts
+    # Local (Docker) bundling: server-side bundling (--use-api) times out on our bundle size.
+    supabase functions deploy api --yes --remote=$ref | grep -E "Deployed Functions|rror" | cut -c1-120
+    echo "deployed $version"
 
 # Create the 1Password item with app secrets for a target (once)
 app-secrets target="staging": (_guard target)
@@ -183,12 +189,17 @@ deploy-proxy target="staging": (_guard target)
 # Deploy API + proxy, then smoke test
 deploy target="staging": (deploy-api target) (deploy-proxy target) (smoke target)
 
-# Smoke test a deployed environment through the public URL
+# Smoke test a deployed environment through the public URL (waits for the new version to roll out)
 smoke target="staging":
     #!/usr/bin/env zsh
     set -eu
+    want=$(git rev-parse --short HEAD)
     base={{ if target == "prod" { "https://api.zone2.day" } else if target == "local" { "http://localhost:8787" } else { "https://api-staging.zone2.day" } }}
-    body=$(curl -fsS --max-time 20 "$base/health")
+    for i in {1..12}; do
+      body=$(curl -fsS --max-time 20 "$base/health")
+      [[ "{{target}}" == local || "$body" == *"$want"* ]] && break
+      sleep 5
+    done
     echo "$body"
     echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['ok'] and d['env']=='{{target}}', d; print('✓ health ok:', d['env'], d['version'])"
 
