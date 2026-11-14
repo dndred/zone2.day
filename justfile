@@ -54,6 +54,31 @@ ios-gen:
 ios-build: ios-gen
     cd ios && xcodebuild -project Zone2.xcodeproj -scheme Zone2 -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData build CODE_SIGNING_ALLOWED=NO -quiet
 
+# Build, sign (Personal Team), install and launch on the connected iPhone. Also renews the 7-day profile.
+ios-device:
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    tmp=$(mktemp)
+    xcrun devicectl list devices --json-output "$tmp" >/dev/null
+    udid=$(python3 -c "import json,sys; d=json.load(open('$tmp'))['result']['devices']; p=[x['hardwareProperties']['udid'] for x in d if x['hardwareProperties'].get('reality')=='physical' and x['hardwareProperties'].get('platform')=='iOS']; print(p[0] if p else '')")
+    rm -f "$tmp"
+    [[ -n $udid ]] || { echo "No physical iPhone connected"; exit 1; }
+    cd ios && xcodegen generate --quiet
+    xcodebuild -project Zone2.xcodeproj -scheme Zone2 -configuration Debug -destination "id=$udid" -derivedDataPath ../build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build -quiet
+    xcrun devicectl device install app --device "$udid" ../build/DerivedData/Build/Products/Debug-iphoneos/Zone2.app >/dev/null
+    xcrun devicectl device process launch --device "$udid" day.zone2.app >/dev/null && echo "installed and launched on $udid"
+
+# Pull a file from the app container on the iPhone, e.g. just ios-pull Documents/wakes.jsonl
+ios-pull path dest="build/device":
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    mkdir -p {{dest}}
+    tmp=$(mktemp)
+    xcrun devicectl list devices --json-output "$tmp" >/dev/null
+    udid=$(python3 -c "import json; d=json.load(open('$tmp'))['result']['devices']; p=[x['hardwareProperties']['udid'] for x in d if x['hardwareProperties'].get('reality')=='physical']; print(p[0] if p else '')")
+    rm -f "$tmp"
+    xcrun devicectl device copy from --device "$udid" --domain-type appDataContainer --domain-identifier day.zone2.app --source {{path}} --destination {{dest}}/$(basename {{path}}) >/dev/null && echo "→ {{dest}}/$(basename {{path}})"
+
 # Type check everything TypeScript
 check:
     deno check backend/src backend/tests edge-proxy/src supabase/functions/api/index.ts
