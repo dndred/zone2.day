@@ -134,6 +134,7 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
 |---|---|---|---|
 | `export_workout` | R | `plannedWorkoutId`, `format` (`zwo`; позже `fit`) | Подписанная ссылка на файл + предупреждение, если `mywhooshFtp` ≠ `bike.ftp`. `.zwo` — **только для тренировок с мощностными таргетами** |
 | `get_integrations` | R | — | Статус intervals.icu (последний импорт, ошибки); позже Strava |
+| `connect_integration` | W | `kind` (`intervals_icu`), `athleteId`, `apiKey` | Подключить интеграцию: ключ шифруется и хранится у пользователя в `integrations`. В description — предупреждение: ключ проходит через чат, надёжнее ввести его в приложении (Profile → Connections). Ответ ключ не повторяет |
 | `run_import` | W | `source` (`intervals_icu`), `since?` | Принудительный импорт сейчас |
 
 ### 3.11 Debug (scope `debug`; не выдаётся claude.ai по умолчанию)
