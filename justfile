@@ -110,7 +110,7 @@ deploy-api target="staging": (_guard target)
     trap 'git checkout -- supabase/functions/api/build.ts' EXIT
     echo "export const BUILD_VERSION = \"$version\";" > supabase/functions/api/build.ts
     # Local (Docker) bundling: server-side bundling (--use-api) times out on our bundle size.
-    supabase functions deploy api --yes --remote=$ref | grep -E "Deployed Functions|rror" | cut -c1-120
+    supabase functions deploy api --yes --remote=$ref 2>&1 | grep -vE "^(Uploading|Warning)" | tail -3
     echo "deployed $version"
 
 # Set runtime secrets of the function (rarely changes; CI does not touch them)
@@ -215,6 +215,7 @@ smoke target="staging":
     done
     echo "$body"
     echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['ok'] and d['env']=='{{target}}', d; print('✓ health ok:', d['env'], d['version'])"
+    if [[ "{{target}}" != local && "$body" != *"$want"* ]]; then echo "✗ live version is not HEAD ($want) — deploy did not go out"; exit 1; fi
 
 # Live logs of the edge proxy
 proxy-logs target="staging":

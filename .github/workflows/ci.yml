@@ -30,7 +30,7 @@ jobs:
     env:
       ZONE2_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:54329/postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: denoland/setup-deno@v2
         with:
           deno-version: ${{ env.DENO_VERSION }}
@@ -60,7 +60,7 @@ jobs:
           else
             echo "::notice::Deploy skipped: set SUPABASE_ACCESS_TOKEN and STAGING_DB_PASSWORD repository secrets"
           fi
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         if: steps.check.outputs.ready == 'true'
       - uses: supabase/setup-cli@v1
         if: steps.check.outputs.ready == 'true'

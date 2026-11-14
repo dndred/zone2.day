@@ -85,6 +85,11 @@
 5. Изменено поведение — обновлены доки в `docs/`.
 6. Для изменений, затрагивающих устройство, — пункт в чек-листе ручной проверки и логи нужной категории.
 
-## 7. CI (позже)
+## 7. CI/CD (GitHub Actions, `.github/workflows/ci.yml`)
 
-GitHub Actions: бэкенд и MCP на Linux на каждый push; `swift test` и снапшоты на macOS-раннере — по метке или по ночам (macOS-минуты дорогие). До появления CI источник правды — `just test` локально.
+- **Каждый push и PR:** `deno check`, `deno lint`, `deno fmt --check`, все тесты бэкенда и прокси на Postgres 17 (service-контейнер, как в Supabase).
+- **Push в `main` → деплой staging** после зелёных тестов: `supabase db push` (миграции), сборка бандла в Docker на раннере, деплой функции с вшитой версией (`BUILD_VERSION` = sha), смоук: `/health` должен отдать этот sha.
+- **Секреты репозитория:** `SUPABASE_ACCESS_TOKEN` (персональный токен Supabase для CI), `STAGING_DB_PASSWORD`. Ставятся `just gh-secrets`.
+- Рантайм-секреты функции (ключ подписи и т.п.) CI не трогает — `just deploy-secrets` при изменении.
+- Prod — позже, ручным запуском (`workflow_dispatch`) с GitHub Environment `production`.
+- iOS в CI пока нет: на раннерах GitHub ещё нет Xcode 27. Локально — `just test-kit`, `just ios-build`.
