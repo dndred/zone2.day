@@ -51,7 +51,10 @@ export async function ingestHealthKit(
   const tz = summary.timezone && isValidTimeZone(summary.timezone)
     ? summary.timezone
     : effectiveTimezone(profile, homeDate);
-  const localDate = localParts(start, tz).date;
+  const local = localParts(start, tz);
+  const localDate = local.date;
+  // Sources without HKTimeZone (e.g. Strava copies): start time in the athlete's zone that day.
+  if (!summary.startLocal) summary.startLocal = local.time;
 
   // Original first (idempotent key by HealthKit uuid), then the row.
   const key = `${userId}/healthkit/${dump.workout.uuid}.json.gz`;
