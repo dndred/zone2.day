@@ -12,6 +12,7 @@ import {
 } from "../../domain/entities.ts";
 import { estimate, resolveStructure, unresolvedTargets, workoutStatus } from "../../domain/plan.ts";
 import type { ActivityRow } from "../../db/activities.ts";
+import { brief } from "./activities.ts";
 import { addDays, daysBetween, mondayOf } from "../../domain/time.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, parseItem, ToolError, Why } from "../util.ts";
@@ -119,11 +120,22 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
         : s;
       days.set(d.data.date, [...(days.get(d.data.date) ?? []), item]);
     }
+    // Everything actually done on each day (matched or not), in start order.
+    const done_ = await ctx.activities.list(env.userId, { from, to, limit: 500 });
+    const actual = new Map<string, unknown[]>();
+    for (const a of [...done_].reverse()) {
+      actual.set(a.localDate, [...(actual.get(a.localDate) ?? []), brief(a)]);
+    }
+    const dates = [...new Set([...days.keys(), ...actual.keys()])].sort();
     return {
       weeks: weeks.map((w) => w.data).sort((a, b) => a.weekStart.localeCompare(b.weekStart)),
-      days: [...days.entries()].map(([date, workouts]) => ({ date, workouts })),
+      days: dates.map((date) => ({
+        date,
+        workouts: days.get(date) ?? [],
+        activities: actual.get(date) ?? [],
+      })),
       howToRead:
-        "status: done (an imported activity is matched), skipped (with reason), missed (date passed, nothing matched), planned. estimate is partial when steps are open or lack pace targets.",
+        "workouts = plan; activities = what was actually recorded that day (start order; plannedWorkoutId shows the match). status: done (activity matched) / skipped (with reason) / missed (date passed, nothing matched) / planned. estimate is partial when steps are open or lack pace targets.",
     };
   });
 

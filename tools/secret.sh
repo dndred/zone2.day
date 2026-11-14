@@ -11,6 +11,7 @@ root=${0:A:h:h}
 case $name in
   db_password) ref="op://dev tools/zone2-$target Supabase DB/password" ;;
   secret_key) ref="op://dev tools/zone2-$target app secrets/secret_key" ;;
+  job_secret) ref="op://dev tools/zone2-$target app secrets/job_secret" ;;
   *) print -u2 "unknown secret: $name"; exit 1 ;;
 esac
 

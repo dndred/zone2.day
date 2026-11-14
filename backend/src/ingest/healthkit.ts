@@ -35,7 +35,9 @@ export async function ingestHealthKit(
   deps: IngestDeps,
   userId: string,
   raw: Uint8Array,
+  opts: { storeOriginal?: boolean } = {},
 ): Promise<IngestResult> {
+  const storeOriginal = opts.storeOriginal ?? true;
   const json = isGzip(raw) ? await gunzip(raw) : raw;
   const gz = isGzip(raw) ? raw : await gzip(raw);
   const dump = HealthKitDump.parse(JSON.parse(new TextDecoder().decode(json)));
@@ -53,7 +55,7 @@ export async function ingestHealthKit(
 
   // Original first (idempotent key by HealthKit uuid), then the row.
   const key = `${userId}/healthkit/${dump.workout.uuid}.json.gz`;
-  await deps.blobs.put(key, gz, "application/gzip");
+  if (storeOriginal) await deps.blobs.put(key, gz, "application/gzip");
 
   const { row, created } = await deps.activities.upsert(userId, {
     source: "healthkit",
@@ -66,17 +68,19 @@ export async function ingestHealthKit(
     endAt: new Date(dump.workout.end),
     timezone: tz,
     localDate,
-    durationSec: summary.durationSec,
+    durationSec: summary.elapsedSec,
     distanceM: summary.distanceM,
     summary,
     laps,
   });
-  await deps.activities.addFile(row.id, {
-    kind: "healthkit_dump",
-    key,
-    bytes: gz.length,
-    sha256: await sha256Bytes(gz),
-  });
+  if (storeOriginal) {
+    await deps.activities.addFile(row.id, {
+      kind: "healthkit_dump",
+      key,
+      bytes: gz.length,
+      sha256: await sha256Bytes(gz),
+    });
+  }
 
   // Same session from two sources (e.g. Strava's copy of a ride): keep the better source.
   let duplicateOf: string | null = null;

@@ -16,6 +16,8 @@ const ConfigSchema = z.object({
   /** Supabase Storage for raw files; without it an in-memory store is used (local/dev). */
   supabaseUrl: z.string().min(1).optional(),
   supabaseServiceKey: z.string().min(1).optional(),
+  /** Shared secret for /jobs/* (scheduler, recipes). Jobs are disabled without it. */
+  jobSecret: z.string().min(32).optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -37,6 +39,7 @@ export function loadConfig(read: EnvReader = (n) => Deno.env.get(n)): Config {
     databaseUrl: read("ZONE2_DATABASE_URL") ?? read("SUPABASE_DB_URL"),
     supabaseUrl: read("SUPABASE_URL"),
     supabaseServiceKey: read("SUPABASE_SERVICE_ROLE_KEY"),
+    jobSecret: read("ZONE2_JOB_SECRET"),
   });
 }
 

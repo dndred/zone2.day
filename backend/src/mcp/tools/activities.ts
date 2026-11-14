@@ -3,31 +3,37 @@ import { z } from "zod";
 import type { ActivityRow } from "../../db/activities.ts";
 import type { PlannedWorkout } from "../../domain/entities.ts";
 import { IsoDate } from "../../domain/entities.ts";
-import { HealthKitDump, streams } from "../../domain/healthkit.ts";
+import { defaultTitle, HealthKitDump, streams, type Summary } from "../../domain/healthkit.ts";
 import { gunzip } from "../../ingest/healthkit.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError } from "../util.ts";
 
-function brief(a: ActivityRow) {
+export function brief(a: ActivityRow) {
   const s = a.summary as Record<string, unknown>;
+  const hr = s.hr as { avg?: number; max?: number } | null;
   return {
     id: a.id,
     date: a.localDate,
-    start: a.startAt,
+    startLocal: s.startLocal ?? undefined,
     sport: a.sport,
     subSport: a.subSport ?? undefined,
-    title: a.title ?? undefined,
-    durationSec: a.durationSec,
+    kind: s.kind ?? "training",
+    title: a.title ?? (s.name ? defaultTitle(s as Summary) : undefined),
+    elapsedSec: a.durationSec,
     movingSec: s.movingSec,
     distanceM: a.distanceM ?? undefined,
+    distanceKind: s.distanceKind ?? undefined,
     paceSecPerKm: s.paceSecPerKm ?? undefined,
     paceSecPer100m: s.paceSecPer100m ?? undefined,
     speedKmh: s.speedKmh ?? undefined,
-    hr: s.hr ?? undefined,
+    hrAvg: hr?.avg,
+    hrMax: hr?.max,
     elevationGainM: s.elevationGainM ?? undefined,
+    detail: s.detail ?? undefined,
     plannedWorkoutId: a.plannedWorkoutId ?? undefined,
     duplicateOf: a.duplicateOf ?? undefined,
-    source: `${a.source}:${a.sourceApp ?? ""}`,
+    source: a.sourceApp ?? a.source,
+    device: s.device ?? undefined,
   };
 }
 
@@ -42,6 +48,9 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
       sport: z.enum(["run", "bike", "swim", "strength", "other"]).optional(),
       limit: z.number().int().min(1).max(100).optional(),
       includeDuplicates: z.boolean().optional(),
+      includeRecovery: z.boolean().optional().describe(
+        "Also list non-training sessions (mind & body, yoga, flexibility, cooldown)",
+      ),
     },
     readOnly: true,
   }, async (args, env) => {
@@ -85,10 +94,11 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
         : null,
       files: (await ctx.activities.files(a.id)).map((f) => ({ kind: f.kind, bytes: f.bytes })),
       howToRead: [
-        "movingSec excludes pauses; pace uses moving time.",
-        "hr.avg is the mean of HR samples (watch records every ~5 s).",
-        "Laps are workout segments/laps recorded by the watch (custom workout steps appear as segments).",
-        "Interval-by-interval comparison with the plan is not computed yet.",
+        "elapsedSec = whole recording; movingSec = time actually moving (see summary.movingBasis: standing at a start line is excluded, walking counts). Pace uses movingSec; paceElapsedSecPerKm uses elapsed.",
+        "Swim: paceSecPer100m uses the sum of swim lengths (rests excluded, confidence medium); paceWithRestsSecPer100m uses elapsed.",
+        "detail 'summary_only' = the source (e.g. Strava's copy) wrote totals without HR/power/route. Indoor bike/treadmill distance is 'virtual' (from the trainer app) — compare power, not speed.",
+        "hr avg/max come from HR samples (~every 5 s). startLocal is in the workout's own time zone.",
+        "Laps are segments/laps recorded by the watch (custom workout steps appear as segments). Interval-vs-plan comparison is not computed yet.",
       ],
     };
   });

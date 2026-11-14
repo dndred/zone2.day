@@ -147,6 +147,7 @@ export class ActivityStore {
       sport?: string;
       limit?: number;
       includeDuplicates?: boolean;
+      includeRecovery?: boolean;
     },
   ): Promise<ActivityRow[]> {
     const rows = await this.sql.unsafe(
@@ -154,6 +155,7 @@ export class ActivityStore {
        where user_id = $1 and deleted_at is null
          and ($2::date is null or local_date >= $2::date) and ($3::date is null or local_date <= $3::date)
          and ($4::text is null or sport = $4) and ($5::boolean or duplicate_of is null)
+         and ($7::boolean or coalesce(summary ->> 'kind', 'training') <> 'recovery')
        order by start_at desc limit $6`,
       [
         userId,
@@ -162,6 +164,7 @@ export class ActivityStore {
         opts.sport ?? null,
         opts.includeDuplicates ?? false,
         opts.limit ?? 30,
+        opts.includeRecovery ?? false,
       ],
     );
     return rows.map(toRow);
@@ -215,6 +218,27 @@ export class ActivityStore {
     await this.sql`update zone2.activities set duplicate_of = null, updated_at = now()
       where user_id = ${userId} and duplicate_of = any(${rows.map((r) => r.id)}::uuid[])`;
     return rows.map((r) => r.id as string);
+  }
+
+  /** HealthKit activities whose summary was computed by an older summarize() (any user). */
+  async outdatedSummaries(version: number, limit: number) {
+    const rows = await this.sql`
+      select a.id, a.user_id, f.storage_key from zone2.activities a
+      join zone2.activity_files f on f.activity_id = a.id and f.kind = 'healthkit_dump'
+      where a.deleted_at is null and coalesce((a.summary ->> 'v')::int, 1) < ${version}
+      order by a.start_at desc limit ${limit}`;
+    const [{ n }] = await this.sql`
+      select count(*)::int as n from zone2.activities a
+      join zone2.activity_files f on f.activity_id = a.id and f.kind = 'healthkit_dump'
+      where a.deleted_at is null and coalesce((a.summary ->> 'v')::int, 1) < ${version}`;
+    return {
+      items: rows.map((r) => ({
+        id: r.id as string,
+        userId: r.user_id as string,
+        key: r.storage_key as string,
+      })),
+      remaining: n as number,
+    };
   }
 
   async addFile(

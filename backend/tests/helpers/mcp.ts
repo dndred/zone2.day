@@ -17,6 +17,7 @@ export const testConfig: Config = {
   publicBaseUrl: BASE,
   rpId: "zone2.day",
   secretKey: "x".repeat(40),
+  jobSecret: "j".repeat(40),
 };
 
 export interface McpHarness {

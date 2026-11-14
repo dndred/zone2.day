@@ -14,6 +14,7 @@ export interface DumpOpts {
   timezone?: string;
   segments?: number; // equal segments as workout events
   pauseSec?: number; // one pause in the middle
+  standStartSec?: number; // standing still at the start (e.g. waiting for a parkrun start)
 }
 
 export function makeDump(o: DumpOpts = {}): HealthKitDump {
@@ -38,12 +39,13 @@ export function makeDump(o: DumpOpts = {}): HealthKitDump {
       : type === 46
       ? "distanceSwimming"
       : "distanceWalkingRunning";
-    const per = distance / (duration / 10);
+    const stand = o.standStartSec ?? 0;
+    const per = distance / ((duration - stand) / 10);
     samples[key] = {
       unit: "m",
       values: Array.from(
         { length: duration / 10 },
-        (_, i) => [i * 10, i * 10 + 10, per] as [number, number, number],
+        (_, i) => [i * 10, i * 10 + 10, i * 10 < stand ? 0 : per] as [number, number, number],
       ),
     };
   }

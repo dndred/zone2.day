@@ -6,23 +6,67 @@ import { mcpHarness } from "./helpers/mcp.ts";
 
 const enc = (d: unknown) => new TextEncoder().encode(JSON.stringify(d));
 
-Deno.test("summary: pace, HR, weather °F→°C, elevation cm→m, laps, pauses", () => {
+Deno.test("summary v2: moving time excludes standing, pace by moving, weather, elevation, laps", () => {
+  // 40 min recording, first 10 min standing at the start line, then 8 km.
   const dump = HealthKitDump.parse(
-    makeDump({ minutes: 40, distanceM: 8000, segments: 4, pauseSec: 60 }),
+    makeDump({ minutes: 40, distanceM: 8000, segments: 4, standStartSec: 600 }),
   );
   const s = summarize(dump);
   assertEquals(s.sport, "run");
-  assertEquals(s.durationSec, 2400);
-  assertEquals(s.movingSec, 2340);
-  assertEquals(s.paceSecPerKm, Math.round(2340 / 8));
+  assertEquals(s.elapsedSec, 2400);
+  assertEquals(s.movingSec, 1800);
+  assertEquals(s.paceSecPerKm, 225);
+  assertEquals(s.paceElapsedSecPerKm, 300);
   assertEquals(s.weather?.tempC, -3.4);
   assertEquals(s.weather?.humidityPct, 88);
   assertEquals(s.elevationGainM, 42);
   assertEquals(s.running?.powerAvg, 250);
-  assertExists(s.hr);
-  const laps = lapsOf(dump);
-  assertEquals(laps.length, 4);
-  assertAlmostEquals(laps[0].distanceM!, 2000, 1);
+  assertEquals(s.startLocal, "08:00");
+  assertEquals(s.detail, "full");
+  assertEquals(lapsOf(dump).length, 4);
+});
+
+Deno.test("summary v2: pauses without distance samples, swim lengths, mind & body, Strava copy", () => {
+  const strength = summarize(
+    HealthKitDump.parse(makeDump({ activityType: 20, distanceM: null, pauseSec: 60 })),
+  );
+  assertEquals(strength.movingSec, 2340);
+  assertEquals(strength.movingBasis, "elapsed − pauses");
+
+  // Pool: 20 lengths × 25 m, 30 s each, 30 s rest between → 10 min swimming in 20 min.
+  const swim = makeDump({ activityType: 46, distanceM: null, minutes: 20 });
+  swim.workout.metadata.HKSwimmingLocationType = 1;
+  swim.workout.totalDistanceM = 500;
+  swim.samples.distanceSwimming = {
+    unit: "m",
+    values: Array.from(
+      { length: 20 },
+      (_, i) => [i * 60, i * 60 + 30, 25] as [number, number, number],
+    ),
+  };
+  const s = summarize(HealthKitDump.parse(swim));
+  assertEquals(s.subSport, "pool");
+  assertEquals(s.movingSec, 600);
+  assertEquals(s.paceSecPer100m, 120);
+  assertEquals(s.paceWithRestsSecPer100m, 240);
+
+  const mind = summarize(
+    HealthKitDump.parse(makeDump({ activityType: 29, distanceM: null, minutes: 10 })),
+  );
+  assertEquals(mind.kind, "recovery");
+  assertEquals(mind.subSport, "mind_and_body");
+
+  const strava = makeDump({
+    activityType: 13,
+    indoor: true,
+    sourceName: "Strava",
+    bundleId: "com.strava.stravaride",
+  });
+  strava.samples = {};
+  strava.route = [];
+  const ss = summarize(HealthKitDump.parse(strava));
+  assertEquals(ss.detail, "summary_only");
+  assertEquals(ss.distanceKind, "virtual");
 });
 
 Deno.test("ingest: upload → activity → plan done; idempotent; Strava copy is a duplicate; Health deletion", async () => {
@@ -114,6 +158,38 @@ Deno.test("ingest: upload → activity → plan done; idempotent; Strava copy is
     const ctx = (await h.call("get_context")).data;
     assertEquals(ctx.recentActivities.length, 2);
 
+    // get_plan shows what was actually done each day, matched or not.
+    const day = (await h.call("get_plan", { from: "2026-11-16", to: "2026-11-16" })).data.days[0];
+    assertEquals(day.activities.length, 2); // run + watch ride (Strava copy hidden)
+    assertEquals(day.activities[0].startLocal, "08:00");
+
+    // Mind & body is hidden by default; old date ranges work.
+    await h.api(
+      "/v1/activities/healthkit",
+      enc(
+        makeDump({
+          start: "2026-09-03T05:00:00Z",
+          activityType: 29,
+          distanceM: null,
+          minutes: 10,
+          uuid: "MIND-1",
+        }),
+      ),
+    );
+    await h.api(
+      "/v1/activities/healthkit",
+      enc(makeDump({ start: "2026-09-02T05:00:00Z", uuid: "OLD-RUN" })),
+    );
+    const sept =
+      (await h.call("list_activities", { from: "2026-09-01", to: "2026-09-30" })).data.activities;
+    assertEquals(sept.map((a: { sport: string }) => a.sport), ["run"]);
+    const withMind = (await h.call("list_activities", {
+      from: "2026-09-01",
+      to: "2026-09-30",
+      includeRecovery: true,
+    })).data.activities;
+    assertEquals(withMind.length, 2);
+
     // Deleted in Health → gone, plan back to missed.
     const del = await h.api("/v1/health-deletions", JSON.stringify({ uuids: ["RUN-1"] }));
     assertEquals((await del.json()).deleted, 1);
@@ -148,10 +224,37 @@ Deno.test("sync API: requires app scope; rejects malformed dumps", async () => {
 });
 
 Deno.test("contract fixture (shared with Swift tests) parses and summarizes", async () => {
-  const raw = await Deno.readTextFile(new URL("../../fixtures/healthkit/contract-v1.json", import.meta.url));
+  const raw = await Deno.readTextFile(
+    new URL("../../fixtures/healthkit/contract-v1.json", import.meta.url),
+  );
   const dump = HealthKitDump.parse(JSON.parse(raw));
   const s = summarize(dump);
   assertEquals(s.sport, "run");
   assertEquals(dump.workout.activities[0].location, "outdoor");
   assertEquals(lapsOf(dump).length, 2);
+});
+
+Deno.test("job: recompute outdated summaries from stored originals", async () => {
+  const h = await mcpHarness();
+  try {
+    const res =
+      await (await h.api("/v1/activities/healthkit", enc(makeDump({ uuid: "OLD-SUMMARY" }))))
+        .json();
+    await h.db
+      .sql`update zone2.activities set summary = summary - 'v' || '{"legacy": true}' where id = ${res.activityId}`;
+    const denied = await h.app.request("/jobs/recompute-summaries", { method: "POST" });
+    assertEquals(denied.status, 404);
+    const run = await h.app.request("/jobs/recompute-summaries", {
+      method: "POST",
+      headers: { "x-zone2-job-secret": "j".repeat(40) },
+    });
+    const out = await run.json();
+    assertEquals(out.processed, 1);
+    assertEquals(out.remaining, 0);
+    const [row] = await h.db.sql`select summary from zone2.activities where id = ${res.activityId}`;
+    assertEquals(row.summary.v, 2);
+    assertEquals(row.summary.legacy, undefined);
+  } finally {
+    await h.drop();
+  }
 });

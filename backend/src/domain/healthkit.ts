@@ -1,6 +1,7 @@
 // HealthKit workout dump (contract between the iOS app and the server) and derived summary.
 // The dump is the lossless source of truth (D9); everything else is recomputable from it.
 import { z } from "zod";
+import { localParts } from "./time.ts";
 
 const Quantity = z.object({ value: z.number(), unit: z.string() });
 const MetaValue = z.union([z.string(), z.number(), z.boolean(), Quantity]);
@@ -53,33 +54,57 @@ export const HealthKitDump = z.object({
 });
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
-// HKWorkoutActivityType raw values we care about.
-const TYPES: Record<
-  number,
-  { sport: "run" | "bike" | "swim" | "strength" | "other"; sub?: string }
-> = {
-  37: { sport: "run" },
-  13: { sport: "bike" },
-  46: { sport: "swim" },
-  20: { sport: "strength", sub: "functional" },
-  50: { sport: "strength", sub: "traditional" },
-  52: { sport: "other", sub: "walk" },
-  24: { sport: "other", sub: "hike" },
-  82: { sport: "other", sub: "multisport" },
+/** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
+export const SUMMARY_VERSION = 2;
+
+type Sport = "run" | "bike" | "swim" | "strength" | "other";
+type Kind = "training" | "recovery";
+
+// HKWorkoutActivityType raw values → our sport/subSport/kind and a readable name.
+const TYPES: Record<number, { sport: Sport; sub?: string; kind?: Kind; name: string }> = {
+  37: { sport: "run", name: "Run" },
+  13: { sport: "bike", name: "Ride" },
+  46: { sport: "swim", name: "Swim" },
+  20: { sport: "strength", sub: "functional", name: "Functional strength" },
+  50: { sport: "strength", sub: "traditional", name: "Strength" },
+  59: { sport: "strength", sub: "core", name: "Core" },
+  63: { sport: "other", sub: "hiit", name: "HIIT" },
+  11: { sport: "other", sub: "cross_training", name: "Cross training" },
+  52: { sport: "other", sub: "walk", name: "Walk" },
+  24: { sport: "other", sub: "hike", name: "Hike" },
+  35: { sport: "other", sub: "rowing", name: "Rowing" },
+  16: { sport: "other", sub: "elliptical", name: "Elliptical" },
+  60: { sport: "other", sub: "xc_ski", name: "Cross-country ski" },
+  82: { sport: "other", sub: "multisport", name: "Swim-bike-run" },
+  83: { sport: "other", sub: "transition", name: "Transition" },
+  57: { sport: "other", sub: "yoga", kind: "recovery", name: "Yoga" },
+  62: { sport: "other", sub: "flexibility", kind: "recovery", name: "Flexibility" },
+  29: { sport: "other", sub: "mind_and_body", kind: "recovery", name: "Mind & body" },
+  33: { sport: "other", sub: "recovery", kind: "recovery", name: "Preparation & recovery" },
+  80: { sport: "other", sub: "cooldown", kind: "recovery", name: "Cooldown" },
+  72: { sport: "other", sub: "tai_chi", kind: "recovery", name: "Tai chi" },
 };
 
-export function sportOf(dump: HealthKitDump): { sport: string; subSport: string | null } {
-  const t = TYPES[dump.workout.activityType] ?? { sport: "other" as const };
+export function sportOf(dump: HealthKitDump): {
+  sport: Sport;
+  subSport: string | null;
+  kind: Kind;
+  name: string;
+} {
+  const t = TYPES[dump.workout.activityType] ??
+    { sport: "other" as const, sub: `hk_${dump.workout.activityType}`, name: "Workout" };
   const meta = dump.workout.metadata;
   const indoor = meta.HKIndoorWorkout === true || meta.HKIndoorWorkout === 1;
   let sub = t.sub ?? null;
-  if (t.sport === "run" && indoor) sub = "treadmill";
-  if (t.sport === "bike" && indoor) sub = "indoor_bike";
+  let name = t.name;
+  if (t.sport === "run" && indoor) [sub, name] = ["treadmill", "Treadmill run"];
+  if (t.sport === "bike" && indoor) [sub, name] = ["indoor_bike", "Indoor ride"];
   if (t.sport === "swim") {
     const loc = meta.HKSwimmingLocationType;
-    sub = loc === 1 ? "pool" : loc === 2 ? "open_water" : sub;
+    if (loc === 1) [sub, name] = ["pool", "Pool swim"];
+    if (loc === 2) [sub, name] = ["open_water", "Open water swim"];
   }
-  return { sport: t.sport, subSport: sub };
+  return { sport: t.sport, subSport: sub, kind: t.kind ?? "training", name };
 }
 
 const num = (v: unknown, want?: string[]): number | null => {
@@ -107,7 +132,8 @@ function percent(v: unknown): number | null {
 }
 
 const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null);
-const round = (x: number | null, d = 0) => (x === null ? null : Math.round(x * 10 ** d) / 10 ** d);
+const round = (x: number | null, d = 0) =>
+  x === null || Number.isNaN(x) ? null : Math.round(x * 10 ** d) / 10 ** d;
 
 function values(dump: HealthKitDump, key: string): number[] {
   return dump.samples[key]?.values.map((s) => s[2]) ?? [];
@@ -127,8 +153,7 @@ export function sumIn(dump: HealthKitDump, key: string, from: number, to: number
 function meanIn(dump: HealthKitDump, key: string, from: number, to: number): number | null {
   const vs = (dump.samples[key]?.values ?? []).filter(([s, e]) =>
     (s + e) / 2 >= from && (s + e) / 2 < to
-  )
-    .map((x) => x[2]);
+  ).map((x) => x[2]);
   return avg(vs);
 }
 
@@ -172,7 +197,7 @@ export function lapsOf(dump: HealthKitDump): Lap[] {
     }));
 }
 
-/** Seconds of pause (pause→resume pairs) — moving time = elapsed − paused. */
+/** Seconds of pause (pause→resume pairs). */
 function pausedSec(dump: HealthKitDump): number {
   let paused = 0;
   let since: number | null = null;
@@ -189,27 +214,71 @@ function pausedSec(dump: HealthKitDump): number {
   return paused;
 }
 
+/** Below this speed you are standing (waiting at a start line counts as not moving; walking does). */
+const MOVING_MIN_SPEED: Record<string, number> = { run: 0.5, other: 0.5, bike: 1.0 };
+
+/**
+ * Moving time from distance samples: sum of sample intervals whose speed ≥ threshold.
+ * Falls back to elapsed − explicit pauses when there are no distance samples.
+ */
+function movingTime(dump: HealthKitDump, sport: string, subSport: string | null): {
+  sec: number;
+  basis: string;
+} {
+  const elapsed = dump.workout.durationSec;
+  const fallback = { sec: Math.max(0, elapsed - pausedSec(dump)), basis: "elapsed − pauses" };
+  if (sport === "swim") {
+    // Each distance sample is a length swum; rests between lengths have no samples.
+    const lengths = dump.samples.distanceSwimming?.values ?? [];
+    if (!lengths.length) return fallback;
+    const swim = lengths.reduce((a, [s, e]) => a + Math.max(0, e - s), 0);
+    return { sec: Math.min(swim, elapsed), basis: "sum of swim lengths (rests excluded)" };
+  }
+  const virtual = subSport === "indoor_bike" || subSport === "treadmill";
+  const series = dump.samples[distanceKey(sport)]?.values ?? [];
+  if (virtual || series.length < 10 || sport === "strength") return fallback;
+  const min = MOVING_MIN_SPEED[sport] ?? 0.5;
+  let sec = 0;
+  for (const [s, e, v] of series) {
+    const d = e - s;
+    if (d > 0 && v / d >= min) sec += d;
+  }
+  return { sec: Math.min(sec, elapsed), basis: `distance samples with speed ≥ ${min} m/s` };
+}
+
 export function summarize(dump: HealthKitDump) {
-  const { sport, subSport } = sportOf(dump);
+  const { sport, subSport, kind, name } = sportOf(dump);
   const w = dump.workout;
   const meta = w.metadata;
-  const duration = w.durationSec;
-  const moving = Math.max(0, duration - pausedSec(dump));
-  const distance = w.totalDistanceM ??
-    (dump.samples[distanceKey(sport)] ? sumIn(dump, distanceKey(sport), 0, duration) : null);
+  const elapsed = w.durationSec;
+  const moving = movingTime(dump, sport, subSport);
+  const dk = distanceKey(sport);
+  const distance = w.totalDistanceM ?? (dump.samples[dk] ? sumIn(dump, dk, 0, elapsed) : null);
   const hr = values(dump, "heartRate");
   const km = distance ? distance / 1000 : null;
+  const footSport = sport === "run" || subSport === "walk" || subSport === "hike";
+  const timezone = typeof meta.HKTimeZone === "string" ? meta.HKTimeZone : null;
+  const hasDetail = hr.length > 0 || dump.route.length > 0;
+  const virtualDistance = subSport === "indoor_bike" || subSport === "treadmill";
   return {
+    v: SUMMARY_VERSION,
     sport,
     subSport,
-    durationSec: Math.round(duration),
-    movingSec: Math.round(moving),
+    kind,
+    name,
+    startLocal: timezone ? localParts(new Date(w.start), timezone).time : null,
+    elapsedSec: Math.round(elapsed),
+    movingSec: Math.round(moving.sec),
+    movingBasis: moving.basis,
     distanceM: round(distance, 1),
-    paceSecPerKm: (sport === "run" || subSport === "walk" || subSport === "hike") && km
-      ? Math.round(moving / km)
+    distanceKind: distance === null ? null : virtualDistance ? "virtual" : "measured",
+    paceSecPerKm: footSport && km ? Math.round(moving.sec / km) : null,
+    paceElapsedSecPerKm: footSport && km ? Math.round(elapsed / km) : null,
+    paceSecPer100m: sport === "swim" && distance ? Math.round(moving.sec / (distance / 100)) : null,
+    paceWithRestsSecPer100m: sport === "swim" && distance
+      ? Math.round(elapsed / (distance / 100))
       : null,
-    paceSecPer100m: sport === "swim" && distance ? Math.round(moving / (distance / 100)) : null,
-    speedKmh: sport === "bike" && km ? round(km / (moving / 3600), 1) : null,
+    speedKmh: sport === "bike" && km ? round(km / (moving.sec / 3600), 1) : null,
     hr: hr.length
       ? { avg: round(avg(hr)), max: Math.round(Math.max(...hr)), samples: hr.length }
       : null,
@@ -217,10 +286,10 @@ export function summarize(dump: HealthKitDump) {
       num(meta.HKElevationAscended, ["m"]) ??
         ((num(meta.HKElevationAscended, ["cm"]) ?? NaN) / 100),
       1,
-    ) ?? null,
+    ),
     energyKcal: round(
       w.totalEnergyKcal ??
-        (dump.samples.activeEnergyBurned ? sumIn(dump, "activeEnergyBurned", 0, duration) : null),
+        (dump.samples.activeEnergyBurned ? sumIn(dump, "activeEnergyBurned", 0, elapsed) : null),
     ),
     weather: meta.HKWeatherTemperature !== undefined || meta.HKWeatherHumidity !== undefined
       ? {
@@ -229,6 +298,8 @@ export function summarize(dump: HealthKitDump) {
       }
       : null,
     indoor: meta.HKIndoorWorkout === true || meta.HKIndoorWorkout === 1,
+    /** summary_only: the source wrote totals without samples (e.g. Strava copies). */
+    detail: hasDetail ? "full" : "summary_only",
     running: sport === "run"
       ? {
         powerAvg: round(avg(values(dump, "runningPower"))),
@@ -250,19 +321,30 @@ export function summarize(dump: HealthKitDump) {
     swim: sport === "swim"
       ? {
         poolLengthM: num(meta.HKLapLength, ["m"]),
+        lengths: dump.samples.distanceSwimming?.values.length ?? null,
         strokes: dump.samples.swimmingStrokeCount
-          ? Math.round(sumIn(dump, "swimmingStrokeCount", 0, duration))
+          ? Math.round(sumIn(dump, "swimmingStrokeCount", 0, elapsed))
           : null,
+        paceConfidence:
+          "medium — the watch detects lengths and rests itself; check against your log",
       }
       : undefined,
     routePoints: dump.route.length,
     device: w.device?.name ?? w.device?.model ?? null,
     sourceApp: w.source.name,
     sourceBundle: w.source.bundleId,
-    timezone: typeof meta.HKTimeZone === "string" ? meta.HKTimeZone : null,
+    timezone,
   };
 }
 export type Summary = ReturnType<typeof summarize>;
+
+/** Default title when neither the athlete nor the coach named the activity. */
+export function defaultTitle(s: Summary): string {
+  const km = s.distanceM && s.distanceKind === "measured"
+    ? ` ${(s.distanceM / 1000).toFixed(1)} km`
+    : "";
+  return `${s.name}${km}`;
+}
 
 /** Lower = preferred source when two records describe the same session. */
 export function sourcePriority(bundleId: string): number {

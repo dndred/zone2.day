@@ -8,6 +8,7 @@ import type { AppEnv } from "./http.ts";
 import { log } from "./log.ts";
 import { handleMcpRequest } from "./mcp/server.ts";
 import { syncRoutes } from "./sync/routes.ts";
+import { jobRoutes } from "./jobs/routes.ts";
 
 export type { AppEnv } from "./http.ts";
 
@@ -81,6 +82,7 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
 
     app.route("/", authRoutes(config, deps));
     app.route("/", syncRoutes(config, deps));
+    app.route("/", jobRoutes(config, deps));
 
     app.all("/mcp", async (c) => {
       const result = await verifyBearer(deps.store, c.req.header("authorization"), {

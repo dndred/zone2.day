@@ -381,6 +381,10 @@
           },
           "includeDuplicates": {
             "type": "boolean"
+          },
+          "includeRecovery": {
+            "description": "Also list non-training sessions (mind & body, yoga, flexibility, cooldown)",
+            "type": "boolean"
           }
         }
       }

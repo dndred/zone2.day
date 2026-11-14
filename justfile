@@ -119,7 +119,8 @@ deploy-secrets target="staging": (_guard target)
       ZONE2_ENV={{target}} \
       ZONE2_PUBLIC_BASE_URL={{ if target == "prod" { "https://api.zone2.day" } else { "https://api-staging.zone2.day" } }} \
       ZONE2_RP_ID=zone2.day \
-      ZONE2_SECRET_KEY="$(tools/secret.sh {{target}} secret_key)"
+      ZONE2_SECRET_KEY="$(tools/secret.sh {{target}} secret_key)" \
+      ZONE2_JOB_SECRET="$(tools/secret.sh {{target}} job_secret)"
 
 # Put CI deploy secrets into GitHub (SUPABASE_ACCESS_TOKEN must be in .env.staging.local first)
 gh-secrets:
@@ -152,6 +153,18 @@ cache-secrets:
     } > .env.staging.local
     chmod 600 .env.staging.local
     echo "cached → .env.staging.local"
+
+# Run a maintenance job until done, e.g. just job recompute-summaries
+job name target="staging": (_guard target)
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    base={{ if target == "prod" { "https://api.zone2.day" } else { "https://api-staging.zone2.day" } }}
+    secret=$(tools/secret.sh {{target}} job_secret)
+    while true; do
+      out=$(curl -fsS --max-time 120 -X POST "$base/jobs/{{name}}" -H "x-zone2-job-secret: $secret")
+      echo "$out"
+      [[ $(echo "$out" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('remaining',0) > 0 and d.get('processed',0) > 0)") == True ]] || break
+    done
 
 # Apply supabase/migrations to a remote database
 db-push target="staging": (_guard target)
