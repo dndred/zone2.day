@@ -107,6 +107,7 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
         config,
         auth: result.auth,
         store: deps.store,
+        docs: deps.docs,
         now: deps.now,
       });
     });

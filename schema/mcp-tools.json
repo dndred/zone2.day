@@ -1,0 +1,904 @@
+{
+  "tools": [
+    {
+      "name": "copy_planned_workouts",
+      "title": "Copy planned workouts",
+      "description": "Copy workouts with exact structure/notes/tags: either specific `ids` or everything in `fromDate..toDate`, shifted by `shiftDays` (e.g. 7 = repeat last week). Adds, never replaces. Use for recurring sessions like gym A/B.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "ids": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "fromDate": {
+            "type": "string"
+          },
+          "toDate": {
+            "type": "string"
+          },
+          "shiftDays": {
+            "type": "integer",
+            "minimum": -365,
+            "maximum": 365
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "shiftDays",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "delete_event",
+      "title": "Delete event",
+      "description": "Delete an event (soft, undo with revert_change). Prefer status 'cancelled' to keep history.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "id",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "delete_notebook",
+      "title": "Delete notebook page",
+      "description": "Delete a page (soft, undo with revert_change).",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "slug",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "delete_planned_workouts",
+      "title": "Delete planned workouts",
+      "description": "Remove workouts from the plan (soft delete, undo with revert_change).",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "ids": {
+            "minItems": 1,
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "ids",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "get_changes",
+      "title": "Get change log",
+      "description": "Who changed what and why (all AI clients and the app). Use to see what another chat did, or to find a changeId for revert_change.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "since": {
+            "type": "string",
+            "format": "date-time",
+            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$"
+          },
+          "entity": {
+            "type": "string",
+            "enum": [
+              "profile",
+              "week",
+              "planned_workout",
+              "event",
+              "journal",
+              "notebook_page"
+            ]
+          },
+          "entityId": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        }
+      }
+    },
+    {
+      "name": "get_context",
+      "title": "Get coaching context",
+      "description": "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "days": {
+            "description": "Plan horizon ahead, default 7",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 21
+          }
+        }
+      }
+    },
+    {
+      "name": "get_plan",
+      "title": "Get plan",
+      "description": "Weeks (title/header/review) → days → planned workouts (id, order, status, estimate, last change with why) for a date range, plus events in range. Max 62 days. Use include_structure only when you need step details.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "include_structure": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "from",
+          "to"
+        ]
+      }
+    },
+    {
+      "name": "get_planned_workout",
+      "title": "Get planned workout",
+      "description": "Full planned workout: structure, targets resolved to absolute values (what the watch gets), estimate, notes, change history. Read this before editing a workout.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
+      "name": "get_profile",
+      "title": "Get athlete profile",
+      "description": "Thresholds (number or range with basis), zones, home time zone and travel periods, equipment, notes.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "list_events",
+      "title": "List events",
+      "description": "Races and race ideas. status: idea (interesting, no decision) | planned | registered | done | dnf | cancelled. Inexact dates come as a window dateFrom..dateTo with datePrecision and the athlete's own words in dateText.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "status": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "idea",
+                "planned",
+                "registered",
+                "done",
+                "dnf",
+                "cancelled"
+              ]
+            }
+          },
+          "includePast": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_journal",
+      "title": "List journal",
+      "description": "Athlete journal: days without activity, symptoms (tags: migraine, soreness, pain, illness, sleep, stress), travel, gear, bike-fit, open questions. open=true → entries with a due date that are not closed.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "open": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "list_notebook",
+      "title": "List notebook",
+      "description": "Your long-term notebook about the athlete (markdown pages). Pinned pages are included verbatim in get_context. Suggested pages: athlete, principles, health (pinned); fuel, season, agreements.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "ping",
+      "title": "Ping zone2.day",
+      "description": "Checks the connection to zone2.day. Returns server time, environment, build version and the signed-in athlete. Use when the athlete asks whether the connection works or when other tools fail unexpectedly. No side effects.",
+      "annotations": {
+        "readOnlyHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
+      "name": "plan_workouts",
+      "title": "Plan workouts",
+      "description": "Create workouts (≤40, atomic: all or nothing). Applies immediately and syncs to the athlete's phone and watch; every change is in get_changes and can be undone with revert_change. Use dryRun to validate first. Structure grammar: see the `structure` field.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "items": {
+            "minItems": 1,
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "date": {
+                  "type": "string"
+                },
+                "order": {
+                  "description": "Position within the day (0 first). Default: after existing workouts of that day.",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 20
+                },
+                "sport": {
+                  "type": "string",
+                  "enum": [
+                    "run",
+                    "bike",
+                    "swim",
+                    "strength",
+                    "other"
+                  ]
+                },
+                "subSport": {
+                  "description": "e.g. indoor_bike, trail, track, treadmill, pool, open_water",
+                  "type": "string",
+                  "maxLength": 30
+                },
+                "title": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "goal": {
+                  "description": "The quality this session trains, not logistics.",
+                  "type": "string",
+                  "maxLength": 140
+                },
+                "notes": {
+                  "description": "How to execute, fueling, cues.",
+                  "type": "string",
+                  "maxLength": 1000
+                },
+                "key": {
+                  "type": "boolean"
+                },
+                "tags": {
+                  "description": "Context: indoor, heat, race, test, group, commute, openwater …",
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 30
+                  }
+                },
+                "notebookRefs": {
+                  "maxItems": 10,
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "execution": {
+                  "description": "workoutkit (default for run/bike/swim) | mywhoosh (indoor bike) | none (strength/other)",
+                  "type": "string",
+                  "enum": [
+                    "workoutkit",
+                    "zone2_watch",
+                    "mywhoosh",
+                    "none"
+                  ]
+                },
+                "structure": {
+                  "description": "structure (run/bike/swim): {steps:[Step|Repeat]}.\nStep = {type:\"step\", id, kind: warmup|work|recovery|rest|cooldown|drill, label?, duration, target?, secondary?[], note?}.\nduration = {type:\"time\", sec} | {type:\"distance\", m} | {type:\"open\", estimateSec?} — \"open\" = no fixed length, ends on Lap.\ntarget = {metric: hr|pace|power|speed|cadence|rpe, low?, high?, unit: abs|pct_threshold}. abs units: bpm, pace sec/km (swim sec/100m), W.\nThe main target is what the watch guides by; put HR corridors on easy steps. Repeat = {type:\"repeat\", id, count, steps:[Step]}.\nstructure (strength): {items:[{type:\"exercise\", id, exercise, sets, reps, weightKg|null, rpe?, holdSec?, perSide?, note?} | {type:\"superset\", id, rounds, items:[…]}]}.\nweightKg null = by feel. Never invent weights: take them from history or leave null + RPE.",
+                  "type": "object",
+                  "propertyNames": {
+                    "type": "string"
+                  },
+                  "additionalProperties": {}
+                }
+              },
+              "required": [
+                "date",
+                "sport",
+                "title"
+              ]
+            }
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "read_notebook",
+      "title": "Read notebook page",
+      "description": "Full page content.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ]
+      }
+    },
+    {
+      "name": "revert_change",
+      "title": "Revert a change",
+      "description": "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Later edits of the same item are overwritten — the result says how many.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "changeId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "changeId",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "update_planned_workout",
+      "title": "Update planned workout",
+      "description": "Edit one workout in place (partial patch). Move = change `date`. Skip = `skipped: {reason}`; un-skip = `skipped: null`. Replacing a workout = delete it and plan a new one. Read get_planned_workout first.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "patch": {
+            "type": "object",
+            "properties": {
+              "date": {
+                "type": "string"
+              },
+              "order": {
+                "description": "Position within the day (0 first). Default: after existing workouts of that day.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 20
+              },
+              "sport": {
+                "type": "string",
+                "enum": [
+                  "run",
+                  "bike",
+                  "swim",
+                  "strength",
+                  "other"
+                ]
+              },
+              "subSport": {
+                "description": "e.g. indoor_bike, trail, track, treadmill, pool, open_water",
+                "type": "string",
+                "maxLength": 30
+              },
+              "title": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              "goal": {
+                "description": "The quality this session trains, not logistics.",
+                "type": "string",
+                "maxLength": 140
+              },
+              "notes": {
+                "description": "How to execute, fueling, cues.",
+                "type": "string",
+                "maxLength": 1000
+              },
+              "key": {
+                "type": "boolean"
+              },
+              "tags": {
+                "description": "Context: indoor, heat, race, test, group, commute, openwater …",
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "maxLength": 30
+                }
+              },
+              "notebookRefs": {
+                "maxItems": 10,
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "execution": {
+                "description": "workoutkit (default for run/bike/swim) | mywhoosh (indoor bike) | none (strength/other)",
+                "type": "string",
+                "enum": [
+                  "workoutkit",
+                  "zone2_watch",
+                  "mywhoosh",
+                  "none"
+                ]
+              },
+              "structure": {
+                "description": "Whole new structure; same grammar as plan_workouts.structure.",
+                "type": "object",
+                "propertyNames": {
+                  "type": "string"
+                },
+                "additionalProperties": {}
+              },
+              "skipped": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "reason": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      }
+                    },
+                    "required": [
+                      "reason"
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "id",
+          "patch",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "update_profile",
+      "title": "Update athlete profile",
+      "description": "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list. Thresholds: number or {low, high, basis}. Zones: explicit boundaries with zoneModel 'custom'. Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "patch": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "Fields to change, e.g. {timezone:'Asia/Barnaul'} or {run:{lthr:{low:156,high:162,basis:'…'}}} or {travel:[{from,to,timezone,note}]}"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "patch",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "upsert_event",
+      "title": "Create or update event",
+      "description": "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Notes (≤20000, markdown) hold race plan, pacing, fueling. Put place in name/notes.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "fields": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {},
+            "description": "Event fields: name, sport, status, datePrecision, dateFrom, dateTo, dateText, startTime, timezone, distanceM, format, priority, goal, url, notes, result, notebookRefs"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "fields"
+        ]
+      }
+    },
+    {
+      "name": "upsert_week",
+      "title": "Write week header/review",
+      "description": "Week-level notes: `title` (one line, e.g. 'БАЗА — неделя 1'), `header` (markdown: vector, what is frozen, rules of the week), `review` (markdown: how the week went). Partial update; weekStart must be a Monday.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "weekStart": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "header": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "review": {
+            "type": "string",
+            "maxLength": 4000
+          },
+          "notebookRefs": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "weekStart"
+        ]
+      }
+    },
+    {
+      "name": "write_journal",
+      "title": "Write journal entry",
+      "description": "Create (no id) or update a journal entry. An entry with `due` stays open (shown in get_context) until closed with close=true. Write the athlete's facts in their words.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "date": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 4000
+          },
+          "tags": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 30
+            }
+          },
+          "activityId": {
+            "type": "string"
+          },
+          "eventId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "gearId": {
+            "type": "string"
+          },
+          "due": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "close": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    {
+      "name": "write_notebook",
+      "title": "Write notebook page",
+      "description": "Create or change a page. mode: replace (content = whole page) | append (content added at the end) | patch (replace exact text `find` with `content`). Pages sync to the athlete's phone (readable offline). Warns when pinned pages exceed the get_context budget.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "content": {
+            "type": "string",
+            "maxLength": 20000
+          },
+          "mode": {
+            "default": "replace",
+            "type": "string",
+            "enum": [
+              "replace",
+              "append",
+              "patch"
+            ]
+          },
+          "find": {
+            "type": "string"
+          },
+          "pinned": {
+            "type": "boolean"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "slug",
+          "content"
+        ]
+      }
+    }
+  ]
+}

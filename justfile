@@ -32,7 +32,11 @@ test: test-backend test-kit
 
 # Backend + edge proxy tests (Deno); DB tests use a throwaway database in the test container
 test-backend: test-db-up
-    deno test {{deno_perms}}
+    deno test {{deno_perms}} --allow-write=/tmp
+
+# Accept MCP contract changes into schema/mcp-tools.json (review the diff!)
+mcp-snapshot-update: test-db-up
+    UPDATE_MCP_SNAPSHOT=1 deno test {{deno_perms}} --allow-write backend/tests/mcp_contract_test.ts
 
 # Start the Postgres container used by tests (localhost:54329, image postgres:13)
 test-db-up:
