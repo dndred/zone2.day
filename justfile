@@ -130,6 +130,7 @@ gh-secrets:
     [[ -n $token ]] || { echo "add ZONE2_SUPABASE_ACCESS_TOKEN to .env.staging.local"; exit 1; }
     print -rn -- "$token" | gh secret set SUPABASE_ACCESS_TOKEN
     tools/secret.sh staging db_password | gh secret set STAGING_DB_PASSWORD
+    tools/secret.sh staging job_secret | gh secret set STAGING_JOB_SECRET
     gh secret list
 
 # Create the 1Password item with app secrets for a target (once)
@@ -154,7 +155,7 @@ cache-secrets:
     chmod 600 .env.staging.local
     echo "cached → .env.staging.local"
 
-# Run a maintenance job until done, e.g. just job recompute-summaries
+# Run a maintenance job until done (CI runs data-migrations after each deploy), e.g. just job data-migrations
 job name target="staging": (_guard target)
     #!/usr/bin/env zsh
     set -euo pipefail

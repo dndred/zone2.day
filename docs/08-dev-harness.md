@@ -89,7 +89,8 @@
 
 - **Каждый push и PR:** `deno check`, `deno lint`, `deno fmt --check`, все тесты бэкенда и прокси на Postgres 17 (service-контейнер, как в Supabase).
 - **Push в `main` → деплой staging** после зелёных тестов: `supabase db push` (миграции), сборка бандла в Docker на раннере, деплой функции с вшитой версией (`BUILD_VERSION` = sha), смоук: `/health` должен отдать этот sha.
-- **Секреты репозитория:** `SUPABASE_ACCESS_TOKEN` (персональный токен Supabase для CI), `STAGING_DB_PASSWORD`. Ставятся `just gh-secrets`.
+- **Миграции данных** (D40) — сразу после деплоя: CI вызывает `POST /jobs/data-migrations` пачками, пока `remaining` не станет 0. Это пересчёт производных данных при изменении кода (например, сводок активностей из сохранённых оригиналов при росте `SUMMARY_VERSION`). Каждая миграция идемпотентна и сама знает, что устарело; новые добавляются в `backend/src/jobs/data_migrations.ts`. Вручную: `just job data-migrations`.
+- **Секреты репозитория:** `SUPABASE_ACCESS_TOKEN` (персональный токен Supabase для CI), `STAGING_DB_PASSWORD`, `STAGING_JOB_SECRET`. Ставятся `just gh-secrets`.
 - Рантайм-секреты функции (ключ подписи и т.п.) CI не трогает — `just deploy-secrets` при изменении.
 - Prod — позже, ручным запуском (`workflow_dispatch`) с GitHub Environment `production`.
 - **iOS в CI не собирается — по решению**: установка на телефон всё равно только локальная (`just ios-device`, Personal Team). Проверки — локально: `just test-kit`, `just ios-build`.

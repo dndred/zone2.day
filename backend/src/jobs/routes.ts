@@ -1,12 +1,11 @@
-// Maintenance jobs, called by a scheduler (pg_cron later) or `just` recipes. Shared secret header.
+// Maintenance jobs, called by CI after deploys (data migrations) and later by a scheduler.
+// Protected by a shared secret header; without ZONE2_JOB_SECRET the routes do not exist.
 import { Hono } from "@hono/hono";
 import { timingSafeEqual } from "../auth/crypto.ts";
 import type { Config } from "../config.ts";
 import type { AppDeps } from "../deps.ts";
-import { SUMMARY_VERSION } from "../domain/healthkit.ts";
 import type { AppEnv } from "../http.ts";
-import { ingestHealthKit } from "../ingest/healthkit.ts";
-import { log } from "../log.ts";
+import { runDataMigrations } from "./data_migrations.ts";
 
 export function jobRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -19,29 +18,10 @@ export function jobRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
     await next();
   });
 
-  /** Rebuild summaries computed by an older summarize() from the stored originals. Batch per call. */
-  app.post("/jobs/recompute-summaries", async (c) => {
-    const limit = Math.min(Number(c.req.query("limit") ?? 10), 50);
-    const { items, remaining } = await deps.activities.outdatedSummaries(SUMMARY_VERSION, limit);
-    let done = 0;
-    const failed: string[] = [];
-    for (const item of items) {
-      try {
-        const raw = await deps.blobs.get(item.key);
-        if (!raw) throw new Error("original missing");
-        await ingestHealthKit(deps, item.userId, raw, { storeOriginal: false });
-        done++;
-      } catch (err) {
-        failed.push(item.id);
-        log("warn", "job.recompute_failed", { activityId: item.id, error: String(err) });
-      }
-    }
-    return c.json({
-      processed: done,
-      failed,
-      remaining: remaining - done,
-      version: SUMMARY_VERSION,
-    });
+  /** One batch of every pending data migration. Call until `remaining` is 0. */
+  app.post("/jobs/data-migrations", async (c) => {
+    const budget = Math.min(Number(c.req.query("batch") ?? 10), 50);
+    return c.json(await runDataMigrations(deps, budget));
   });
 
   return app;

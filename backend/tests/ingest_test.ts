@@ -1,4 +1,4 @@
-import { assert, assertAlmostEquals, assertEquals, assertExists } from "@std/assert";
+import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
 import { HealthKitDump, lapsOf, summarize } from "../src/domain/healthkit.ts";
 import { gzip } from "../src/ingest/healthkit.ts";
 import { makeDump } from "./helpers/dump.ts";
@@ -234,7 +234,7 @@ Deno.test("contract fixture (shared with Swift tests) parses and summarizes", as
   assertEquals(lapsOf(dump).length, 2);
 });
 
-Deno.test("job: recompute outdated summaries from stored originals", async () => {
+Deno.test("data migrations: outdated summaries are rebuilt from stored originals", async () => {
   const h = await mcpHarness();
   try {
     const res =
@@ -242,15 +242,22 @@ Deno.test("job: recompute outdated summaries from stored originals", async () =>
         .json();
     await h.db
       .sql`update zone2.activities set summary = summary - 'v' || '{"legacy": true}' where id = ${res.activityId}`;
-    const denied = await h.app.request("/jobs/recompute-summaries", { method: "POST" });
+    const denied = await h.app.request("/jobs/data-migrations", { method: "POST" });
     assertEquals(denied.status, 404);
-    const run = await h.app.request("/jobs/recompute-summaries", {
+    const run = await h.app.request("/jobs/data-migrations", {
       method: "POST",
       headers: { "x-zone2-job-secret": "j".repeat(40) },
     });
     const out = await run.json();
     assertEquals(out.processed, 1);
     assertEquals(out.remaining, 0);
+    assertEquals(out.migrations[0].name, "activity-summaries-v2");
+    // Idempotent: a second call has nothing to do.
+    const again = await (await h.app.request("/jobs/data-migrations", {
+      method: "POST",
+      headers: { "x-zone2-job-secret": "j".repeat(40) },
+    })).json();
+    assertEquals(again.processed, 0);
     const [row] = await h.db.sql`select summary from zone2.activities where id = ${res.activityId}`;
     assertEquals(row.summary.v, 2);
     assertEquals(row.summary.legacy, undefined);
