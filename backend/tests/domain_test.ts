@@ -104,7 +104,12 @@ Deno.test("planned workout validates structure per sport", () => {
     execution: "workoutkit",
   };
   assert(PlannedWorkout.safeParse({ ...base, structure: hill }).success);
-  const r = PlannedWorkout.safeParse({ ...base, sport: "strength", structure: hill });
+  const r = PlannedWorkout.safeParse({
+    ...base,
+    sport: "strength",
+    execution: "none",
+    structure: hill,
+  });
   assert(!r.success);
   assertEquals(r.error!.issues[0].path[0], "structure");
 });

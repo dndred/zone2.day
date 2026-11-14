@@ -236,7 +236,7 @@
     {
       "name": "get_planned_workout",
       "title": "Get planned workout",
-      "description": "Full planned workout: structure, targets resolved to absolute values (what the watch gets), estimate, notes, change history. Read this before editing a workout.",
+      "description": "Full planned workout: status, structure, targets resolved to absolute values (what the watch gets; unresolved ones are flagged), estimate, notes, change history. Deleted workouts are returned with deleted:true and their history so they can be restored with revert_change. Read this before editing a workout.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

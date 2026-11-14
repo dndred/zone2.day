@@ -10,10 +10,10 @@ import {
   Sport,
   Week,
 } from "../../domain/entities.ts";
-import { estimate, resolveStructure } from "../../domain/plan.ts";
+import { estimate, resolveStructure, unresolvedTargets } from "../../domain/plan.ts";
 import { addDays, daysBetween, mondayOf } from "../../domain/time.ts";
 import type { McpContext } from "../server.ts";
-import { defineTool, ToolError, Why } from "../util.ts";
+import { defineTool, parseItem, ToolError, Why } from "../util.ts";
 
 const STRUCTURE_HELP = `structure (run/bike/swim): {steps:[Step|Repeat]}.
 Step = {type:"step", id, kind: warmup|work|recovery|rest|cooldown|drill, label?, duration, target?, secondary?[], note?}.
@@ -118,14 +118,19 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_planned_workout", {
     title: "Get planned workout",
     description:
-      "Full planned workout: structure, targets resolved to absolute values (what the watch gets), estimate, notes, change history. Read this before editing a workout.",
+      "Full planned workout: status, structure, targets resolved to absolute values (what the watch gets; unresolved ones are flagged), estimate, notes, change history. Deleted workouts are returned with deleted:true and their history so they can be restored with revert_change. Read this before editing a workout.",
     input: { id: z.uuid() },
     readOnly: true,
   }, async ({ id }, env) => {
-    const doc = await ctx.docs.get<PlannedWorkout>(env.userId, "planned_workout", id);
+    const doc = await ctx.docs.getIncludingDeleted<PlannedWorkout>(
+      env.userId,
+      "planned_workout",
+      id,
+    );
     if (!doc) throw new ToolError("not_found", `planned workout ${id} not found`);
     const profile = await env.profile();
     const w = doc.data;
+    const status = doc.deletedAt ? "deleted" : w.skipped ? "skipped" : "planned";
     const history = await ctx.docs.changes(env.userId, {
       entity: "planned_workout",
       entityId: id,
@@ -133,6 +138,8 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     });
     return {
       workout: { ...w, version: doc.version },
+      status,
+      ...(doc.deletedAt ? { deleted: true, deletedAt: doc.deletedAt } : {}),
       resolved: w.structure && w.sport !== "strength"
         ? resolveStructure(w.structure, w.sport, profile)
         : undefined,
@@ -161,20 +168,27 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
   }, async ({ items, why, dryRun }, env) => {
     const prepared: PlannedWorkout[] = [];
     const orderByDate = new Map<string, number>();
-    for (const item of items) {
+    for (const [index, item] of items.entries()) {
       let order = item.order;
       if (order === undefined) {
         order = orderByDate.get(item.date) ?? await nextOrder(ctx, env.userId, item.date);
         orderByDate.set(item.date, order + 1);
       }
-      prepared.push(PlannedWorkout.parse({
+      prepared.push(parseItem(PlannedWorkout, {
         ...item,
         id: crypto.randomUUID(),
         order,
         execution: item.execution ?? defaultExecution(item.sport, item.subSport),
-      }));
+      }, index));
     }
-    if (dryRun) return { dryRun: true, valid: prepared.length };
+    const profile = await env.profile();
+    const warnings = prepared.flatMap((w, item) =>
+      w.structure && w.sport !== "strength"
+        ? unresolvedTargets(w.structure, w.sport, profile).map((u) => ({ item, ...u }))
+        : []
+    );
+    const warn = warnings.length ? { warnings } : {};
+    if (dryRun) return { dryRun: true, valid: prepared.length, ...warn };
     const meta = await env.meta("plan_workouts", why);
     const results = await ctx.docs.transaction(async (tx) => {
       const out = [];
@@ -190,6 +204,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
         date: prepared[i].date,
         title: prepared[i].title,
       })),
+      ...warn,
     };
   });
 
@@ -218,11 +233,15 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
       next.order = await nextOrder(ctx, env.userId, rest.date);
     }
     const w = PlannedWorkout.parse(next);
+    const unresolved = w.structure && w.sport !== "strength"
+      ? unresolvedTargets(w.structure, w.sport, await env.profile())
+      : [];
     const meta = await env.meta("update_planned_workout", why);
     const r = await ctx.docs.transaction((tx) =>
       ctx.docs.mutate(tx, env.userId, "planned_workout", id, w, meta)
     );
     return {
+      ...(unresolved.length ? { warnings: unresolved } : {}),
       updated: {
         id,
         changeId: r.changeId,
@@ -277,13 +296,13 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     } else throw new ToolError("bad_request", "give ids or fromDate+toDate");
     if (source.length === 0) throw new ToolError("not_found", "nothing to copy");
     const meta = await env.meta("copy_planned_workouts", why);
-    const copies = source.map((d) => {
+    const copies = source.map((d, index) => {
       const { skipped: _skipped, ...rest } = d.data;
-      return PlannedWorkout.parse({
+      return parseItem(PlannedWorkout, {
         ...rest,
         id: crypto.randomUUID(),
         date: addDays(d.data.date, shiftDays),
-      });
+      }, index);
     });
     const results = await ctx.docs.transaction(async (tx) => {
       const out = [];
@@ -293,7 +312,12 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
       return out;
     });
     return {
-      created: results.map((r, i) => ({ id: r.id, date: copies[i].date, title: copies[i].title })),
+      created: results.map((r, i) => ({
+        id: r.id,
+        changeId: r.changeId,
+        date: copies[i].date,
+        title: copies[i].title,
+      })),
     };
   });
 

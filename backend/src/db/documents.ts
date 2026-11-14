@@ -89,6 +89,14 @@ export class DocumentStore {
     return row ? toDoc<T>(row) : null;
   }
 
+  /** Like get, but also returns soft-deleted documents (deletedAt set). */
+  async getIncludingDeleted<T>(userId: string, entity: Entity, id: string) {
+    const [row] = await this.sql`
+      select id, data, version, deleted_at, updated_at from zone2.documents
+      where user_id = ${userId} and entity = ${entity} and id = ${id}`;
+    return row ? toDoc<T>(row) : null;
+  }
+
   async getMany<T>(userId: string, entity: Entity, ids: string[]) {
     if (ids.length === 0) return [];
     const rows = await this.sql`
@@ -123,11 +131,14 @@ export class DocumentStore {
     id: string,
     next: unknown | null,
     meta: ChangeMeta,
+    opts: { implicitBefore?: unknown } = {},
   ): Promise<ChangeResult> {
     const [cur] = await tx`
       select data, version, deleted_at from zone2.documents
       where user_id = ${userId} and entity = ${entity} and id = ${id} for update`;
-    const before = cur && !cur.deleted_at ? cur.data : null;
+    // implicitBefore: documents that conceptually always exist (the profile with defaults) —
+    // their first write is an update of the defaults, and reverting it restores the defaults.
+    const before = cur && !cur.deleted_at ? cur.data : (opts.implicitBefore ?? null);
     let op: ChangeResult["op"];
     let version: number;
 
@@ -152,6 +163,7 @@ export class DocumentStore {
       op = before ? "update" : "create";
       version = r.version;
     }
+    if (op === "create" && opts.implicitBefore !== undefined) op = "update";
 
     const [change] = await tx`
       insert into zone2.change_log (user_id, actor, tool, entity, entity_id, op, before, after, why)
@@ -213,10 +225,12 @@ export class DocumentStore {
       if (entry.revertedBy) {
         throw new ConflictError(`change already reverted by ${entry.revertedBy}`);
       }
+      // Compare in SQL: JS Date drops Postgres microseconds and would count the change itself.
       const [later] = await tx`
-        select count(*)::int as n from zone2.change_log
-        where user_id = ${userId} and entity = ${entry.entity} and entity_id = ${entry.entityId}
-          and at > ${entry.at}`;
+        select count(*)::int as n from zone2.change_log c
+        where c.user_id = ${userId} and c.entity = ${entry.entity} and c.entity_id = ${entry.entityId}
+          and c.id <> ${changeId}
+          and c.at >= (select at from zone2.change_log where id = ${changeId})`;
       const result = await this.mutate(
         tx,
         userId,

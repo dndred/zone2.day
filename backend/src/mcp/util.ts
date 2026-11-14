@@ -17,6 +17,8 @@ export interface ToolEnv {
   ctx: McpContext;
   userId: string;
   profile(): Promise<Profile>;
+  /** Replace the cached profile after update_profile so `now` reflects the new time zone. */
+  setProfile(p: Profile): void;
   now(): Promise<AthleteNow>;
   meta(tool: string, why?: string | null): Promise<ChangeMeta>;
 }
@@ -32,6 +34,9 @@ function makeEnv(ctx: McpContext): ToolEnv {
         d ? Profile.parse(d.data) : DEFAULT_PROFILE
       );
       return profile;
+    },
+    setProfile(p) {
+      profile = Promise.resolve(p);
     },
     async now() {
       return athleteNow(await env.profile(), ctx.now());
@@ -113,6 +118,15 @@ function errorResult(err: unknown, tool: string, userId: string) {
     body = { error: "internal", message: "Unexpected server error; it was logged." };
   }
   return { ...text(body), isError: true };
+}
+
+/** Parses item `i` of a batch so validation errors point at items[i]…, not just the field. */
+export function parseItem<T>(schema: z.ZodType<T>, value: unknown, index: number): T {
+  const r = schema.safeParse(value);
+  if (r.success) return r.data;
+  throw new z.ZodError(
+    r.error.issues.map((iss) => ({ ...iss, path: ["items", index, ...iss.path] })),
+  );
 }
 
 /** `why` is required on plan mutations: it is shown on the workout card and read by later chats. */

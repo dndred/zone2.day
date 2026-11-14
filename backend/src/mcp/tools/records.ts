@@ -3,6 +3,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { Entity } from "../../db/documents.ts";
 import {
+  DEFAULT_PROFILE,
   Event,
   IsoDate,
   JournalEntry,
@@ -56,8 +57,11 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
     const profile = Profile.parse(merged);
     const meta = await env.meta("update_profile", why);
     const r = await ctx.docs.transaction((tx) =>
-      ctx.docs.mutate(tx, env.userId, "profile", "profile", profile, meta)
+      ctx.docs.mutate(tx, env.userId, "profile", "profile", profile, meta, {
+        implicitBefore: DEFAULT_PROFILE,
+      })
     );
+    env.setProfile(profile);
     return { profile, changeId: r.changeId };
   });
 

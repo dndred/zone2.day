@@ -1,6 +1,7 @@
 // Plan-like entities stored as JSONB documents (D35). Zod is the schema; the DB only stores it.
 import { z } from "zod";
 import { EnduranceStructure, StrengthStructure } from "./structure.ts";
+import type { EnduranceStructure as EnduranceStructureT } from "./structure.ts";
 import { isValidDate, isValidTimeZone } from "./time.ts";
 
 export const IsoDate = z.string().refine(isValidDate, { message: "expected date YYYY-MM-DD" });
@@ -105,6 +106,15 @@ export const PlannedWorkout = z.object({
   structure: z.unknown().optional(),
   skipped: z.object({ reason: z.string().min(1).max(200), at: z.string() }).nullable().optional(),
 }).superRefine((w, ctx) => {
+  if (!EXECUTION_BY_SPORT[w.sport].includes(w.execution)) {
+    ctx.addIssue({
+      code: "custom",
+      path: ["execution"],
+      message: `execution '${w.execution}' is not valid for ${w.sport}; allowed: ${
+        EXECUTION_BY_SPORT[w.sport].join(", ")
+      }`,
+    });
+  }
   if (w.structure === undefined || w.structure === null) return;
   const schema = w.sport === "strength"
     ? StrengthStructure
@@ -124,8 +134,46 @@ export const PlannedWorkout = z.object({
     for (const issue of r.error.issues) {
       ctx.addIssue({ code: "custom", path: ["structure", ...issue.path], message: issue.message });
     }
+    return;
+  }
+  if (schema === EnduranceStructure) {
+    const allowed: readonly string[] = METRICS_BY_SPORT[w.sport as "run" | "bike" | "swim"];
+    (r.data as EnduranceStructureT).steps.forEach((node, i) => {
+      const steps = node.type === "step" ? [[node, ["steps", i]] as const] : node.steps.map(
+        (s, j) => [s, ["steps", i, "steps", j]] as const,
+      );
+      for (const [step, path] of steps) {
+        [step.target, ...(step.secondary ?? [])].forEach((t, k) => {
+          if (t && !allowed.includes(t.metric)) {
+            ctx.addIssue({
+              code: "custom",
+              path: ["structure", ...path, k === 0 ? "target" : `secondary`, "metric"],
+              message: `metric '${t.metric}' does not apply to ${w.sport}; allowed: ${
+                allowed.join(", ")
+              }`,
+            });
+          }
+        });
+      }
+    });
   }
 });
+
+/** Which device can execute what (docs/06-watch.md §1). */
+export const EXECUTION_BY_SPORT: Record<z.infer<typeof Sport>, string[]> = {
+  run: ["workoutkit", "zone2_watch", "none"],
+  bike: ["workoutkit", "zone2_watch", "mywhoosh", "none"],
+  swim: ["workoutkit", "zone2_watch", "none"],
+  strength: ["none"],
+  other: ["none"],
+};
+
+/** Target metrics that make sense per sport (Apple Watch measures running power; no power in water). */
+export const METRICS_BY_SPORT = {
+  run: ["hr", "pace", "power", "speed", "cadence", "rpe"],
+  bike: ["hr", "power", "speed", "cadence", "rpe"],
+  swim: ["hr", "pace", "rpe"],
+} as const satisfies Record<string, readonly string[]>;
 export type PlannedWorkout = z.infer<typeof PlannedWorkout>;
 
 export function defaultExecution(sport: z.infer<typeof Sport>, subSport?: string) {

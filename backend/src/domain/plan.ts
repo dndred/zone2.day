@@ -139,6 +139,34 @@ export function resolveStructure(structure: unknown, sport: SportKind, profile: 
   };
 }
 
+/** %-of-threshold targets that cannot be resolved with the current profile (they won't reach the watch). */
+export function unresolvedTargets(
+  structure: unknown,
+  sport: SportKind,
+  profile: Profile,
+): { stepId: string; metric: string; message: string }[] {
+  const parsed = EnduranceStructure.safeParse(structure);
+  if (!parsed.success) return [];
+  const out: { stepId: string; metric: string; message: string }[] = [];
+  const seen = new Set<string>();
+  for (const s of flattenSteps(parsed.data)) {
+    for (const t of [s.target, ...(s.secondary ?? [])]) {
+      if (!t || t.unit !== "pct_threshold" || seen.has(`${s.id}:${t.metric}`)) continue;
+      const r = resolveTarget(t, sport, profile);
+      if (r.unresolved) {
+        seen.add(`${s.id}:${t.metric}`);
+        out.push({
+          stepId: s.id,
+          metric: t.metric,
+          message:
+            `${r.unresolved}: this target will not be sent to the watch until the threshold is set (update_profile) or the target is given in absolute units`,
+        });
+      }
+    }
+  }
+  return out;
+}
+
 /** True when a bike workout has power targets (only then .zwo makes sense). */
 export function hasPowerTargets(structure: unknown): boolean {
   const parsed = EnduranceStructure.safeParse(structure);

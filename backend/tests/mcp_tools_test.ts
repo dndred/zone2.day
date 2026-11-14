@@ -298,3 +298,129 @@ Deno.test("users are isolated", async () => {
     await a.drop();
   }
 });
+
+Deno.test("review fixes (agent report 2026-11-14)", async () => {
+  const h = await mcpHarness({ now: "2026-11-14T16:37:00Z" });
+  try {
+    const step = (target: Record<string, unknown>) => ({
+      steps: [{
+        type: "step",
+        id: "a",
+        kind: "work",
+        duration: { type: "time", sec: 600 },
+        target,
+      }],
+    });
+
+    // 1. %-target without threshold → saved, but with a warning naming the item and step.
+    const pct = await h.call("plan_workouts", {
+      items: [{
+        date: "2026-11-16",
+        sport: "run",
+        title: "Tempo",
+        structure: step({ metric: "hr", low: 80, high: 88, unit: "pct_threshold" }),
+      }],
+      why: "тест",
+    });
+    assert(!pct.isError, JSON.stringify(pct.data));
+    assertEquals(pct.data.warnings[0].item, 0);
+    assertEquals(pct.data.warnings[0].stepId, "a");
+    const runId = pct.data.created[0].id;
+
+    // 2. Errors point at the item index.
+    const bad = await h.call("plan_workouts", {
+      items: [gym, gym, gym, {
+        ...run,
+        structure: { steps: [{ type: "repeat", id: "r", count: 0, steps: [] }] },
+      }],
+      why: "тест",
+    });
+    assert(bad.isError);
+    assertStringIncludes(JSON.stringify(bad.data), "items.3.structure");
+
+    // 3. Nonsense combinations are rejected.
+    const swimPower = await h.call("plan_workouts", {
+      items: [{
+        date: "2026-11-17",
+        sport: "swim",
+        title: "Swim",
+        structure: step({ metric: "power", low: 100, high: 120 }),
+      }],
+      why: "тест",
+    });
+    assert(swimPower.isError);
+    assertStringIncludes(JSON.stringify(swimPower.data), "does not apply to swim");
+    const runMywhoosh = await h.call("plan_workouts", {
+      items: [{ date: "2026-11-17", sport: "run", title: "Run", execution: "mywhoosh" }],
+      why: "тест",
+    });
+    assert(runMywhoosh.isError);
+    const strengthWk = await h.call("plan_workouts", {
+      items: [{ ...gym, execution: "workoutkit" }],
+      why: "тест",
+    });
+    assert(strengthWk.isError);
+    const runPower = await h.call("plan_workouts", {
+      items: [{
+        date: "2026-11-17",
+        sport: "run",
+        title: "Run power",
+        structure: step({ metric: "power", low: 250, high: 270 }),
+      }],
+      why: "running power is measured by Apple Watch",
+    });
+    assert(!runPower.isError, JSON.stringify(runPower.data));
+
+    // 4. overriddenLaterChanges counts only later edits.
+    const upd = await h.call("update_planned_workout", {
+      id: runId,
+      patch: { title: "Tempo 2" },
+      why: "правка",
+    });
+    const lastChange = upd.data.updated.changeId;
+    const revLast = await h.call("revert_change", { changeId: lastChange, why: "откат последней" });
+    assertEquals(revLast.data.overriddenLaterChanges, 0);
+    const createChange = pct.data.created[0].changeId;
+    const revCreate = await h.call("revert_change", {
+      changeId: createChange,
+      why: "откат создания",
+    });
+    assertEquals(revCreate.data.overriddenLaterChanges, 2); // update + its revert
+
+    // 9. Deleted workout is still readable with deleted:true and history.
+    const del = (await h.call("get_planned_workout", { id: runId })).data;
+    assertEquals(del.deleted, true);
+    assertEquals(del.status, "deleted");
+    assert(del.history.length >= 3);
+
+    // 5 + 6. update_profile returns fresh `now`; first change is an update of the defaults.
+    const prof = await h.call("update_profile", {
+      patch: { timezone: "Asia/Barnaul" },
+      why: "пояс",
+    });
+    assertEquals(prof.data.now.timezone, "Asia/Barnaul");
+    assertEquals(prof.data.now.time, "23:37");
+    const profChange = (await h.call("get_changes", { entity: "profile" })).data.changes[0];
+    assertEquals(profChange.op, "update");
+
+    // 7. copy returns changeIds.
+    const g = await h.call("plan_workouts", { items: [gym], why: "зал" });
+    const copy = await h.call("copy_planned_workouts", {
+      ids: [g.data.created[0].id],
+      shiftDays: 7,
+      why: "повтор",
+    });
+    assertExists(copy.data.created[0].changeId);
+
+    // 8. get_planned_workout shows status.
+    await h.call("update_planned_workout", {
+      id: g.data.created[0].id,
+      patch: { skipped: { reason: "болел" } },
+      why: "пропуск",
+    });
+    const sk = (await h.call("get_planned_workout", { id: g.data.created[0].id })).data;
+    assertEquals(sk.status, "skipped");
+  } finally {
+    await h.drop();
+  }
+});
