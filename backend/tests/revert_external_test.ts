@@ -110,7 +110,10 @@ Deno.test("revert_change: created activity and its link, logged strength session
     // Another user cannot revert our changes.
     const other = await mcpHarness({ now: "2026-11-16T10:00:00Z" });
     try {
-      const foreign = await other.call("revert_change", { changeId: lift.data.changeId, why: "тест" });
+      const foreign = await other.call("revert_change", {
+        changeId: lift.data.changeId,
+        why: "тест",
+      });
       assertEquals(foreign.data.error, "not_found");
     } finally {
       await other.drop();
