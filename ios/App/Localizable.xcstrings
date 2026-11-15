@@ -289,6 +289,26 @@
           }
         }
       }
+    },
+    "Signed out — the plan is not updating": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вы вышли — план не обновляется"
+          }
+        }
+      }
+    },
+    "Sign in": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

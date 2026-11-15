@@ -61,3 +61,30 @@ private let tokenJSON = #"{"access_token":"A2","refresh_token":"R2","expires_in"
     await #expect(throws: AuthError.self) { _ = try await session.accessToken() }
     #expect(store.load() == nil)
 }
+
+/// Answers token requests after a delay and counts them (a real network round trip).
+private final class SlowTokenTransport: HTTPTransport, @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    var refreshes: Int { lock.withLock { count } }
+    func data(for request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+        lock.withLock { count += 1 }
+        try await Task.sleep(for: .milliseconds(50))
+        return (Data(tokenJSON.utf8), HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!)
+    }
+}
+
+/// Pull, outbox and delivery report ask for a token at once while it expires: one refresh only
+/// (two would send the same rotated refresh token and the server would sign the app out).
+@Test func concurrentCallersShareOneRefresh() async throws {
+    let transport = SlowTokenTransport()
+    let store = MemoryTokenStore(TokenSet(accessToken: "A1", refreshToken: "R1", expiresAt: Date(timeIntervalSinceNow: 10)))
+    let session = AuthSession(client: OAuthClient(config: .app(baseURL: base), transport: transport), store: store)
+    let tokens = try await withThrowingTaskGroup(of: String.self) { group in
+        for _ in 0..<5 { group.addTask { try await session.accessToken() } }
+        return try await group.reduce(into: [String]()) { $0.append($1) }
+    }
+    #expect(tokens == Array(repeating: "A2", count: 5))
+    #expect(transport.refreshes == 1)
+    #expect(store.load()?.refreshToken == "R2")
+}

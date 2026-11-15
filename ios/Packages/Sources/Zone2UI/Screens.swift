@@ -38,7 +38,8 @@ public struct TodayView: View {
         NavigationStack {
             ScrollView {
                 if let snap {
-                    content(snap)
+                    // Full width even when the day is empty ("Rest day"), or the background shrinks.
+                    content(snap).frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .background(Color.groupedBackground)

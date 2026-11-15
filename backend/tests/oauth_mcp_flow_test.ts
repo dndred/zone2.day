@@ -28,6 +28,7 @@ const config: Config = {
 type App = ReturnType<typeof createApp>;
 
 async function setup() {
+  clock.offsetMs = 0;
   const db = await createTestDb();
   const deps: AppDeps = {
     sql: db.sql,
@@ -40,10 +41,13 @@ async function setup() {
     metrics: new DailyMetricsStore(db.sql),
     blobs: new MemoryBlobStore(),
     passkeys: fakePasskeys(),
-    now: () => new Date(),
+    now: () => new Date(Date.now() + clock.offsetMs),
   };
   return { app: createApp(config, deps), db };
 }
+
+/** Test clock offset (refresh-token reuse window). */
+const clock = { offsetMs: 0 };
 
 async function addInvite(db: { sql: AppDeps["sql"] }, code: string) {
   await db.sql`insert into zone2.invites (code_hash, expires_at)
@@ -225,7 +229,7 @@ Deno.test("full flow: sign-up → tokens → MCP ping → refresh rotation → s
     assertEquals(payload.athlete.name, "Andrei");
     assertEquals(payload.client_id, client.client_id);
 
-    // Refresh rotates; reusing the old refresh token revokes the whole family.
+    // Refresh rotates.
     const refreshed = await (await tokenRequest(app, {
       grant_type: "refresh_token",
       refresh_token: tokens.refresh_token,
@@ -234,6 +238,20 @@ Deno.test("full flow: sign-up → tokens → MCP ping → refresh rotation → s
     assertExists(refreshed.access_token);
     assert(refreshed.refresh_token !== tokens.refresh_token);
 
+    // Two requests of one app refreshing at once: the old token again within the grace window
+    // gets a fresh pair, and nothing is revoked (the app must not be signed out by its own race).
+    const racing = await tokenRequest(app, {
+      grant_type: "refresh_token",
+      refresh_token: tokens.refresh_token,
+      client_id: client.client_id,
+    });
+    assertEquals(racing.status, 200);
+    const raced = await racing.json();
+    assertEquals((await mcp(app, raced.access_token, "tools/list")).status, 200);
+    assertEquals((await mcp(app, refreshed.access_token, "tools/list")).status, 200);
+
+    // Later, the old token again = reuse: the whole family is revoked.
+    clock.offsetMs = 2 * 60 * 1000;
     const reuse = await tokenRequest(app, {
       grant_type: "refresh_token",
       refresh_token: tokens.refresh_token,

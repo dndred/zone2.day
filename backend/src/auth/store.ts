@@ -218,12 +218,20 @@ export class AuthStore {
     };
   }
 
-  /** Revokes a single token; returns true if it was active. */
-  async revokeToken(tokenHash: string): Promise<boolean> {
+  /** Revokes a single token (at `at`, default the database clock); returns true if it was active. */
+  async revokeToken(tokenHash: string, at?: Date): Promise<boolean> {
     const rows = await this.sql`
-      update zone2.oauth_tokens set revoked_at = now()
+      update zone2.oauth_tokens set revoked_at = coalesce(${at ?? null}::timestamptz, now())
       where token_hash = ${tokenHash} and revoked_at is null returning 1`;
     return rows.length > 0;
+  }
+
+  /** Does the family still have a usable refresh token (i.e. it was rotated, not revoked)? */
+  async familyActive(familyId: string, now: Date): Promise<boolean> {
+    const [row] = await this.sql`
+      select exists(select 1 from zone2.oauth_tokens where family_id = ${familyId}
+        and kind = 'refresh' and revoked_at is null and expires_at > ${now}) as active`;
+    return Boolean(row?.active);
   }
 
   async revokeFamily(familyId: string): Promise<void> {

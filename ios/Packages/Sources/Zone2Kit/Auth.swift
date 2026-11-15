@@ -141,11 +141,15 @@ public struct OAuthClient: Sendable {
     }
 }
 
-/// Holds tokens, refreshes them when needed. One refresh at a time (actor).
+/// Holds tokens, refreshes them when needed. One refresh at a time: the actor alone is not enough
+/// (it is reentrant — a second caller runs while the first awaits the network and would send the
+/// same, already rotated refresh token, which the server treats as reuse and revokes the family),
+/// so concurrent callers share one in-flight refresh task.
 public actor AuthSession {
     private let client: OAuthClient
     private let store: TokenStore
     private let now: @Sendable () -> Date
+    private var refreshing: Task<TokenSet, Error>?
 
     public init(client: OAuthClient, store: TokenStore, now: @escaping @Sendable () -> Date = { .now }) {
         self.client = client
@@ -160,10 +164,14 @@ public actor AuthSession {
     public func signOut() { store.save(nil) }
 
     public func accessToken(forceRefresh: Bool = false) async throws -> String {
+        if let running = refreshing { return try await running.value.accessToken }
         guard let tokens = store.load() else { throw AuthError.signedOut }
         if !forceRefresh && !tokens.expiresSoon(now: now()) { return tokens.accessToken }
+        let task = Task { [client, now] in try await client.refresh(tokens.refreshToken, now: now()) }
+        refreshing = task
+        defer { refreshing = nil }
         do {
-            let fresh = try await client.refresh(tokens.refreshToken, now: now())
+            let fresh = try await task.value
             store.save(fresh)
             return fresh.accessToken
         } catch AuthError.token(let status, let body) where status == 400 || status == 401 {

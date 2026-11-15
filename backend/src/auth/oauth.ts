@@ -20,6 +20,12 @@ import type { AuthStore, OAuthClient, TokenEndpointAuthMethod } from "./store.ts
 
 export const ACCESS_TOKEN_TTL_SEC = 60 * 60;
 export const REFRESH_TOKEN_TTL_SEC = 90 * 24 * 60 * 60;
+/**
+ * A refresh token presented again shortly after it was rotated, while its family is still alive,
+ * is a client race (two requests refreshing at once), not theft: answer with a fresh pair instead
+ * of revoking the family — which would sign the athlete out of the app.
+ */
+export const REFRESH_REUSE_GRACE_SEC = 60;
 const CODE_TTL_SEC = 10 * 60;
 const CHALLENGE_TTL_SEC = 5 * 60;
 const AUTH_REQUEST_TTL_SEC = 15 * 60;
@@ -438,6 +444,21 @@ export function authRoutes(config: Config, deps: AuthDeps): Hono<AppEnv> {
         return oauthError(c, 400, "invalid_grant");
       }
       if (rt.revokedAt) {
+        const age = deps.now().getTime() - rt.revokedAt.getTime();
+        if (
+          age >= 0 && age <= REFRESH_REUSE_GRACE_SEC * 1000 &&
+          rt.expiresAt.getTime() > deps.now().getTime() &&
+          await store.familyActive(rt.familyId, deps.now())
+        ) {
+          log("info", "oauth.refresh_concurrent", { clientId: client.clientId, userId: rt.userId });
+          return issueTokens(c, {
+            clientId: client.clientId,
+            userId: rt.userId,
+            scopes: rt.scopes,
+            resource: rt.resource,
+            familyId: rt.familyId,
+          });
+        }
         await store.revokeFamily(rt.familyId);
         log("warn", "oauth.refresh_reuse", { clientId: client.clientId, userId: rt.userId });
         return oauthError(c, 400, "invalid_grant", "Refresh token reuse detected");
@@ -453,7 +474,7 @@ export function authRoutes(config: Config, deps: AuthDeps): Hono<AppEnv> {
         }
         scopes = requested;
       }
-      await store.revokeToken(hash);
+      await store.revokeToken(hash, deps.now());
       return issueTokens(c, {
         clientId: client.clientId,
         userId: rt.userId,

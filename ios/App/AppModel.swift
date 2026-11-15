@@ -75,7 +75,10 @@ final class AppModel: ObservableObject {
     func sync(budget: TimeInterval = 300) async {
         guard !isDemo, await auth.isSignedIn else { return }
         syncing = true
-        defer { syncing = false }
+        defer {
+            syncing = false
+            Task { await noticeSignOut() }
+        }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: budget > 60)
         if budget > 60 { await metrics.requestMissingAuthorization() }
@@ -131,7 +134,10 @@ final class AppModel: ObservableObject {
     func pull() async {
         guard !isDemo, await auth.isSignedIn else { return }
         syncing = true
-        defer { syncing = false }
+        defer {
+            syncing = false
+            Task { await noticeSignOut() }
+        }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: true)
         await metrics.collect()
@@ -155,6 +161,12 @@ final class AppModel: ObservableObject {
         try? store.reset()
         me = nil
         signedIn = false
+    }
+
+    /// The server can revoke the tokens (refresh reuse, sign-out elsewhere): AuthSession then drops
+    /// them. Show it instead of silently keeping stale data on screen.
+    private func noticeSignOut() async {
+        if signedIn, !(await auth.isSignedIn) { signedIn = false }
     }
 
     func refreshAccount() async {
