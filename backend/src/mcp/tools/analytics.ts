@@ -171,8 +171,10 @@ export function registerAnalyticsTools(server: McpServer, ctx: McpContext): void
       const add = (g: Agg) => {
         g.sessions++;
         g.movingSec += moving;
-        g.distanceM += s.distanceKind === "virtual" ? 0 : (a.distanceM ?? 0);
-        g.elevationGainM += (s.elevationGainM as number | null) ?? 0;
+        // Trainer apps and treadmills report virtual distance and climbing: not summed.
+        const virtual = s.distanceKind === "virtual" || s.indoor === true;
+        g.distanceM += virtual ? 0 : (a.distanceM ?? 0);
+        g.elevationGainM += virtual ? 0 : ((s.elevationGainM as number | null) ?? 0);
       };
       add(p.totals);
       add(p.bySport[a.sport] ??= empty());
@@ -209,7 +211,7 @@ export function registerAnalyticsTools(server: McpServer, ctx: McpContext): void
       return {
         start,
         ...(by === "week" ? { end } : {}),
-        ...(end > now.date || (by === "day" && start === now.date) ? { partial: true } : {}),
+        ...(end >= now.date ? { partial: true } : {}), // the current week/day is not over yet
         totals: round(p.totals),
         bySport: Object.fromEntries(Object.entries(p.bySport).map(([k, v]) => [k, round(v)])),
         srpeLoad: p.srpe.sessions ? Math.round(p.srpe.load) : null,
@@ -247,7 +249,7 @@ export function registerAnalyticsTools(server: McpServer, ctx: McpContext): void
       hrLoadBasis: [...zoneBases],
       notes: [outdatedNote(outdated)].filter(Boolean),
       howToRead: [
-        "movingSec excludes standing (traffic lights, start line); distance of indoor rides/treadmill (virtual) is not summed.",
+        "movingSec excludes standing (traffic lights, start line); distance and climbing of indoor rides/treadmill (virtual) are not summed.",
         "srpeLoad = RPE × moving minutes, only for sessions where the athlete gave RPE (srpeSessions) — usually sparse, do not read it as total load.",
         "hrLoad = Edwards TRIMP (minutes in HR zone k × k, 5-zone model; see hrLoadBasis for which zones). Comparable week to week for the same zones; changes in the zone model change it.",
         "ramp compares the last full week with the mean of the 4 weeks before it (+% = more).",
@@ -347,7 +349,7 @@ export function registerAnalyticsTools(server: McpServer, ctx: McpContext): void
             sec: sum,
             pct: sec.map((x) => pct(x, sum)),
             ...polarization(sec, ref),
-            ...(addDays(start, 6) > now.date ? { partial: true } : {}),
+            ...(addDays(start, 6) >= now.date ? { partial: true } : {}),
           };
         }),
       }),
@@ -510,7 +512,7 @@ export function registerAnalyticsTools(server: McpServer, ctx: McpContext): void
           ? "paceSecPerKm is grade-adjusted (GAP) when the route has altitude (gradeAdjusted); paceAtMidHr rescales to the corridor's middle HR (assumes speed ∝ HR inside a narrow corridor) so workouts at slightly different HR compare. Lower = better."
           : "powerAtMidHr rescales to the corridor's middle HR (assumes power ∝ HR inside a narrow corridor). Higher = better.",
         "efficiency = output per bpm (run: metres per minute per bpm; power: W per bpm).",
-        "trend = weighted linear fit over the period (weights = steady minutes). Heat raises HR at the same output — check tempC before calling a dip a regression; so do poor sleep, illness and fatigue.",
+        "trend = weighted linear fit over the period (weights = steady minutes). Not every dip is lost fitness: heat raises HR at the same output; snow, ice, winter clothing and cold (tempC) slow pace and running power at the same HR; so do poor sleep, illness and fatigue. Compare like with like (season, surface) before calling it a regression.",
       ],
     };
   });
