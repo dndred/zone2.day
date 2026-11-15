@@ -71,7 +71,7 @@ let now = ISO8601DateFormatter().date(from: "2026-11-15T10:00:00Z")!
     let sat = try #require(snap.day(LocalDate("2026-11-14")!))
     #expect(sat.planned.map(\.workout.title) == ["Зал A", "Parkrun"]) // by order
     #expect(sat.planned.map(\.status) == [.missed, .done])
-    #expect(sat.planned[1].activity?.summary.intervals?.first?.paceSecPerKm == 300)
+    #expect(sat.planned[1].activities.first?.summary.intervals?.first?.paceSecPerKm == 300)
     #expect(sat.planned[0].workout.strength?.items.first?.exercise?.exercise == "Присед")
     #expect(sat.unplanned.isEmpty)
     #expect(sat.journal.first?.text == "Новые кроссовки")
@@ -163,4 +163,26 @@ private actor FakeSource: SyncSource {
     try LocalStore(directory: dir).apply(try page(snapshotJSON), at: now)
     #expect(FileManager.default.fileExists(atPath: dir.appending(path: "zone2.sqlite").path(percentEncoded: false)))
     #expect(try LocalStore(directory: dir).cursor() == "42") // survives reopening
+}
+
+/// One planned workout, two recordings (watch restarted mid-run): both belong to it, none is "unplanned".
+@Test func workoutRecordedInTwoPartsShowsBothAndTheTotal() throws {
+    let store = try LocalStore()
+    try store.apply(try page(snapshotJSON), at: now)
+    let second = #"""
+    { "changes": [
+        { "entity": "activity", "id": "a3", "op": "upsert", "version": 1,
+          "data": { "id": "a3", "date": "2026-11-14", "startLocal": "10:05", "sport": "run", "kind": "training",
+                    "plannedWorkoutId": "w-run", "elapsedSec": 720,
+                    "summary": { "v": 9, "movingSec": 700, "distanceM": 2000 }, "laps": [] } } ],
+      "cursor": "43", "hasMore": false, "snapshot": false, "serverTime": "2026-11-15T10:00:00Z" }
+    """#
+    try store.apply(try page(second), at: now)
+    let snap = try store.snapshot(from: LocalDate("2026-11-14")!, to: LocalDate("2026-11-14")!, now: now)
+    let sat = try #require(snap.day(LocalDate("2026-11-14")!))
+    let run = try #require(sat.planned.first { $0.workout.id == "w-run" })
+    #expect(run.activities.map(\.id) == ["a1", "a3"]) // start order
+    #expect(run.totalDistanceM == 13684)
+    #expect(run.totalMovingSec == 4650)
+    #expect(sat.unplanned.isEmpty)
 }

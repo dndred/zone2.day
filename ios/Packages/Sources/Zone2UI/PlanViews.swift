@@ -39,9 +39,10 @@ struct WorkoutCard: View {
                 Text(skipped.reason).font(.footnote).foregroundStyle(.secondary)
             }
             if expanded, item.status == .planned, let change = w.lastChange { LastChangeLine(change: change) }
-            if let a = item.activity {
+            if !item.activities.isEmpty {
                 Divider()
-                ActivityHeadline(activity: a)
+                if item.activities.count > 1 { PartsTotal(item: item) }
+                ForEach(item.activities) { ActivityHeadline(activity: $0) }
             } else if expanded, item.status == .planned {
                 DeliveryLabel(execution: w.execution, onWatch: onWatch)
             }
@@ -49,6 +50,20 @@ struct WorkoutCard: View {
         .padding(14)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
         .opacity(item.status == .skipped ? 0.55 : 1)
+    }
+}
+
+/// "Total · 19.0 km · 1:52:10" when one workout was recorded in several parts.
+struct PartsTotal: View {
+    let item: PlannedItem
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Text(L("Total")).font(.subheadline.weight(.semibold))
+            if let d = item.totalDistanceM { Text(Formats.distance(d)) }
+            if let t = item.totalMovingSec { Text(Formats.clock(t)) }
+        }
+        .font(.subheadline.monospacedDigit())
     }
 }
 
@@ -161,14 +176,17 @@ public struct PlannedWorkoutView: View {
             if let notes = w.notes {
                 Section(L("Notes")) { Text(LocalizedStringKey(notes)) }
             }
-            if let a = item.activity {
+            if !item.activities.isEmpty {
                 Section(L("Result")) {
-                    NavigationLink {
-                        ActivityView(activity: a)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(a.title ?? "").font(.subheadline.weight(.medium))
-                            ActivityHeadline(activity: a)
+                    if item.activities.count > 1 { PartsTotal(item: item) }
+                    ForEach(item.activities) { a in
+                        NavigationLink {
+                            ActivityView(activity: a)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(a.title ?? "").font(.subheadline.weight(.medium))
+                                ActivityHeadline(activity: a)
+                            }
                         }
                     }
                 }

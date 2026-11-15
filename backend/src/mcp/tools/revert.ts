@@ -49,11 +49,7 @@ export async function revertExternal(
           plannedWorkoutId: row.plannedWorkoutId,
         }),
         op: "create",
-        warnings: r.droppedPlannedId
-          ? [
-            `planned workout ${r.droppedPlannedId} is now linked to another activity; restored without the link`,
-          ]
-          : [],
+        warnings: [],
       };
     }
     if (before && ANNOTATION_KEYS.some((k) => k in before)) {
@@ -74,14 +70,6 @@ export async function revertExternal(
       if (target) {
         const plan = await ctx.docs.get<PlannedWorkout>(userId, "planned_workout", target);
         if (!plan) throw new ToolError("not_found", `planned workout ${target} no longer exists`);
-        const holder = (await ctx.activities.byPlanned(userId, [target])).get(target);
-        if (holder && holder.id !== cur.id) {
-          throw new ToolError(
-            "conflict",
-            `planned workout ${target} is now linked to activity ${holder.id}`,
-            "Move the links with link_activities",
-          );
-        }
       }
       await ctx.activities.relink(userId, [{ id: cur.id, plannedId: target }]);
       return {

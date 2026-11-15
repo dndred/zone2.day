@@ -207,15 +207,23 @@ export class ActivityStore {
     return rows.map((r) => Number(r.max));
   }
 
-  /** Matched (non-duplicate) activities for planned workout ids. */
-  async byPlanned(userId: string, plannedIds: string[]): Promise<Map<string, ActivityRow>> {
+  /**
+   * Matched (non-duplicate) activities per planned workout id, in start order. One planned
+   * workout may have several: a recording split in two, a run and its cool-down written apart.
+   */
+  async byPlanned(userId: string, plannedIds: string[]): Promise<Map<string, ActivityRow[]>> {
     if (plannedIds.length === 0) return new Map();
     const rows = await this.sql.unsafe(
       `select ${COLS} from zone2.activities where user_id = $1 and deleted_at is null
          and duplicate_of is null and planned_workout_id = any($2::uuid[]) order by start_at`,
       [userId, plannedIds],
     );
-    return new Map(rows.map((r) => [r.planned_workout_id as string, toRow(r)]));
+    const out = new Map<string, ActivityRow[]>();
+    for (const r of rows) {
+      const id = r.planned_workout_id as string;
+      out.set(id, [...(out.get(id) ?? []), toRow(r)]);
+    }
+    return out;
   }
 
   async setPlanned(userId: string, id: string, plannedId: string | null) {
@@ -259,31 +267,16 @@ export class ActivityStore {
     });
   }
 
-  /**
-   * Undo softDelete. Its planned link is dropped when another live activity holds that workout
-   * meanwhile (one activity per planned workout); returns that dropped id.
-   */
-  async restore(
-    userId: string,
-    id: string,
-  ): Promise<{ restored: boolean; droppedPlannedId: string | null }> {
+  /** Undo softDelete, keeping its planned link (a planned workout may have several activities). */
+  async restore(userId: string, id: string): Promise<{ restored: boolean }> {
     return await this.sql.begin(async (tx) => {
-      const [cur] = await tx`select planned_workout_id from zone2.activities
-        where user_id = ${userId} and id = ${id} and deleted_at is not null for update`;
-      if (!cur) return { restored: false, droppedPlannedId: null };
-      const plannedId = cur.planned_workout_id as string | null;
-      const [holder] = plannedId
-        ? await tx`select id from zone2.activities where user_id = ${userId} and deleted_at is null
-            and planned_workout_id = ${plannedId} limit 1`
-        : [];
       const [r] = await tx`update zone2.activities set deleted_at = null, deleted_reason = null,
-          planned_workout_id = ${
-        holder ? null : plannedId
-      }, version = version + 1, updated_at = now()
-        where user_id = ${userId} and id = ${id} returning version`;
+          version = version + 1, updated_at = now()
+        where user_id = ${userId} and id = ${id} and deleted_at is not null returning version`;
+      if (!r) return { restored: false };
       await tx`insert into zone2.sync_feed (user_id, entity, entity_id, version, op)
         values (${userId}, 'activity', ${id}, ${r.version}, 'upsert')`;
-      return { restored: true, droppedPlannedId: holder ? plannedId : null };
+      return { restored: true };
     });
   }
 

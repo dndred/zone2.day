@@ -368,14 +368,27 @@ public enum WorkoutStatus: String, Sendable {
 
 public struct PlannedItem: Sendable, Equatable, Identifiable {
     public let workout: PlannedWorkout
-    public let activity: Activity?
+    /// What was done for it, in start order. Usually one; several when the recording was split
+    /// (watch stopped and restarted) or a cool-down was written apart.
+    public let activities: [Activity]
     public let status: WorkoutStatus
     public var id: String { workout.id }
 
-    public init(workout: PlannedWorkout, activity: Activity?, status: WorkoutStatus) {
+    public init(workout: PlannedWorkout, activities: [Activity], status: WorkoutStatus) {
         self.workout = workout
-        self.activity = activity
+        self.activities = activities
         self.status = status
+    }
+
+    /// Sum over the parts (nil when nothing has that value).
+    public var totalDistanceM: Double? {
+        let xs = activities.compactMap(\.summary.distanceM)
+        return xs.isEmpty ? nil : xs.reduce(0, +)
+    }
+
+    public var totalMovingSec: Double? {
+        let xs = activities.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }
+        return xs.isEmpty ? nil : xs.reduce(0, +)
     }
 }
 

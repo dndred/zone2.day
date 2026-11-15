@@ -419,11 +419,11 @@ public final class LocalStore: Sendable {
             let acts = activities.filter { $0.date == date }.sorted { ($0.startLocal ?? "") < ($1.startLocal ?? "") }
             let planned = workouts.filter { $0.date == date }.sorted { ($0.order, $0.title) < ($1.order, $1.title) }
                 .map { w -> PlannedItem in
-                    let a = acts.first { $0.plannedWorkoutId == w.id }
-                    let status: WorkoutStatus = a != nil || lifted.contains(w.id) ? .done : w.skipped != nil ? .skipped : date < today ? .missed : .planned
-                    return PlannedItem(workout: w, activity: a, status: status)
+                    let mine = acts.filter { $0.plannedWorkoutId == w.id }
+                    let status: WorkoutStatus = !mine.isEmpty || lifted.contains(w.id) ? .done : w.skipped != nil ? .skipped : date < today ? .missed : .planned
+                    return PlannedItem(workout: w, activities: mine, status: status)
                 }
-            let matched = Set(planned.compactMap { $0.activity?.id })
+            let matched = Set(planned.flatMap { $0.activities.map(\.id) })
             days.append(Day(
                 date: date,
                 planned: planned,

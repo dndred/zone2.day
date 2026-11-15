@@ -7,7 +7,7 @@ import { type PlannedWorkout, Sport } from "../../domain/entities.ts";
 import { InvalidFitError } from "../../domain/fit.ts";
 import { manualSummary } from "../../domain/manual.ts";
 import { effectiveTimezone, isValidDate, localParts, zonedToUtc } from "../../domain/time.ts";
-import { fitSourceId, ingestFit } from "../../ingest/fit.ts";
+import { ingestFit } from "../../ingest/fit.ts";
 import { matchPlan } from "../../ingest/healthkit.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, type ToolEnv, ToolError, Why } from "../util.ts";
@@ -20,23 +20,6 @@ async function checkPlanned(ctx: McpContext, userId: string, plannedId: string) 
   const doc = await ctx.docs.get<PlannedWorkout>(userId, "planned_workout", plannedId);
   if (!doc) throw new ToolError("not_found", `planned workout ${plannedId} not found`);
   return doc.data;
-}
-
-/** Checked before writing anything. `mine` = the record being (re)imported, which may hold it. */
-async function ensureFree(
-  ctx: McpContext,
-  userId: string,
-  plannedId: string,
-  mine?: { source: string; sourceId: string },
-) {
-  const holder = (await ctx.activities.byPlanned(userId, [plannedId])).get(plannedId);
-  if (holder && !(mine && holder.source === mine.source && holder.sourceId === mine.sourceId)) {
-    throw new ToolError(
-      "conflict",
-      `planned workout ${plannedId} is already linked to activity ${holder.id} (${holder.localDate})`,
-      `Unlink it first: link_activities [{activityId: "${holder.id}", plannedWorkoutId: null}]`,
-    );
-  }
 }
 
 function planWarnings(a: ActivityRow, w: PlannedWorkout | null): string[] {
@@ -147,12 +130,6 @@ export function registerActivityInputTools(server: McpServer, ctx: McpContext): 
     const bytes = raw;
 
     const planned = plannedWorkoutId ? await checkPlanned(ctx, env.userId, plannedWorkoutId) : null;
-    if (planned) {
-      await ensureFree(ctx, env.userId, planned.id, {
-        source: "fit_upload",
-        sourceId: await fitSourceId(bytes),
-      });
-    }
     let result;
     try {
       result = await ingestFit(ctx, env.userId, bytes, {
@@ -250,7 +227,6 @@ export function registerActivityInputTools(server: McpServer, ctx: McpContext): 
     const endAt = new Date(startAt.getTime() + args.durationSec * 1000);
     const local = localParts(startAt, tz);
     const planned = plannedWorkoutId ? await checkPlanned(ctx, env.userId, plannedWorkoutId) : null;
-    if (planned) await ensureFree(ctx, env.userId, planned.id);
 
     const summary = manualSummary({
       sport,
@@ -290,7 +266,7 @@ export function registerActivityInputTools(server: McpServer, ctx: McpContext): 
       laps: [],
     });
     if (planned) await ctx.activities.setPlanned(env.userId, row.id, planned.id);
-    else await matchPlan(ctx, env.userId, row.id, sport, local.date);
+    else await matchPlan(ctx, env.userId, row, local.date);
     return await finish(
       ctx,
       env,

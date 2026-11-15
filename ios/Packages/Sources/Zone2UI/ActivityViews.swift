@@ -132,7 +132,7 @@ public struct ActivityView: View {
             if let planned {
                 Section(L("Plan")) {
                     NavigationLink {
-                        PlannedWorkoutView(item: PlannedItem(workout: planned, activity: nil, status: .done))
+                        PlannedWorkoutView(item: PlannedItem(workout: planned, activities: [], status: .done))
                     } label: {
                         Label(planned.title, systemImage: planned.sport.symbol)
                     }

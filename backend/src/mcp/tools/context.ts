@@ -74,7 +74,7 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
         key: w.key,
         execution: w.execution,
         status: workoutStatus(w, done.has(w.id) || lifted.has(w.id), today),
-        activityId: done.get(w.id)?.id,
+        activityIds: done.get(w.id)?.map((a) => a.id),
         skipReason: w.skipped?.reason,
         estimate: est ? { durationSec: est.durationSec, distanceM: est.distanceM } : undefined,
         lastChange: lc ? { at: lc.at, why: lc.why } : undefined,

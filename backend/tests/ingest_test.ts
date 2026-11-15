@@ -339,3 +339,58 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     await h.drop();
   }
 });
+
+Deno.test("auto-match: a recording split in two joins the same workout; other sports do not", async () => {
+  const h = await mcpHarness({ now: "2026-11-16T12:00:00Z" });
+  try {
+    const planned = await h.call("plan_workouts", {
+      items: [
+        { date: "2026-11-16", sport: "run", title: "Длительная 19 км" },
+        { date: "2026-11-16", sport: "strength", title: "Зал", execution: "none" },
+      ],
+      why: "план",
+    });
+    const [longId, gymId] = planned.data.created.map((c: { id: string }) => c.id);
+    const post = async (d: unknown) =>
+      await (await h.api("/v1/activities/healthkit", enc(d))).json();
+
+    // 17 km from 01:00 to 02:40 (Barnaul 08:00), then the watch was restarted: 2 km at 02:45.
+    const a = await post(
+      makeDump({ uuid: "LONG-1", start: "2026-11-16T01:00:00Z", minutes: 100, distanceM: 17000 }),
+    );
+    const b = await post(
+      makeDump({ uuid: "LONG-2", start: "2026-11-16T02:45:00Z", minutes: 12, distanceM: 2000 }),
+    );
+    assertEquals(a.plannedWorkoutId, longId);
+    assertEquals(b.plannedWorkoutId, longId);
+    // Gym right after the run: another sport → its own workout, never glued to the run.
+    const gym = await post(
+      makeDump({
+        uuid: "GYM",
+        start: "2026-11-16T03:00:00Z",
+        minutes: 45,
+        activityType: 20,
+        distanceM: null,
+      }),
+    );
+    assertEquals(gym.plannedWorkoutId, gymId);
+    // A run three hours later is a separate session: not a continuation, no free run workout left.
+    const later = await post(
+      makeDump({ uuid: "EVENING", start: "2026-11-16T06:00:00Z", minutes: 30, distanceM: 5000 }),
+    );
+    assertEquals(later.plannedWorkoutId, null);
+
+    const plan = (await h.call("get_plan", { from: "2026-11-16", to: "2026-11-16" })).data;
+    const long = plan.days[0].workouts.find((w: { id: string }) => w.id === longId);
+    assertEquals(long.status, "done");
+    assertEquals(long.activities.map((x: { id: string }) => x.id), [a.activityId, b.activityId]);
+    assertEquals(long.total, {
+      parts: 2,
+      durationSec: 6720,
+      movingSec: long.total.movingSec,
+      distanceM: 19000,
+    });
+  } finally {
+    await h.drop();
+  }
+});

@@ -59,14 +59,14 @@ function summary(
   doc: Doc<PlannedWorkout>,
   profile: Profile,
   today: string,
-  activity: ActivityRow | undefined,
+  activities: ActivityRow[],
   lastChange?: { at: Date; why: string | null },
   delivery?: { rows: DeliveryRow[]; devices: DeviceRow[] },
   /** Strength: done when sets were logged (app or log_strength_session). */
   lifted = false,
 ) {
   const w = doc.data;
-  const status = workoutStatus(w, Boolean(activity) || lifted, today);
+  const status = workoutStatus(w, activities.length > 0 || lifted, today);
   const est = w.sport === "strength" || !w.structure
     ? null
     : estimate(w.structure, w.sport, profile);
@@ -86,16 +86,38 @@ function summary(
     delivery: delivery
       ? deliveryOf(w, doc.version, status, today, delivery.rows, delivery.devices)
       : undefined,
-    activity: activity
-      ? {
-        id: activity.id,
-        durationSec: activity.durationSec,
-        distanceM: activity.distanceM ?? undefined,
-      }
-      : undefined,
+    ...done(activities),
     estimate: est ? { durationSec: est.durationSec, distanceM: est.distanceM } : undefined,
     version: doc.version,
     lastChange: lastChange ? { at: lastChange.at.toISOString(), why: lastChange.why } : undefined,
+  };
+}
+
+/**
+ * What was done for a planned workout: its activities (usually one; a recording split in two or a
+ * cool-down written apart gives several) and, when there are several, the total.
+ */
+export function done(activities: ActivityRow[]) {
+  if (activities.length === 0) return {};
+  const moving = (a: ActivityRow) => (a.summary.movingSec as number | undefined) ?? a.durationSec;
+  const parts = activities.map((a) => ({
+    id: a.id,
+    durationSec: a.durationSec,
+    movingSec: moving(a),
+    distanceM: a.distanceM ?? undefined,
+  }));
+  return {
+    activities: parts,
+    ...(parts.length > 1
+      ? {
+        total: {
+          parts: parts.length,
+          durationSec: parts.reduce((n, p) => n + p.durationSec, 0),
+          movingSec: parts.reduce((n, p) => n + p.movingSec, 0),
+          distanceM: Math.round(parts.reduce((n, p) => n + (p.distanceM ?? 0), 0)),
+        },
+      }
+      : {}),
   };
 }
 
@@ -121,7 +143,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     const profile = await env.profile();
     const docs = await ctx.docs.listByDate<PlannedWorkout>(env.userId, "planned_workout", from, to);
     const last = await ctx.docs.lastChanges(env.userId, "planned_workout", docs.map((d) => d.id));
-    const done = await ctx.activities.byPlanned(env.userId, docs.map((d) => d.id));
+    const matched = await ctx.activities.byPlanned(env.userId, docs.map((d) => d.id));
     const lifted = await ctx.strength.donePlanned(env.userId, docs.map((d) => d.id));
     const today = (await env.now()).date;
     const delivery = {
@@ -137,7 +159,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
         d,
         profile,
         today,
-        done.get(d.id),
+        matched.get(d.id) ?? [],
         last.get(d.id),
         delivery,
         lifted.has(d.id),
@@ -162,7 +184,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
         activities: actual.get(date) ?? [],
       })),
       howToRead:
-        "workouts = plan; activities = what was actually recorded that day (start order; plannedWorkoutId shows the match). status: done (activity matched) / skipped (with reason) / missed (date passed, nothing matched) / planned. A missed workout with a fitting activity that day (no plannedWorkoutId) = link it with link_activities. estimate is partial when steps are open or lack pace targets.",
+        "workouts = plan; activities = what was actually recorded that day (start order; plannedWorkoutId shows the match). A workout may be fulfilled by several activities (a recording split in two, a cool-down written apart): workouts[].activities lists them and total sums them — judge the session by the total. status: done (activity matched) / skipped (with reason) / missed (date passed, nothing matched) / planned. A missed workout with a fitting activity that day (no plannedWorkoutId) = link it with link_activities. estimate is partial when steps are open or lack pace targets.",
     };
   });
 
@@ -181,10 +203,12 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     if (!doc) throw new ToolError("not_found", `planned workout ${id} not found`);
     const profile = await env.profile();
     const w = doc.data;
-    const activity = (await ctx.activities.byPlanned(env.userId, [id])).get(id);
+    const activities = (await ctx.activities.byPlanned(env.userId, [id])).get(id) ?? [];
     const today = (await env.now()).date;
     const lifted = (await ctx.strength.donePlanned(env.userId, [id])).has(id);
-    const status = doc.deletedAt ? "deleted" : workoutStatus(w, Boolean(activity) || lifted, today);
+    const status = doc.deletedAt
+      ? "deleted"
+      : workoutStatus(w, activities.length > 0 || lifted, today);
     const delivery = deliveryOf(
       w,
       doc.version,
@@ -201,7 +225,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     return {
       workout: { ...w, version: doc.version },
       status,
-      ...(activity ? { activityId: activity.id } : {}),
+      ...done(activities),
       ...(doc.deletedAt ? { deleted: true, deletedAt: doc.deletedAt } : {}),
       delivery,
       resolved: w.structure && w.sport !== "strength"

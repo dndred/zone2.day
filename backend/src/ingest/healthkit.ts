@@ -146,7 +146,7 @@ export async function saveDump(
     plannedWorkoutId = src.plannedWorkoutId;
   }
   if (!duplicateOf && !plannedWorkoutId) {
-    plannedWorkoutId = await matchPlan(deps, userId, row.id, row.sport, localDate);
+    plannedWorkoutId = await matchPlan(deps, userId, row, localDate);
   }
 
   return {
@@ -159,14 +159,22 @@ export async function saveDump(
   };
 }
 
-/** Match to the plan: same local date and sport, not skipped, not taken; lowest order first. */
+/** A new recording that starts (or ends) within this gap of an already linked one continues it. */
+export const CONTINUATION_GAP_MS = 30 * 60 * 1000;
+
+/**
+ * Match to the plan: same local date and sport, not skipped. First a continuation — the watch was
+ * stopped and restarted (19 km recorded as 17 + 2): a recording within 30 min of an activity
+ * already linked to a candidate joins that workout. Otherwise the first workout (by order) that
+ * has nothing linked yet.
+ */
 export async function matchPlan(
   deps: IngestDeps,
   userId: string,
-  activityId: string,
-  sport: string,
+  a: { id: string; sport: string; startAt: Date; endAt: Date },
   localDate: string,
 ): Promise<string | null> {
+  const { id: activityId, sport } = a;
   if (sport === "other") return null;
   const day = await deps.docs.listByDate<PlannedWorkout>(
     userId,
@@ -176,7 +184,16 @@ export async function matchPlan(
   );
   const candidates = day.map((d) => d.data).filter((w) => w.sport === sport && !w.skipped);
   const taken = await deps.activities.byPlanned(userId, candidates.map((w) => w.id));
-  const pick = candidates.sort((a, b) => a.order - b.order).find((w) => !taken.has(w.id));
+  const near = (b: { startAt: Date; endAt: Date }) => {
+    const after = a.startAt.getTime() - b.endAt.getTime(); // this one starts after b ended
+    const before = b.startAt.getTime() - a.endAt.getTime(); // this one ended before b started
+    return (after >= -60_000 && after <= CONTINUATION_GAP_MS) ||
+      (before >= -60_000 && before <= CONTINUATION_GAP_MS);
+  };
+  const sorted = candidates.sort((x, y) => x.order - y.order);
+  const pick =
+    sorted.find((w) => (taken.get(w.id) ?? []).some((b) => b.id !== activityId && near(b))) ??
+      sorted.find((w) => !taken.has(w.id));
   if (!pick) return null;
   await deps.activities.setPlanned(userId, activityId, pick.id);
   return pick.id;

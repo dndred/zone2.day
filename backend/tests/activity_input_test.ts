@@ -127,7 +127,7 @@ Deno.test("import FIT via upload link: page, import, plan, Strava copy, streams,
     assertEquals(list.map((a: { id: string }) => a.id), [id]);
     const plan = (await h.call("get_plan", { from: "2026-11-16", to: "2026-11-16" })).data;
     assertEquals(plan.days[0].workouts[0].status, "done");
-    assertEquals(plan.days[0].workouts[0].activity.id, id);
+    assertEquals(plan.days[0].workouts[0].activities.map((a: { id: string }) => a.id), [id]);
 
     // Full summary, laps, original file, streams decoded from the FIT.
     const act = (await h.call("get_activity", { id })).data;
@@ -167,7 +167,7 @@ Deno.test("import FIT via upload link: page, import, plan, Strava copy, streams,
   }
 });
 
-Deno.test("import FIT: explicit plannedWorkoutId, conflict is checked before writing", async () => {
+Deno.test("import FIT: explicit plannedWorkoutId; a second file joins the same workout", async () => {
   const h = await mcpHarness({ now: "2026-11-17T03:00:00Z" });
   try {
     await h.call("update_profile", { patch: { timezone: "Asia/Barnaul" }, why: "пояс" });
@@ -187,13 +187,16 @@ Deno.test("import FIT: explicit plannedWorkoutId, conflict is checked before wri
     assertEquals(imp.data.plan.id, movedId);
     assertEquals(imp.data.warnings.length, 1); // done on the 16th, planned on the 15th
 
-    // A second file for the same planned workout → conflict, nothing created.
+    // A second file for the same planned workout (the ride was recorded in two parts) → both count.
     const other = await h.call("import_activity_file", {
       uploadId: await uploaded(h, makeFit({ start: "2026-11-16T15:00:00Z", minutes: 30 })),
       plannedWorkoutId: movedId,
     });
-    assertEquals(other.data.error, "conflict");
-    assertEquals((await h.call("list_activities", {})).data.activities.length, 1);
+    assert(!other.isError, JSON.stringify(other.data));
+    assertEquals((await h.call("list_activities", {})).data.activities.length, 2);
+    const moved = (await h.call("get_planned_workout", { id: movedId })).data;
+    assertEquals(moved.activities.length, 2);
+    assertEquals(moved.total.parts, 2);
     const plan = (await h.call("get_plan", { from: "2026-11-16", to: "2026-11-16" })).data;
     assertEquals(
       plan.days[0].workouts.find((w: { id: string }) => w.id === dayId).status,

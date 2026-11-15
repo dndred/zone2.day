@@ -73,14 +73,18 @@ Deno.test("link_activities: plan imported after the fact → missed → linked �
     assertEquals(same.data.unchanged, 1);
     assertEquals(same.data.changes.length, 0);
 
-    // Taking a workout someone else holds → conflict with a hint; nothing written.
-    const taken = await h.call("link_activities", {
+    // A second activity on a workout that already has one: both count (recording split in two).
+    const second = await h.call("link_activities", {
       links: [{ activityId: ride.activityId, plannedWorkoutId: easyId }],
-      why: "ошибка",
+      why: "вторая часть",
     });
-    assert(taken.isError);
-    assertEquals(taken.data.error, "conflict");
-    assertStringIncludes(JSON.stringify(taken.data), run.activityId);
+    assert(!second.isError, JSON.stringify(second.data));
+    const easy = (await h.call("get_planned_workout", { id: easyId })).data;
+    assertEquals(
+      easy.activities.map((a: { id: string }) => a.id).sort(),
+      [run.activityId, ride.activityId].sort(),
+    );
+    assertEquals(easy.total.parts, 2);
 
     // Moving the link in one call works (unlink the holder in the same batch).
     const moved = await h.call("link_activities", {

@@ -186,7 +186,7 @@ struct DayRows: View {
                         Text(item.workout.title).font(.subheadline).lineLimit(1)
                         if item.workout.key { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow) }
                         Spacer()
-                        if let a = item.activity, let d = a.summary.distanceM {
+                        if let d = item.totalDistanceM {
                             Text(Formats.distance(d)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         }
                         if item.status == .planned && onWatch.contains(item.id) {
@@ -334,7 +334,7 @@ struct WeekSection: View {
 
     /// Done volume of the week: "run 32 km · 4 h 10 min".
     private var volume: String {
-        let acts = days.flatMap { $0.planned.compactMap(\.activity) + $0.unplanned }.filter { !$0.isRecovery }
+        let acts = days.flatMap { $0.planned.flatMap(\.activities) + $0.unplanned }.filter { !$0.isRecovery }
         guard !acts.isEmpty else { return "" }
         let run = acts.filter { $0.sport == .run }.compactMap(\.summary.distanceM).reduce(0, +)
         let time = acts.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }.reduce(0, +)
