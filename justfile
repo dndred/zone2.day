@@ -265,6 +265,52 @@ logs target="staging" since="30m" grep="" src="fn" limit="300":
     [[ -n $ZONE2_SUPABASE_ACCESS_TOKEN ]] || { echo "no ZONE2_SUPABASE_ACCESS_TOKEN (env or .env.staging.local)"; exit 1; }
     python3 -I scripts/logs.py {{ if target == "prod" { prod_ref } else { staging_ref } }} {{quote(since)}} {{quote(grep)}} {{quote(src)}} {{quote(limit)}}
 
+# Back up an environment to ~/Backups/zone2/<target>: zone2 schema + data (gzip, last 12 kept) and
+# a mirror of the Storage bucket (workout originals). Read-only on the server. `min_days` > 0 skips
+# when the last backup is younger (the daily launchd job uses 7 → weekly, catches up after sleep).
+backup target="prod" min_days="0":
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    ref={{ if target == "prod" { prod_ref } else { staging_ref } }}
+    root=$HOME/Backups/zone2/{{target}}
+    mkdir -p $root/db $root/files
+    last=$(ls -1t $root/db/*.sql.gz 2>/dev/null | head -1 || true)
+    if [[ -n $last && {{min_days}} -gt 0 ]]; then
+      age=$(( ($(date +%s) - $(stat -f %m "$last")) / 86400 ))
+      if (( age < {{min_days}} )); then echo "last backup $age d ago ($last) — skip"; exit 0; fi
+    fi
+    pw=$(tools/secret.sh {{target}} db_password)
+    stamp=$(date +%Y-%m-%d_%H%M)
+    tmp=$(mktemp -d); trap 'rm -rf $tmp' EXIT
+    supabase db dump --remote=$ref -p "$pw" -s zone2 -f $tmp/schema.sql >/dev/null
+    supabase db dump --remote=$ref -p "$pw" -s zone2 --data-only --use-copy -f $tmp/data.sql >/dev/null
+    cat $tmp/schema.sql $tmp/data.sql | gzip -9 > $root/db/$stamp.sql.gz.part && mv $root/db/$stamp.sql.gz.part $root/db/$stamp.sql.gz
+    export ZONE2_SERVICE_KEY=$(supabase projects api-keys --remote=$ref -o json 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); print(next(k['api_key'] for k in d if k.get('name')=='service_role'))")
+    python3 -I scripts/backup_storage.py $ref activity-files $root/files
+    for old in $(ls -1t $root/db/*.sql.gz | tail -n +13); do rm -f -- "$old"; done
+    echo "backup → $root/db/$stamp.sql.gz ($(du -h $root/db/$stamp.sql.gz | cut -f1)), files: $(du -sh $root/files | cut -f1)"
+
+# Install the daily launchd job that runs `just backup prod 7` (log: ~/Backups/zone2/backup.log;
+# a notification on failure, e.g. when 1Password was locked — it retries the next day)
+backup-install:
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    plist=$HOME/Library/LaunchAgents/day.zone2.backup.plist
+    mkdir -p $HOME/Backups/zone2 $HOME/Library/LaunchAgents
+    cmd="cd '{{justfile_directory()}}' && just backup prod 7 >> \$HOME/Backups/zone2/backup.log 2>&1 || osascript -e 'display notification \"Backup failed — see ~/Backups/zone2/backup.log\" with title \"zone2.day\"'"
+    cat > $plist <<PLIST
+    <?xml version="1.0" encoding="UTF-8"?>
+    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+    <plist version="1.0"><dict>
+      <key>Label</key><string>day.zone2.backup</string>
+      <key>ProgramArguments</key><array><string>/bin/zsh</string><string>-lc</string><string>$cmd</string></array>
+      <key>StartCalendarInterval</key><dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
+    </dict></plist>
+    PLIST
+    launchctl bootout gui/$UID $plist 2>/dev/null || true
+    launchctl bootstrap gui/$UID $plist
+    echo "installed $plist (daily 12:00, backs up when the last one is ≥ 7 days old)"
+
 # Live logs of the edge proxy
 proxy-logs target="staging":
     cd edge-proxy && wrangler tail --env {{target}} --format pretty
