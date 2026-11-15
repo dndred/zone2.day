@@ -18,7 +18,7 @@
 - [x] Cloudflare: Worker `edge-proxy` на `api-staging.zone2.day` (staging). Prod (`api.zone2.day`) — по явной команде.
 - [x] iOS-скелет: `project.yml`, пакет `Zone2Core` (`Zone2Kit`, `Zone2UI`, en/ru), приложение показывает статус сервера; `swift test` и сборка под симулятор работают. `HealthBridge`/`WorkoutBridge` — в S1.
 - [x] `just mcp <tool> '<json>'` — вызов MCP-инструментов на staging от служебного пользователя `smoke` (`just smoke-token`).
-- [ ] Среда симулятора iOS 27 (для запуска приложения и UI-тестов в симуляторе; target приложения — iOS 26).
+- [x] Среда симулятора iOS 27 (для запуска приложения и UI-тестов в симуляторе; target приложения — iOS 26).
 
 ### 0.2 Спайки
 | # | Риск | Как проверяем | Критерий успеха | План Б |
@@ -54,22 +54,25 @@ S6 можно провести в начале фазы 2, остальные �
 - [ ] `update_planned_workouts` (массовая правка), снаряжение.
 - [x] Активности: `list_activities`, `get_activity` (сводка, круги, погода, план), `get_activity_streams`; статусы плана done/skipped/missed/planned.
 - [x] Круги с темпом/каденсом по времени в движении, мощностью, пульсом; план рядом с таргетами в абсолютных единицах (без автосопоставления, D41).
-- [ ] Активности: GAP, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), ~~`create_activity`~~ ✓, `import_activity_file` (FIT ✓ через `create_upload_link`; GPX, `url` — позже).
+- [ ] Активности: ~~GAP~~ ✓, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), ~~`create_activity`~~ ✓, `import_activity_file` (FIT ✓ через `create_upload_link`; GPX, `url` — позже).
 - [x] Силовые: `get_strength_log`, `get_exercise_history` (e1RM, план vs факт, перерывы), `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion); `POST /v1/strength-sessions`; сессии в ленте синка.
-- [ ] Здоровье и аналитика: `get_daily_metrics`, `get_load` (объём + sRPE×мин), `get_zone_distribution`, `get_efficiency_trend`, Pw:HR / декаплинг по ровным участкам.
+- [x] Аналитика (D44): `get_load` (объём + sRPE×мин + HR-нагрузка), `get_zone_distribution` (зоны при чтении, поляризация), `get_efficiency_trend` (темп/мощность при пульсе по ровным участкам), GAP и декаплинг в `get_activity`.
+- [ ] Здоровье: `get_daily_metrics` (сон, HRV, пульс покоя, вес) — нужна выгрузка суточных метрик с телефона.
 - [ ] Экспорт `.zwo`, интеграции, debug-инструменты.
 - [ ] Descriptions по правилам; ревью descriptions «глазами модели» в живом чате.
 
 ### 1.3 Ingest и интеграции 🛠
 - [x] HealthKit dump (контракт `fixtures/healthkit/contract-v1.json`) → сводка, круги, погода, сопоставление с планом, дубли (копии Strava), оригинал в Storage.
 - [x] Удаления из Health → мягкое удаление.
-- [ ] GAP, зоны, нагрузка, ровные участки, обувь по умолчанию, генерация FIT (S3).
+- [x] GAP, гистограммы для зон, ровные участки, декаплинг (`summary.analysis`, D44).
+- [ ] Обувь по умолчанию, генерация FIT (S3).
 - [ ] FIT (MyWhoosh, пульс внутри) → activity целиком → запись в Health приложением; склейка с записью часов — запасной путь.
 - [ ] intervals.icu: хранение ключа (шифрование), job `intervals-poll` (pg_cron), дедупликация, `health_export`.
 
 ### 1.4 Sync API 🛠
 - [x] `GET /v1/sync` (снимок −90…+60 дней + инкремент, 410, `resolved` у тренировок, переразрешение после смены профиля).
-- [ ] `GET /v1/activities/{id}/streams`, `POST` activities/uploads/commit, daily-metrics, strength-logs, deliveries, client-logs, devices.
+- [x] `GET /v1/activities/{id}/streams`, `POST /v1/deliveries`, `POST /v1/strength-sessions`.
+- [ ] `POST` daily-metrics, client-logs, devices.
 - [ ] OpenAPI → Swift-клиент (`just gen`).
 
 ### 1.5 iOS: данные 🛠
@@ -81,7 +84,6 @@ S6 можно провести в начале фазы 2, остальные �
 - [x] Экспорт тренировок: разрешения, anchored query (новые + удалённые), дамп, очередь, **бэкфилл всей истории** (≈700 тренировок, ~255 КБ/шт в gzip).
 - [ ] Суточные метрики, запись внешних активностей в Health.
 - [x] Фоновая отправка: экспорт дампов в gzip-файлы → **фоновая URLSession** (досылает при свёрнутом/выгруженном приложении), `beginBackgroundTask` при уходе с экрана. Экспорт требует разблокированного телефона (HealthKit зашифрован при блокировке), поэтому `BGProcessingTask` для бэкфилла не используется.
-- [ ] WorkoutBridge: маппинг структуры → WorkoutKit, `WorkoutScheduleReconciler`, delivery acks.
 - [ ] Клиентские логи и отчёты о состоянии устройства.
 
 ### 1.6 iOS: UI 🛠👤

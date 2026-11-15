@@ -1,7 +1,7 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { ForeignIdError, type SetInput } from "../../db/strength.ts";
-import { IsoDate } from "../../domain/entities.ts";
+import { ForeignIdError, type SetInput, type StrengthSession } from "../../db/strength.ts";
+import { IsoDate, type PlannedWorkout } from "../../domain/entities.ts";
 import { exerciseHistory, logView } from "../../domain/strength.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError, Why } from "../util.ts";
@@ -23,6 +23,22 @@ const load = (s: { reps?: number; weightKg?: number; holdSec?: number; distanceM
   ...(s.distanceM !== undefined ? { distanceM: s.distanceM } : {}),
 });
 
+/**
+ * Log views with links to deleted planned workouts dropped (the link stays in the DB, so
+ * reverting the deletion brings it back).
+ */
+async function views(ctx: McpContext, userId: string, sessions: StrengthSession[]) {
+  const ids = [...new Set(sessions.flatMap((s) => s.plannedWorkoutId ? [s.plannedWorkoutId] : []))];
+  const live = new Set(
+    (await ctx.docs.getMany(userId, "planned_workout", ids)).map((d) => d.id),
+  );
+  return sessions.map((s) =>
+    logView(
+      s.plannedWorkoutId && !live.has(s.plannedWorkoutId) ? { ...s, plannedWorkoutId: null } : s,
+    )
+  );
+}
+
 export function registerStrengthTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_strength_log", {
     title: "Get strength log",
@@ -37,7 +53,7 @@ export function registerStrengthTools(server: McpServer, ctx: McpContext): void 
     readOnly: true,
   }, async (args, env) => {
     const sessions = await ctx.strength.list(env.userId, args);
-    return { sessions: sessions.map(logView) };
+    return { sessions: await views(ctx, env.userId, sessions) };
   });
 
   defineTool(server, ctx, "get_exercise_history", {
@@ -66,7 +82,7 @@ export function registerStrengthTools(server: McpServer, ctx: McpContext): void 
   defineTool(server, ctx, "log_strength_session", {
     title: "Log strength session",
     description:
-      "Record a gym session after the fact: weights moved over from notes, or what the athlete told you in chat. Each set is one item (repeat an exercise for several sets, in order). Link plannedWorkoutId to mark that planned workout done.",
+      "Record a gym session after the fact (date today or earlier, athlete's time zone): weights moved over from notes, or what the athlete told you in chat. Each set is one item (repeat an exercise for several sets, in order). Link plannedWorkoutId (a strength workout from get_plan) to mark that planned workout done. Undo with revert_change.",
     input: {
       date: IsoDate,
       plannedWorkoutId: z.uuid().optional(),
@@ -75,6 +91,29 @@ export function registerStrengthTools(server: McpServer, ctx: McpContext): void 
       why: Why,
     },
   }, async ({ date, plannedWorkoutId, sets, notes, why }, env) => {
+    const today = (await env.now()).date;
+    if (date > today) {
+      throw new ToolError(
+        "bad_input",
+        `date ${date} is in the future (today is ${today})`,
+        "Log a session after it happened; plan future gym sessions with plan_workouts",
+      );
+    }
+    const warnings: string[] = [];
+    if (plannedWorkoutId) {
+      const plan = await ctx.docs.get<PlannedWorkout>(env.userId, "planned_workout", plannedWorkoutId);
+      if (!plan) throw new ToolError("not_found", `planned workout ${plannedWorkoutId} not found`);
+      if (plan.data.sport !== "strength") {
+        throw new ToolError(
+          "bad_input",
+          `planned workout ${plannedWorkoutId} is ${plan.data.sport}, not strength`,
+          "Endurance workouts are fulfilled by activities (link_activities)",
+        );
+      }
+      if (plan.data.date !== date) {
+        warnings.push(`done ${date}, planned ${plan.data.date} (${plan.data.title})`);
+      }
+    }
     const order = new Map<string, number>();
     const count = new Map<string, number>();
     const inputs: SetInput[] = sets.map((s) => {
@@ -108,7 +147,11 @@ export function registerStrengthTools(server: McpServer, ctx: McpContext): void 
       null,
       logView(session),
     );
-    return { changeId, session: logView(session) };
+    return {
+      changeId,
+      session: logView(session),
+      ...(warnings.length ? { warnings } : {}),
+    };
   });
 
   defineTool(server, ctx, "update_strength_log", {
@@ -173,7 +216,7 @@ export function registerStrengthTools(server: McpServer, ctx: McpContext): void 
         logView(before),
         logView(after),
       );
-      return { changeId, session: logView(after) };
+      return { changeId, session: (await views(ctx, env.userId, [after]))[0] };
     } catch (err) {
       if (err instanceof ForeignIdError) throw new ToolError("not_found", err.message);
       throw err;

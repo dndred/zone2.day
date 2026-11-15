@@ -279,7 +279,7 @@
     {
       "name": "get_activity",
       "title": "Get activity",
-      "description": "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments (distance, moving pace/speed, HR, power, cadence), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",
+      "description": "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), analysis (GAP, time in zones, steady stretches, aerobic decoupling), laps/segments (distance, moving pace/speed, HR, power, cadence), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -443,6 +443,56 @@
       }
     },
     {
+      "name": "get_efficiency_trend",
+      "title": "Get efficiency trend",
+      "description": "The main base-period tracker: pace (grade-adjusted) or power the athlete holds at the same HR, per workout and as a trend. Uses only steady stretches (continuous moving, HR ±6 bpm, ≥5 min) whose HR is inside the corridor; default corridor = HR zone 2 of the athlete's zones. Rising power / faster pace at the same HR = aerobic progress. Run: metric pace_at_hr (GAP; treadmill excluded) or power_at_hr; bike: power_at_hr. Default: last 12 weeks.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "bike"
+            ]
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "pace_at_hr",
+              "power_at_hr"
+            ]
+          },
+          "hrLow": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 220
+          },
+          "hrHigh": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 220
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "sport",
+          "metric"
+        ]
+      }
+    },
+    {
       "name": "get_exercise_history",
       "title": "Get exercise history",
       "description": "Progression of one exercise: per session the sets done, best set, estimated 1RM (Epley, 1–12 reps), RPE, plan vs actual, and gaps between sessions. The only source for weights in new strength plans — read it before planning a lift.",
@@ -469,6 +519,45 @@
         "required": [
           "exercise"
         ]
+      }
+    },
+    {
+      "name": "get_load",
+      "title": "Get training load",
+      "description": "Training load by week (or day): volume per sport (sessions, moving time, distance, elevation), sRPE load (RPE × minutes, only where the athlete gave RPE), HR load (Edwards TRIMP: minutes in HR zone k × k) and gym sessions/sets. Weekly view also compares the last full week with the 4 weeks before (ramp). Call when planning the next week or judging fatigue; for intensity split use get_zone_distribution. Default: the last 8 weeks including the current one (marked partial).",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "day",
+              "week"
+            ]
+          },
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "bike",
+              "swim",
+              "strength",
+              "other"
+            ]
+          }
+        }
       }
     },
     {
@@ -566,6 +655,52 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 60
+          }
+        }
+      }
+    },
+    {
+      "name": "get_zone_distribution",
+      "title": "Get zone distribution",
+      "description": "Time in HR zones (or bike power zones) over a period, per week and in total, with a 3-zone polarization split (low / moderate / high). Zones come from the profile (custom zones, else LTHR → Friel, max HR → % of max; bike power: FTP → Coggan) or, when the profile has none, from the max HR observed in the athlete's data (low confidence) — `zones.*.basis` says which. Use to check that easy work really is easy (base period) and how much intensity there was. Default: last 4 weeks plus the current one.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "bike",
+              "swim",
+              "strength",
+              "other"
+            ]
+          },
+          "metric": {
+            "type": "string",
+            "enum": [
+              "hr",
+              "power"
+            ]
+          },
+          "groupBy": {
+            "type": "string",
+            "enum": [
+              "week",
+              "total"
+            ]
           }
         }
       }
@@ -1267,7 +1402,7 @@
     {
       "name": "update_profile",
       "title": "Update athlete profile",
-      "description": "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list. Thresholds: number or {low, high, basis}. Zones: explicit boundaries with zoneModel 'custom'. Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
+      "description": "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,

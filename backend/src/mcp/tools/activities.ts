@@ -6,6 +6,8 @@ import { IsoDate } from "../../domain/entities.ts";
 import { defaultTitle, streams, type Summary } from "../../domain/healthkit.ts";
 import { loadDump, NoStreamsError } from "../../sync/streams.ts";
 import { resolveStructure } from "../../domain/plan.ts";
+import { analysisOf } from "../../domain/analysis.ts";
+import { analysisView, ZoneContext } from "./analytics.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError, Why } from "../util.ts";
 
@@ -25,6 +27,7 @@ export function brief(a: ActivityRow) {
     distanceM: a.distanceM ?? undefined,
     distanceKind: s.distanceKind ?? undefined,
     paceSecPerKm: s.paceSecPerKm ?? undefined,
+    gapSecPerKm: analysisOf(s)?.gapSecPerKm ?? undefined,
     paceSecPer100m: s.paceSecPer100m ?? undefined,
     speedKmh: s.speedKmh ?? undefined,
     hrAvg: hr?.avg,
@@ -71,7 +74,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
   defineTool(server, ctx, "get_activity", {
     title: "Get activity",
     description:
-      "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments (distance, moving pace/speed, HR, power, cadence), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",
+      "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), analysis (GAP, time in zones, steady stretches, aerobic decoupling), laps/segments (distance, moving pace/speed, HR, power, cadence), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",
     input: { id: z.uuid() },
     readOnly: true,
   }, async ({ id }, env) => {
@@ -80,10 +83,20 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
     const planned = a.plannedWorkoutId
       ? await ctx.docs.get<PlannedWorkout>(env.userId, "planned_workout", a.plannedWorkoutId)
       : null;
+    const an = analysisOf(a.summary);
+    const { analysis: _stored, ...summary } = a.summary;
+    const now = await env.now();
     return {
       activity: {
         ...brief(a),
-        summary: a.summary,
+        summary,
+        analysis: an
+          ? await analysisView(
+            an,
+            a.sport,
+            new ZoneContext(ctx, env, await env.profile(), now.date),
+          )
+          : null,
         laps: a.laps,
         athleteNotes: a.athleteNotes ?? undefined,
         coachNotes: a.coachNotes ?? undefined,
@@ -110,6 +123,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
         "Swim: paceSecPer100m uses the sum of swim lengths (rests excluded, confidence medium); paceWithRestsSecPer100m uses elapsed.",
         "detail 'summary_only' = the source (e.g. Strava's copy) wrote totals without HR/power/route. Indoor bike/treadmill distance is 'virtual' (from the trainer app) — compare power, not speed.",
         "hr avg/max come from HR samples (~every 5 s). startLocal is in the workout's own time zone.",
+        "analysis: gapSecPerKm = grade-adjusted pace over moving time; zones = time in HR/power zones with the athlete's current zones (basis, confidence; polarization low/moderate/high); steady = stretches of steady aerobic state (HR ±6 bpm, ≥5 min) with HR, speed/GAP (m/s), power; decoupling = drift of output per bpm between the first and second half of the steady time (needs ≥40 min steady; <5 % = good aerobic endurance, >10 % = the effort was beyond the current aerobic base, or heat/dehydration).",
         "summary.intervals (and `intervals` in lists) = the athlete's manual intervals, when set; read them before whole-workout averages, which include warm-up/cool-down. Laps by kind: manual = intervals between markers the athlete set during the workout (often the real effort, e.g. a parkrun inside warm-up and cool-down) — listed first; segment = custom workout steps; lap = lap events; split_km = automatic km splits (mile splits dropped as duplicates). Pace and cadence in laps use moving time inside the lap. Nothing is matched to the plan automatically: the athlete may have run it differently, so compare plan.structure (targets resolved to absolute units) with laps and streams yourself.",
       ],
     };

@@ -7,6 +7,7 @@ import type { StrengthSession } from "../db/strength.ts";
 import type { AppDeps } from "../deps.ts";
 import { DEFAULT_PROFILE, type PlannedWorkout, Profile } from "../domain/entities.ts";
 import { resolveStructure } from "../domain/plan.ts";
+import { analysisOf } from "../domain/analysis.ts";
 import { addDays, athleteNow } from "../domain/time.ts";
 import { brief } from "../mcp/tools/activities.ts";
 
@@ -45,7 +46,7 @@ function activityData(a: ActivityRow) {
     ...brief(a),
     startAt: a.startAt.toISOString(),
     timezone: a.timezone,
-    summary: a.summary,
+    summary: slimSummary(a.summary),
     laps: a.laps,
     tags: a.tags,
     athleteNotes: a.athleteNotes,
@@ -54,6 +55,15 @@ function activityData(a: ActivityRow) {
     official: a.official,
     grade: a.grade,
   };
+}
+
+/** The app gets GAP and decoupling; histograms and steady segments stay on the server. */
+function slimSummary(summary: Record<string, unknown>) {
+  const an = analysisOf(summary);
+  const { analysis: _a, ...rest } = summary;
+  return an
+    ? { ...rest, analysis: { gapSecPerKm: an.gapSecPerKm, decoupling: an.decoupling } }
+    : rest;
 }
 
 /** Hidden from the app: deleted, or a worse copy of another activity (e.g. Strava's). */

@@ -1,6 +1,7 @@
 // HealthKit workout dump (contract between the iOS app and the server) and derived summary.
 // The dump is the lossless source of truth (D9); everything else is recomputable from it.
 import { z } from "zod";
+import { analyze } from "./analysis.ts";
 import { localParts } from "./time.ts";
 
 const Quantity = z.object({ value: z.number(), unit: z.string() });
@@ -55,7 +56,7 @@ export const HealthKitDump = z.object({
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
 /** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
-export const SUMMARY_VERSION = 8;
+export const SUMMARY_VERSION = 9;
 
 type Sport = "run" | "bike" | "swim" | "strength" | "other";
 type Kind = "training" | "recovery";
@@ -419,6 +420,8 @@ export function summarize(dump: HealthKitDump) {
   const intervals = lapsOf(dump).filter((l) => l.kind === "manual").map(
     ({ index: _i, kind: _k, endSec: _e, ...l }) => l,
   );
+  // GAP, time at HR/power, steady segments, decoupling (zones are applied at read time).
+  const analysis = analyze(dump, { sport, subSport, moving: moving.spans, distanceKey: dk });
   return {
     v: SUMMARY_VERSION,
     sport,
@@ -496,6 +499,7 @@ export function summarize(dump: HealthKitDump) {
     sourceApp: w.source.name,
     sourceBundle: w.source.bundleId,
     timezone,
+    analysis,
   };
 }
 export type Summary = ReturnType<typeof summarize>;

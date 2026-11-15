@@ -180,6 +180,22 @@ export class ActivityStore {
     return rows.map(toRow);
   }
 
+  /**
+   * Per-activity max HR since `from` (bike or everything else), for an observed max HR when the
+   * profile has no HR model. Duplicates and recovery sessions are skipped.
+   */
+  async hrMaxima(userId: string, from: string, family: "run" | "bike"): Promise<number[]> {
+    const rows = await this.sql.unsafe(
+      `select (summary -> 'hr' ->> 'max')::float as max from zone2.activities
+       where user_id = $1 and deleted_at is null and duplicate_of is null and local_date >= $2::date
+         and (case when $3 = 'bike' then sport = 'bike' else sport <> 'bike' end)
+         and coalesce(summary ->> 'kind', 'training') <> 'recovery'
+         and summary -> 'hr' ->> 'max' is not null`,
+      [userId, from, family],
+    );
+    return rows.map((r) => Number(r.max));
+  }
+
   /** Matched (non-duplicate) activities for planned workout ids. */
   async byPlanned(userId: string, plannedIds: string[]): Promise<Map<string, ActivityRow>> {
     if (plannedIds.length === 0) return new Map();
@@ -208,6 +224,52 @@ export class ActivityStore {
         await tx`insert into zone2.sync_feed (user_id, entity, entity_id, version, op)
           values (${userId}, 'activity', ${l.id}, ${r.version}, 'upsert')`;
       }
+    });
+  }
+
+  /** Soft-delete one activity (revert of its creation). Copies that pointed at it are promoted. */
+  async softDelete(userId: string, id: string, reason: string): Promise<boolean> {
+    return await this.sql.begin(async (tx) => {
+      const [r] = await tx`update zone2.activities set deleted_at = now(), deleted_reason = ${reason},
+          version = version + 1, updated_at = now()
+        where user_id = ${userId} and id = ${id} and deleted_at is null returning version`;
+      if (!r) return false;
+      await tx`insert into zone2.sync_feed (user_id, entity, entity_id, version, op)
+        values (${userId}, 'activity', ${id}, ${r.version}, 'delete')`;
+      const promoted = await tx`update zone2.activities
+          set duplicate_of = null, version = version + 1, updated_at = now()
+        where user_id = ${userId} and duplicate_of = ${id} returning id, version`;
+      for (const p of promoted) {
+        await tx`insert into zone2.sync_feed (user_id, entity, entity_id, version, op)
+          values (${userId}, 'activity', ${p.id}, ${p.version}, 'upsert')`;
+      }
+      return true;
+    });
+  }
+
+  /**
+   * Undo softDelete. Its planned link is dropped when another live activity holds that workout
+   * meanwhile (one activity per planned workout); returns that dropped id.
+   */
+  async restore(
+    userId: string,
+    id: string,
+  ): Promise<{ restored: boolean; droppedPlannedId: string | null }> {
+    return await this.sql.begin(async (tx) => {
+      const [cur] = await tx`select planned_workout_id from zone2.activities
+        where user_id = ${userId} and id = ${id} and deleted_at is not null for update`;
+      if (!cur) return { restored: false, droppedPlannedId: null };
+      const plannedId = cur.planned_workout_id as string | null;
+      const [holder] = plannedId
+        ? await tx`select id from zone2.activities where user_id = ${userId} and deleted_at is null
+            and planned_workout_id = ${plannedId} limit 1`
+        : [];
+      const [r] = await tx`update zone2.activities set deleted_at = null, deleted_reason = null,
+          planned_workout_id = ${holder ? null : plannedId}, version = version + 1, updated_at = now()
+        where user_id = ${userId} and id = ${id} returning version`;
+      await tx`insert into zone2.sync_feed (user_id, entity, entity_id, version, op)
+        values (${userId}, 'activity', ${id}, ${r.version}, 'upsert')`;
+      return { restored: true, droppedPlannedId: holder ? plannedId : null };
     });
   }
 
