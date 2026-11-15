@@ -414,7 +414,7 @@
     {
       "name": "get_daily_metrics",
       "title": "Get daily health metrics",
-      "description": "Recovery data per day from Apple Health: resting HR, HRV (SDNN), sleep (asleep/deep/REM/core/awake minutes, bed times), respiratory rate, sleeping wrist temperature, weight, VO2max — each against the athlete's own 28-day baseline, with flags (low HRV trend, raised resting HR or temperature, short sleep). Read before planning hard sessions or when the athlete feels off; get_context already shows the last 3 days. Default: the last 14 days.",
+      "description": "Recovery data per day from Apple Health: resting HR, HRV (SDNN), sleep (asleep/deep/REM/core/awake minutes, bed times), respiratory rate, sleeping wrist temperature, weight, VO2max — each against the athlete's own 28-day baseline, with flags (low HRV trend, raised resting HR or temperature, short sleep). HRV alone is a weak signal — weigh it with the rest and the athlete's own words. Read before planning hard sessions or when the athlete feels off; get_context already shows the last 3 days. Default: the last 14 days.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

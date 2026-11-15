@@ -10,6 +10,7 @@ import { defineTool, ToolError } from "../util.ts";
 export const HEALTH_HOW_TO_READ = [
   "Each metric: value, avg7 (7 days ending that day), baseline (mean of the 28 days before, needs ≥14), delta = value − baseline, z = delta in standard deviations.",
   "HRV is SDNN (Apple), not RMSSD: compare only with this athlete's own history. Apple samples it a few times a day, mostly asleep — single days are noisy, read avg7 vs baseline (flag hrv_7d_low).",
+  "HRV on its own is a weak signal: never change the plan because of HRV alone. It counts only together with resting HR, sleep, temperature, recent load and — above all — how the athlete says they feel. A single low morning means nothing (alcohol, a late meal, heat, stress move it). High HRV is not automatically good: during a heavy block it can rise with accumulating fatigue (parasympathetic saturation), so with rising load and the athlete feeling flat treat it as a warning, not a green light.",
   "flags: hrv_7d_low (7-day HRV mean > 1 sd below baseline), hrv_very_low_today (z ≤ −2), resting_hr_up (≥ +5 bpm), wrist_temp_up (≥ +0.5 °C), respiratory_rate_up (≥ +1.5/min), short_sleep (< 6 h asleep). Several together (temp + resting HR + respiratory rate) often precede illness: ease off and ask how the athlete feels.",
   "sleep is the night ending that morning (date = wake-up day); minutes asleep exclude awake time; stages come from the watch and are estimates.",
   "missing: true = no data that day (watch not worn, or not synced yet — the phone resends the last week on every sync).",
@@ -19,7 +20,7 @@ export function registerHealthTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_daily_metrics", {
     title: "Get daily health metrics",
     description:
-      "Recovery data per day from Apple Health: resting HR, HRV (SDNN), sleep (asleep/deep/REM/core/awake minutes, bed times), respiratory rate, sleeping wrist temperature, weight, VO2max — each against the athlete's own 28-day baseline, with flags (low HRV trend, raised resting HR or temperature, short sleep). Read before planning hard sessions or when the athlete feels off; get_context already shows the last 3 days. Default: the last 14 days.",
+      "Recovery data per day from Apple Health: resting HR, HRV (SDNN), sleep (asleep/deep/REM/core/awake minutes, bed times), respiratory rate, sleeping wrist temperature, weight, VO2max — each against the athlete's own 28-day baseline, with flags (low HRV trend, raised resting HR or temperature, short sleep). HRV alone is a weak signal — weigh it with the rest and the athlete's own words. Read before planning hard sessions or when the athlete feels off; get_context already shows the last 3 days. Default: the last 14 days.",
     input: {
       from: IsoDate.optional(),
       to: IsoDate.optional(),
