@@ -86,7 +86,7 @@ let now = ISO8601DateFormatter().date(from: "2026-11-15T10:00:00Z")!
         Issue.record("repeat expected"); return
     }
     #expect(count == 3)
-    #expect(steps.first?.target.map { Formats.target($0, sport: .run) } == "4:50–5:00 /km")
+    #expect(steps.first?.target.map { Formats.target($0, sport: .run, units: .english) } == "4:50–5:00 /km")
     #expect(steps.last?.duration == .open(estimateSec: nil))
 }
 

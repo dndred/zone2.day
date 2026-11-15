@@ -23,7 +23,7 @@ struct ActivityHeadline: View {
                     if let t = s.movingSec ?? s.elapsedSec { Metric(Formats.clock(t)) }
                     if let p = s.paceSecPerKm { Metric(Formats.pace(p)) }
                     else if let p = s.paceSecPer100m { Metric(Formats.pace100(p)) }
-                    else if let v = s.speedKmh { Metric(String(format: "%.1f km/h", v)) }
+                    else if let v = s.speedKmh { Metric(String(format: "%.1f ", v) + Units.current.kmh) }
                     if let hr = s.hr?.avg { Metric("♥ \(Int(hr))") }
                 }
             }
@@ -64,6 +64,7 @@ public struct ActivityView: View {
 
     public var body: some View {
         let s = activity.summary
+        let u = Units.current
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
@@ -89,21 +90,21 @@ public struct ActivityView: View {
                 row(L("Distance"), s.distanceM.map { Formats.distance($0) + (s.distanceKind == "virtual" ? " ⓥ" : "") })
                 row(L("Moving time"), s.movingSec.map(Formats.clock))
                 row(L("Elapsed"), s.elapsedSec.map(Formats.clock))
-                row(L("Pace"), s.paceSecPerKm.map(Formats.pace) ?? s.paceSecPer100m.map(Formats.pace100))
-                row(L("Speed"), s.speedKmh.map { String(format: "%.1f km/h", $0) })
-                row(L("Heart rate"), s.hr.flatMap { hr in hr.avg.map { "\(Int($0)) / \(Int(hr.max ?? $0)) bpm" } })
-                row(L("Cadence"), (s.running?.cadenceSpm.map { "\(Int($0)) spm" }) ?? s.cycling?.cadenceAvg.map { "\(Int($0)) rpm" })
-                row(L("Power"), (s.running?.powerAvg ?? s.cycling?.powerAvg).map { "\(Int($0)) W" })
-                row(L("Elevation gain"), s.elevationGainM.map { "\(Int($0)) m" })
-                row(L("Energy"), s.energyKcal.map { "\(Int($0)) kcal" })
+                row(L("Pace"), s.paceSecPerKm.map { Formats.pace($0) } ?? s.paceSecPer100m.map { Formats.pace100($0) })
+                row(L("Speed"), s.speedKmh.map { String(format: "%.1f ", $0) + u.kmh })
+                row(L("Heart rate"), s.hr.flatMap { hr in hr.avg.map { "\(Int($0)) / \(Int(hr.max ?? $0)) \(u.bpm)" } })
+                row(L("Cadence"), (s.running?.cadenceSpm.map { "\(Int($0)) \(u.spm)" }) ?? s.cycling?.cadenceAvg.map { "\(Int($0)) \(u.rpm)" })
+                row(L("Power"), (s.running?.powerAvg ?? s.cycling?.powerAvg).map { "\(Int($0)) \(u.watt)" })
+                row(L("Elevation gain"), s.elevationGainM.map { "\(Int($0)) \(u.m)" })
+                row(L("Energy"), s.energyKcal.map { "\(Int($0)) \(u.kcal)" })
                 row(L("Weather"), s.weather.flatMap { w in w.tempC.map { String(format: "%.0f °C", $0) + (w.humidityPct.map { " · \(Int($0))%" } ?? "") } })
                 if let r = s.running {
-                    row(L("Stride length"), r.strideLengthM.map { String(format: "%.2f m", $0) })
-                    row(L("Vertical oscillation"), r.verticalOscillationCm.map { String(format: "%.1f cm", $0) })
-                    row(L("Ground contact"), r.groundContactMs.map { "\(Int($0)) ms" })
+                    row(L("Stride length"), r.strideLengthM.map { String(format: "%.2f ", $0) + u.m })
+                    row(L("Vertical oscillation"), r.verticalOscillationCm.map { String(format: "%.1f ", $0) + u.cm })
+                    row(L("Ground contact"), r.groundContactMs.map { "\(Int($0)) \(u.ms)" })
                 }
                 if let sw = s.swim {
-                    row(L("Pool"), sw.poolLengthM.map { "\(Int($0)) m" })
+                    row(L("Pool"), sw.poolLengthM.map { "\(Int($0)) \(u.m)" })
                     row(L("Lengths"), sw.lengths.map(String.init))
                 }
             }
@@ -163,7 +164,7 @@ struct LapTable: View {
                 Text("#", bundle: .module).gridColumnAlignment(.leading)
                 Text("Distance", bundle: .module)
                 Text("Time", bundle: .module)
-                Text(sport == .bike ? "km/h" : "/km")
+                Text(sport == .bike ? Units.current.kmh : Units.current.perKm)
                 Text("♥")
                 Text("Cad.", bundle: .module)
             }

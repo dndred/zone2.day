@@ -16,7 +16,11 @@ let package = Package(
     ],
     targets: [
         // Models, API client, GRDB store, SyncEngine, formatting. No UI.
-        .target(name: "Zone2Kit", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
+        .target(
+            name: "Zone2Kit",
+            dependencies: [.product(name: "GRDB", package: "GRDB.swift")],
+            resources: [.process("Resources")]
+        ),
         // Design system and screens.
         .target(
             name: "Zone2UI",

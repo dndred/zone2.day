@@ -136,6 +136,15 @@ extension View {
 }
 
 extension Color {
+    /// Card on a grouped background (white in light mode, raised gray in dark).
+    static var card: Color {
+        #if os(iOS)
+        Color(uiColor: .secondarySystemGroupedBackground)
+        #else
+        Color(nsColor: .controlBackgroundColor)
+        #endif
+    }
+
     static var groupedBackground: Color {
         #if os(iOS)
         Color(uiColor: .systemGroupedBackground)

@@ -594,22 +594,22 @@
         }
       }
     },
-    "open": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "без лимита"
-          }
-        }
-      }
-    },
     "per side": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "на сторону"
+          }
+        }
+      }
+    },
+    "run %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "бег %@"
           }
         }
       }

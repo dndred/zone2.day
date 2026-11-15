@@ -58,6 +58,16 @@ ios-gen:
 ios-build: ios-gen
     cd ios && xcodebuild -project Zone2.xcodeproj -scheme Zone2 -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData build CODE_SIGNING_ALLOWED=NO -quiet
 
+# Run in the booted simulator (iOS 26+) on demo data: just ios-sim; lang=en for English
+ios-sim lang="ru": ios-build
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    udid=$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1)
+    [[ -n $udid ]] || { echo "no booted simulator"; exit 1; }
+    xcrun simctl install $udid build/DerivedData/Build/Products/Debug-iphonesimulator/Zone2.app
+    xcrun simctl launch --terminate-running-process $udid day.zone2.app \
+      -DemoFeed $PWD/fixtures/sync/demo-feed.json -AppleLanguages "({{lang}})"
+
 # Build, sign (Personal Team), install and launch on the connected iPhone. Also renews the 7-day profile.
 ios-device:
     #!/usr/bin/env zsh

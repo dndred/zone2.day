@@ -53,7 +53,8 @@ struct StructureBar: View {
 /// One-line summary: "15 min · 3 × (1 km 4:50–5:00 /km + open) · 10 min".
 func structureSummary(_ structure: EnduranceStructure, sport: Sport) -> String {
     func step(_ s: Step, withTarget: Bool) -> String {
-        var parts: [String] = [Formats.duration(s.duration) ?? L("open")]
+        // Open steps (until Lap) read as their kind: "… · Cool-down".
+        var parts: [String] = [Formats.duration(s.duration) ?? (s.label ?? s.kind.title)]
         if withTarget, let t = s.target, t.unresolved == nil { parts.append(Formats.target(t, sport: sport)) }
         return parts.joined(separator: " ")
     }

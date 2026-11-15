@@ -46,7 +46,7 @@ struct WorkoutCard: View {
             }
         }
         .padding(14)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
         .opacity(item.status == .skipped ? 0.55 : 1)
     }
 }

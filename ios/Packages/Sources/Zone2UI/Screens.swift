@@ -75,7 +75,7 @@ public struct TodayView: View {
                     }
                     .padding(14)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+                    .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
                 }
                 .buttonStyle(.plain)
             }
@@ -99,7 +99,7 @@ public struct TodayView: View {
                     NavigationLink { ActivityView(activity: a) } label: {
                         ActivityRow(activity: a)
                             .padding(14)
-                            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+                            .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
                     }
                     .buttonStyle(.plain)
                 }
@@ -123,7 +123,7 @@ public struct TodayView: View {
                         if day.id != upcoming.last?.id { Divider().padding(.leading, 14) }
                     }
                 }
-                .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+                .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
             }
         }
         .padding(.horizontal, 16)
@@ -146,7 +146,7 @@ struct EventCountdown: View {
             Text("\(today.days(until: event.dateFrom)) d", bundle: .module).font(.headline.monospacedDigit())
         }
         .padding(14)
-        .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+        .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
@@ -309,19 +309,19 @@ struct WeekSection: View {
                     if day.id != days.last?.id { Divider().padding(.leading, 14) }
                 }
             }
-            .background(.background.secondary, in: RoundedRectangle(cornerRadius: 14))
+            .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
         }
     }
 
-    /// Done volume of the week: "Run 32 km · 4:10".
+    /// Done volume of the week: "run 32 km · 4 h 10 min".
     private var volume: String {
         let acts = days.flatMap { $0.planned.compactMap(\.activity) + $0.unplanned }.filter { !$0.isRecovery }
         guard !acts.isEmpty else { return "" }
         let run = acts.filter { $0.sport == .run }.compactMap(\.summary.distanceM).reduce(0, +)
         let time = acts.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }.reduce(0, +)
         var parts: [String] = []
-        if run > 0 { parts.append("🏃 " + Formats.distance(run)) }
-        parts.append(Formats.clock(time).dropLast(3).description) // h:mm
+        if run > 0 { parts.append(L("run \(Formats.distance(run))")) }
+        parts.append(Formats.hoursMinutes(time))
         return parts.joined(separator: " · ")
     }
 }
