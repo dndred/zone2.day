@@ -1,5 +1,6 @@
 // revert_change for changes stored outside documents (activities, strength log). Documents are
 // reverted generically by DocumentStore.revert (write `before` back); these need their own undo.
+import { type ActivityAnnotations, ANNOTATION_KEYS } from "../../db/activities.ts";
 import type { ChangeEntry, ChangeMeta } from "../../db/documents.ts";
 import type { PlannedWorkout } from "../../domain/entities.ts";
 import { logView } from "../../domain/strength.ts";
@@ -54,6 +55,16 @@ export async function revertExternal(
           ]
           : [],
       };
+    }
+    if (before && ANNOTATION_KEYS.some((k) => k in before)) {
+      // Notes, title, rpe, tags (update_activity): write the previous values back.
+      const cur = await ctx.activities.get(userId, entry.entityId);
+      if (!cur) throw new ToolError("not_found", `activity ${entry.entityId} not found`);
+      const prev = before as ActivityAnnotations;
+      const now: Record<string, unknown> = {};
+      for (const k of Object.keys(prev) as (keyof ActivityAnnotations)[]) now[k] = cur[k];
+      await ctx.activities.setAnnotations(userId, cur.id, prev);
+      return { newChangeId: await log("update", now, prev), op: "update", warnings: [] };
     }
     if (before && "plannedWorkoutId" in before) {
       // A link change (link_activities): put the previous link back.

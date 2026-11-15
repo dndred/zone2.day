@@ -37,7 +37,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -127,7 +127,7 @@
             "maxLength": 80
           },
           "athleteNotes": {
-            "description": "The athlete's own words about it",
+            "description": "The athlete's own words about this session (not yours; your analysis → update_activity coachNotes)",
             "type": "string",
             "maxLength": 4000
           },
@@ -154,7 +154,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -202,7 +202,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -231,7 +231,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -267,7 +267,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -392,7 +392,7 @@
     {
       "name": "get_context",
       "title": "Get coaching context",
-      "description": "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client, recovery of the last 3 days (resting HR, HRV, sleep, flags; details in get_daily_metrics).",
+      "description": "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client, recovery of the last 3 days (resting HR, HRV, sleep, flags; details in get_daily_metrics). Where to write: notebook = lasting knowledge about the athlete, nothing week- or session-specific; upsert_week header = the week's purpose and its temporary rules, review = the conclusion when it ends; workout notes = how to execute that session; update_activity coachNotes = your analysis of one session, athleteNotes = their words about it; write_journal = dated facts that outlast a session. Sources and provenance go to why.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -638,7 +638,7 @@
     {
       "name": "get_profile",
       "title": "Get athlete profile",
-      "description": "Thresholds (number or range with basis), zones, home time zone and travel periods, equipment, notes.",
+      "description": "Thresholds (number or range with basis), zones, home time zone and travel periods, equipment.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -753,7 +753,7 @@
             "maxLength": 80
           },
           "athleteNotes": {
-            "description": "The athlete's own words about it",
+            "description": "The athlete's own words about this session (not yours; your analysis → update_activity coachNotes)",
             "type": "string",
             "maxLength": 4000
           },
@@ -780,7 +780,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -837,7 +837,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           },
           "dryRun": {
             "type": "boolean"
@@ -929,7 +929,7 @@
     {
       "name": "list_journal",
       "title": "List journal",
-      "description": "Athlete journal: days without activity, symptoms (tags: migraine, soreness, pain, illness, sleep, stress), travel, gear, bike-fit, open questions. open=true → entries with a due date that are not closed.",
+      "description": "Athlete journal: dated facts in the athlete's words that outlast one session — symptoms and their course (tags: migraine, soreness, pain, illness, sleep, stress), days without activity, travel, gear, bike-fit, open questions. open=true → entries with a due date that are not closed.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -960,7 +960,7 @@
     {
       "name": "list_notebook",
       "title": "List notebook",
-      "description": "Your long-term notebook about the athlete (markdown pages). Pinned pages are included verbatim in get_context. Suggested pages: athlete, principles, health (pinned); fuel, season, agreements.",
+      "description": "Your long-term notebook about the athlete (markdown pages): knowledge that stays true beyond any one week. Pinned pages are included verbatim in get_context. Suggested pages: athlete, principles, health (pinned); fuel, season, agreements.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -1032,6 +1032,7 @@
                   "maximum": 10
                 },
                 "note": {
+                  "description": "This set only: technique, feeling, pain (e.g. 'last rep to failure', 'knee clicked')",
                   "type": "string",
                   "maxLength": 200
                 }
@@ -1042,6 +1043,7 @@
             }
           },
           "notes": {
+            "description": "The session as a whole: how it felt, what was dropped or changed and why. Pain that lasts beyond the session also goes to write_journal.",
             "type": "string",
             "maxLength": 1000
           },
@@ -1049,7 +1051,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -1091,7 +1093,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -1165,12 +1167,12 @@
                   "maxLength": 80
                 },
                 "goal": {
-                  "description": "The quality this session trains, not logistics.",
+                  "description": "The quality this session trains (e.g. 'threshold: 3×10 min at LT pace'), not logistics. Set it for key and interval sessions; leave it empty for easy days.",
                   "type": "string",
                   "maxLength": 140
                 },
                 "notes": {
-                  "description": "How to execute, fueling, cues.",
+                  "description": "How to execute this one session: cues, pacing, fueling, what to do if it goes badly. Not week-wide rules (→ upsert_week header) and not sources (→ why). The athlete reads it before the session.",
                   "type": "string",
                   "maxLength": 1000
                 },
@@ -1223,7 +1225,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           },
           "dryRun": {
             "type": "boolean"
@@ -1260,7 +1262,7 @@
     {
       "name": "revert_change",
       "title": "Revert a change",
-      "description": "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Works for plan, profile, events, journal, notebook, activities (a created activity is deleted, a link_activities change restores the previous link) and strength sessions (a logged session is deleted). Not revertable: edits of logged sets (fix with update_strength_log), merge_exercises, re-imports of a file. Later edits of the same item are overwritten — the result says how many.",
+      "description": "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Works for plan, profile, events, journal, notebook, activities (a created activity is deleted, a link_activities change restores the previous link, an update_activity change restores the previous notes/title/rpe/tags) and strength sessions (a logged session is deleted). Not revertable: edits of logged sets (fix with update_strength_log), merge_exercises, re-imports of a file. Later edits of the same item are overwritten — the result says how many.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1279,12 +1281,106 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
           "changeId",
           "why"
+        ]
+      }
+    },
+    {
+      "name": "update_activity",
+      "title": "Update activity notes",
+      "description": "Write on one recorded activity. coachNotes = your analysis of this session: what happened against the plan's goal, what it shows, what follows for the next sessions — conclusions about a single session go here, not into the week review or the journal. athleteNotes = the athlete's own words about this session (how it felt, what went wrong, recording errors); something that outlasts the session (pain for several days, new shoes, illness) goes to write_journal instead. rpe = the athlete's 1–10, never your estimate. Partial update: omitted fields stay, null clears. append=true adds the given notes text at the end instead of replacing. Read get_activity first. Writes immediately; logged in get_changes, revert_change restores the previous values.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "coachNotes": {
+            "description": "Markdown, the athlete's language",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 12000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "athleteNotes": {
+            "description": "The athlete's words, not yours",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "append": {
+            "description": "Add coachNotes/athleteNotes text after the existing",
+            "type": "boolean"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 80
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rpe": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 10
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "tags": {
+            "description": "Replaces the list. Context (race, test) and surface: asphalt, trail, sand, snow, ice, mud, track, treadmill",
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 30
+            }
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
+          }
+        },
+        "required": [
+          "id"
         ]
       }
     },
@@ -1339,12 +1435,12 @@
                 "maxLength": 80
               },
               "goal": {
-                "description": "The quality this session trains, not logistics.",
+                "description": "The quality this session trains (e.g. 'threshold: 3×10 min at LT pace'), not logistics. Set it for key and interval sessions; leave it empty for easy days.",
                 "type": "string",
                 "maxLength": 140
               },
               "notes": {
-                "description": "How to execute, fueling, cues.",
+                "description": "How to execute this one session: cues, pacing, fueling, what to do if it goes badly. Not week-wide rules (→ upsert_week header) and not sources (→ why). The athlete reads it before the session.",
                 "type": "string",
                 "maxLength": 1000
               },
@@ -1393,7 +1489,8 @@
                       "reason": {
                         "type": "string",
                         "minLength": 1,
-                        "maxLength": 200
+                        "maxLength": 200,
+                        "description": "Why it was skipped, in the athlete's words (illness, travel, fatigue). A cause that lasts beyond this day also goes to write_journal."
                       }
                     },
                     "required": [
@@ -1411,7 +1508,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -1424,7 +1521,7 @@
     {
       "name": "update_profile",
       "title": "Update athlete profile",
-      "description": "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list; null removes a field. Only known fields are accepted (see get_profile; e.g. run.thresholdPaceSecPerKm, run.lthr, bike.ftp, swim.cssSecPer100m) — an unknown one fails with a suggestion. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
+      "description": "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list; null removes a field. Only known fields are accepted (see get_profile; e.g. run.thresholdPaceSecPerKm, run.lthr, bike.ftp, swim.cssSecPer100m) — an unknown one fails with a suggestion. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days. The profile holds only these structured fields: free-form facts about the athlete go to the notebook (write_notebook).",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1446,7 +1543,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -1506,6 +1603,7 @@
                   "maximum": 10
                 },
                 "note": {
+                  "description": "This set only: technique, feeling, pain (e.g. 'last rep to failure', 'knee clicked')",
                   "type": "string",
                   "maxLength": 200
                 },
@@ -1522,6 +1620,7 @@
             }
           },
           "notes": {
+            "description": "The session as a whole: how it felt, what was dropped or changed and why. Pain that lasts beyond the session also goes to write_journal.",
             "type": "string",
             "maxLength": 1000
           },
@@ -1529,7 +1628,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -1542,7 +1641,7 @@
     {
       "name": "upsert_event",
       "title": "Create or update event",
-      "description": "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Notes (≤20000, markdown) hold race plan, pacing, fueling. Put place in name/notes.",
+      "description": "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Texts: goal = the target for this race (time, place, 'finish healthy'); notes (≤20000, markdown) = this race's plan: course, pacing, fueling, logistics, place; result.notes = how the race went, after it. The season picture (which races and why) belongs in the notebook. Sources go to why.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1569,7 +1668,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -1580,7 +1679,7 @@
     {
       "name": "upsert_week",
       "title": "Write week header/review",
-      "description": "Week-level notes: `title` (one line, e.g. 'БАЗА — неделя 1'), `header` (markdown: vector, what is frozen, rules of the week), `review` (markdown: how the week went). Partial update; weekStart must be a Monday.",
+      "description": "Week-level texts. `title`: one line, e.g. 'БАЗА — неделя 1'. `header`, written before the week: its purpose (what it builds and why now, what is deliberately left alone) and rules valid only this week (HR caps, what to drop when tired). Do not list the days' workouts — the plan shows them; execution of one session goes to its notes; lasting rules go to the notebook. `review`, written when the week ends: 3–6 sentences on how the week served its purpose, the conclusion and what changes next. Do not retell per-day numbers: analysis of a session goes to update_activity coachNotes. Sources go to why, not into the texts. Partial update; weekStart must be a Monday.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1598,10 +1697,12 @@
             "maxLength": 80
           },
           "header": {
+            "description": "Markdown: purpose and this week's rules",
             "type": "string",
             "maxLength": 4000
           },
           "review": {
+            "description": "Markdown, 3–6 sentences: outcome vs purpose, conclusion, what changes",
             "type": "string",
             "maxLength": 4000
           },
@@ -1616,7 +1717,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [
@@ -1627,7 +1728,7 @@
     {
       "name": "write_journal",
       "title": "Write journal entry",
-      "description": "Create (no id) or update a journal entry. An entry with `due` stays open (shown in get_context) until closed with close=true. Write the athlete's facts in their words.",
+      "description": "Create (no id) or update a journal entry: a dated fact in the athlete's words that outlasts one session — symptoms and their course, illness, sleep, stress, travel, gear, bike-fit, open questions. Not for: the athlete's words about one session (→ update_activity athleteNotes), your conclusions (→ coachNotes or the week review), lasting knowledge (→ notebook). An entry with `due` stays open (shown in get_context) until closed with close=true.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1684,7 +1785,7 @@
     {
       "name": "write_notebook",
       "title": "Write notebook page",
-      "description": "Create or change a page. mode: replace (content = whole page) | append (content added at the end) | patch (replace exact text `find` with `content`). Pages sync to the athlete's phone (readable offline). Warns when pinned pages exceed the get_context budget.",
+      "description": "Create or change a page of lasting knowledge about the athlete: who they are, goals, health and limits, training principles, agreements. Never week- or session-specific content (this week's plan or rules → upsert_week header; one session → workout notes or update_activity; dated facts → write_journal) — it goes stale while pinned pages are read in every conversation. Sources go to why, not into the page. mode: replace (content = whole page) | append (content added at the end) | patch (replace exact text `find` with `content`). Pages sync to the athlete's phone (readable offline). Warns when pinned pages exceed the get_context budget.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1725,7 +1826,7 @@
             "type": "string",
             "minLength": 3,
             "maxLength": 200,
-            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes."
           }
         },
         "required": [

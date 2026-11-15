@@ -27,6 +27,11 @@ The main target is what the watch guides by; put HR corridors on easy steps. Rep
 structure (strength): {items:[{type:"exercise", id, exercise, sets, reps, weightKg|null, rpe?, holdSec?, perSide?, note?} | {type:"superset", id, rounds, items:[…]}]}.
 weightKg null = by feel. Never invent weights: take them from history or leave null + RPE.`;
 
+const GOAL_HELP =
+  "The quality this session trains (e.g. 'threshold: 3×10 min at LT pace'), not logistics. Set it for key and interval sessions; leave it empty for easy days.";
+const NOTES_HELP =
+  "How to execute this one session: cues, pacing, fueling, what to do if it goes badly. Not week-wide rules (→ upsert_week header) and not sources (→ why). The athlete reads it before the session.";
+
 const PlanItem = z.object({
   date: IsoDate,
   order: z.number().int().min(0).max(20).optional().describe(
@@ -37,8 +42,8 @@ const PlanItem = z.object({
     "e.g. indoor_bike, trail, track, treadmill, pool, open_water",
   ),
   title: z.string().min(1).max(80),
-  goal: z.string().max(140).optional().describe("The quality this session trains, not logistics."),
-  notes: z.string().max(1000).optional().describe("How to execute, fueling, cues."),
+  goal: z.string().max(140).optional().describe(GOAL_HELP),
+  notes: z.string().max(1000).optional().describe(NOTES_HELP),
   key: z.boolean().optional(),
   tags: z.array(z.string().max(30)).max(10).optional().describe(
     "Context: indoor, heat, race, test, group, commute, openwater …",
@@ -277,7 +282,11 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
         structure: z.record(z.string(), z.unknown()).optional().describe(
           "Whole new structure; same grammar as plan_workouts.structure.",
         ),
-        skipped: z.object({ reason: z.string().min(1).max(200) }).nullable().optional(),
+        skipped: z.object({
+          reason: z.string().min(1).max(200).describe(
+            "Why it was skipped, in the athlete's words (illness, travel, fatigue). A cause that lasts beyond this day also goes to write_journal.",
+          ),
+        }).nullable().optional(),
       }),
       why: Why,
     },
@@ -383,12 +392,14 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "upsert_week", {
     title: "Write week header/review",
     description:
-      "Week-level notes: `title` (one line, e.g. 'БАЗА — неделя 1'), `header` (markdown: vector, what is frozen, rules of the week), `review` (markdown: how the week went). Partial update; weekStart must be a Monday.",
+      "Week-level texts. `title`: one line, e.g. 'БАЗА — неделя 1'. `header`, written before the week: its purpose (what it builds and why now, what is deliberately left alone) and rules valid only this week (HR caps, what to drop when tired). Do not list the days' workouts — the plan shows them; execution of one session goes to its notes; lasting rules go to the notebook. `review`, written when the week ends: 3–6 sentences on how the week served its purpose, the conclusion and what changes next. Do not retell per-day numbers: analysis of a session goes to update_activity coachNotes. Sources go to why, not into the texts. Partial update; weekStart must be a Monday.",
     input: {
       weekStart: IsoDate,
       title: z.string().max(80).optional(),
-      header: z.string().max(4000).optional(),
-      review: z.string().max(4000).optional(),
+      header: z.string().max(4000).optional().describe("Markdown: purpose and this week's rules"),
+      review: z.string().max(4000).optional().describe(
+        "Markdown, 3–6 sentences: outcome vs purpose, conclusion, what changes",
+      ),
       notebookRefs: z.array(z.string()).max(10).optional(),
       why: Why.optional(),
     },

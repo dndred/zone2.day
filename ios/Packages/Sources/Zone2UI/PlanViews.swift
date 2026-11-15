@@ -55,6 +55,8 @@ struct WorkoutCard: View {
 /// "Changed 10 Nov: easier after the race" — why the coach changed it last.
 struct LastChangeLine: View {
     let change: PlannedWorkout.LastChange
+    /// Today card keeps it short; the workout detail shows the whole reason.
+    var lineLimit: Int? = 2
 
     var body: some View {
         if let why = change.why, !why.isEmpty {
@@ -66,7 +68,8 @@ struct LastChangeLine: View {
             }
             .font(.caption)
             .foregroundStyle(.secondary)
-            .lineLimit(2)
+            .lineLimit(lineLimit)
+            .fixedSize(horizontal: false, vertical: lineLimit == nil)
         }
     }
 }
@@ -127,7 +130,7 @@ public struct PlannedWorkoutView: View {
                         if item.status != .planned { Chip(text: item.status.title, color: item.status.color) }
                     }
                     if let goal = w.goal { Text(goal).font(.body) }
-                    if let change = w.lastChange { LastChangeLine(change: change) }
+                    if let change = w.lastChange { LastChangeLine(change: change, lineLimit: nil) }
                     if let s = w.resolved { StructureBar(structure: s, sport: w.sport, height: 40) }
                     if item.status == .planned {
                         DeliveryLabel(execution: w.execution, onWatch: onWatch)

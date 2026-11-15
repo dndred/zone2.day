@@ -6,6 +6,11 @@ import { exerciseHistory, logView } from "../../domain/strength.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError, Why } from "../util.ts";
 
+const SET_NOTE_HELP =
+  "This set only: technique, feeling, pain (e.g. 'last rep to failure', 'knee clicked')";
+const SESSION_NOTES_HELP =
+  "The session as a whole: how it felt, what was dropped or changed and why. Pain that lasts beyond the session also goes to write_journal.";
+
 const SetSpec = z.object({
   exercise: z.string().min(1).max(80),
   reps: z.number().int().positive().max(100).optional(),
@@ -13,7 +18,7 @@ const SetSpec = z.object({
   holdSec: z.number().int().positive().max(3600).optional(),
   distanceM: z.number().positive().max(10_000).optional(),
   rpe: z.number().min(1).max(10).optional(),
-  note: z.string().max(200).optional(),
+  note: z.string().max(200).optional().describe(SET_NOTE_HELP),
 });
 
 const load = (s: { reps?: number; weightKg?: number; holdSec?: number; distanceM?: number }) => ({
@@ -87,7 +92,7 @@ export function registerStrengthTools(server: McpServer, ctx: McpContext): void 
       date: IsoDate,
       plannedWorkoutId: z.uuid().optional(),
       sets: z.array(SetSpec).min(1).max(120),
-      notes: z.string().max(1000).optional(),
+      notes: z.string().max(1000).optional().describe(SESSION_NOTES_HELP),
       why: Why,
     },
   }, async ({ date, plannedWorkoutId, sets, notes, why }, env) => {
@@ -170,11 +175,11 @@ export function registerStrengthTools(server: McpServer, ctx: McpContext): void 
         weightKg: z.number().nonnegative().max(500).optional(),
         holdSec: z.number().int().positive().max(3600).optional(),
         rpe: z.number().min(1).max(10).optional(),
-        note: z.string().max(200).optional(),
+        note: z.string().max(200).optional().describe(SET_NOTE_HELP),
         done: z.boolean().optional(),
         delete: z.boolean().optional(),
       })).min(1).max(60),
-      notes: z.string().max(1000).optional(),
+      notes: z.string().max(1000).optional().describe(SESSION_NOTES_HELP),
       why: Why,
     },
   }, async ({ sessionId, sets, notes, why }, env) => {

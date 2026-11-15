@@ -131,5 +131,5 @@ export function parseItem<T>(schema: z.ZodType<T>, value: unknown, index: number
 
 /** `why` is required on plan mutations: it is shown on the workout card and read by later chats. */
 export const Why = z.string().min(3).max(200).describe(
-  "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card.",
+  "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card. Sources and provenance (e.g. moved over from Notion) go here, not into notes.",
 );

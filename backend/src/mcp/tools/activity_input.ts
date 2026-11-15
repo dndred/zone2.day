@@ -49,7 +49,9 @@ function planWarnings(a: ActivityRow, w: PlannedWorkout | null): string[] {
 
 const Annotations = {
   title: z.string().min(1).max(80).optional().describe("In the athlete's language"),
-  athleteNotes: z.string().max(4000).optional().describe("The athlete's own words about it"),
+  athleteNotes: z.string().max(4000).optional().describe(
+    "The athlete's own words about this session (not yours; your analysis → update_activity coachNotes)",
+  ),
   rpe: z.number().int().min(1).max(10).optional(),
   tags: z.array(z.string().max(30)).max(10).optional(),
   plannedWorkoutId: z.uuid().optional().describe(

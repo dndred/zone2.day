@@ -18,7 +18,7 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_context", {
     title: "Get coaching context",
     description:
-      "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client, recovery of the last 3 days (resting HR, HRV, sleep, flags; details in get_daily_metrics).",
+      "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client, recovery of the last 3 days (resting HR, HRV, sleep, flags; details in get_daily_metrics). Where to write: notebook = lasting knowledge about the athlete, nothing week- or session-specific; upsert_week header = the week's purpose and its temporary rules, review = the conclusion when it ends; workout notes = how to execute that session; update_activity coachNotes = your analysis of one session, athleteNotes = their words about it; write_journal = dated facts that outlast a session. Sources and provenance go to why.",
     input: {
       days: z.number().int().min(1).max(21).optional().describe("Plan horizon ahead, default 7"),
     },

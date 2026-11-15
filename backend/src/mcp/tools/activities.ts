@@ -1,6 +1,10 @@
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import type { ActivityRow } from "../../db/activities.ts";
+import {
+  type ActivityAnnotations,
+  type ActivityRow,
+  ANNOTATION_KEYS,
+} from "../../db/activities.ts";
 import type { PlannedWorkout } from "../../domain/entities.ts";
 import { IsoDate } from "../../domain/entities.ts";
 import { defaultTitle, streams, type Summary } from "../../domain/healthkit.ts";
@@ -10,6 +14,9 @@ import { analysisOf } from "../../domain/analysis.ts";
 import { analysisView, ZoneContext } from "./analytics.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError, Why } from "../util.ts";
+
+const COACH_NOTES_MAX = 12_000;
+const ATHLETE_NOTES_MAX = 4000;
 
 export function brief(a: ActivityRow) {
   const s = a.summary as Record<string, unknown>;
@@ -279,5 +286,87 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
       out.push({ ...c, changeId });
     }
     return { changes: out, unchanged, warnings };
+  });
+
+  defineTool(server, ctx, "update_activity", {
+    title: "Update activity notes",
+    description:
+      "Write on one recorded activity. coachNotes = your analysis of this session: what happened against the plan's goal, what it shows, what follows for the next sessions — conclusions about a single session go here, not into the week review or the journal. athleteNotes = the athlete's own words about this session (how it felt, what went wrong, recording errors); something that outlasts the session (pain for several days, new shoes, illness) goes to write_journal instead. rpe = the athlete's 1–10, never your estimate. Partial update: omitted fields stay, null clears. append=true adds the given notes text at the end instead of replacing. Read get_activity first. Writes immediately; logged in get_changes, revert_change restores the previous values.",
+    input: {
+      id: z.uuid(),
+      coachNotes: z.string().min(1).max(COACH_NOTES_MAX).nullable().optional().describe(
+        "Markdown, the athlete's language",
+      ),
+      athleteNotes: z.string().min(1).max(ATHLETE_NOTES_MAX).nullable().optional().describe(
+        "The athlete's words, not yours",
+      ),
+      append: z.boolean().optional().describe(
+        "Add coachNotes/athleteNotes text after the existing",
+      ),
+      title: z.string().min(1).max(80).nullable().optional(),
+      rpe: z.number().int().min(1).max(10).nullable().optional(),
+      tags: z.array(z.string().min(1).max(30)).max(10).optional().describe(
+        "Replaces the list. Context (race, test) and surface: asphalt, trail, sand, snow, ice, mud, track, treadmill",
+      ),
+      why: Why.optional(),
+    },
+  }, async ({ id, append, why, ...fields }, env) => {
+    const cur = await ctx.activities.get(env.userId, id);
+    if (!cur) throw new ToolError("not_found", `activity ${id} not found`);
+    const patch: ActivityAnnotations = {};
+    for (const k of ANNOTATION_KEYS) {
+      if (fields[k] !== undefined) (patch as Record<string, unknown>)[k] = fields[k];
+    }
+    if (Object.keys(patch).length === 0) {
+      throw new ToolError("bad_input", "nothing to change", "Pass at least one field");
+    }
+    if (append) {
+      for (
+        const [k, max] of [["coachNotes", COACH_NOTES_MAX], [
+          "athleteNotes",
+          ATHLETE_NOTES_MAX,
+        ]] as const
+      ) {
+        const add = patch[k];
+        if (!add || !cur[k]) continue;
+        const joined = `${cur[k]!.replace(/\s+$/, "")}\n\n${add}`;
+        if (joined.length > max) {
+          throw new ToolError(
+            "too_long",
+            `${k} would be ${joined.length} chars > ${max}`,
+            "Condense the existing text and write it whole (append: false)",
+          );
+        }
+        patch[k] = joined;
+      }
+    }
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    for (const k of Object.keys(patch) as (keyof ActivityAnnotations)[]) {
+      before[k] = cur[k];
+      after[k] = patch[k] ?? null;
+    }
+    await ctx.activities.setAnnotations(env.userId, id, patch);
+    const meta = await env.meta("update_activity", why);
+    const changeId = await ctx.docs.logExternal(
+      env.userId,
+      meta,
+      "activity",
+      id,
+      "update",
+      before,
+      after,
+    );
+    const row = (await ctx.activities.get(env.userId, id))!;
+    return {
+      activity: {
+        ...brief(row),
+        coachNotes: row.coachNotes ?? undefined,
+        athleteNotes: row.athleteNotes ?? undefined,
+        rpe: row.rpe ?? undefined,
+        tags: row.tags,
+      },
+      changeId,
+    };
   });
 }

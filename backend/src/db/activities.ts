@@ -31,6 +31,17 @@ export interface ActivityRow {
   deletedAt: Date | null;
 }
 
+/** Fields the athlete or the coach write on an activity; a key with null clears it. */
+export interface ActivityAnnotations {
+  title?: string | null;
+  tags?: string[] | null;
+  athleteNotes?: string | null;
+  coachNotes?: string | null;
+  rpe?: number | null;
+}
+
+export const ANNOTATION_KEYS = ["title", "tags", "athleteNotes", "coachNotes", "rpe"] as const;
+
 export interface NewActivity {
   source: string;
   sourceId: string;
@@ -344,6 +355,32 @@ export class ActivityStore {
         rpe = coalesce(${a.rpe ?? null}::smallint, rpe),
         version = version + 1, updated_at = now()
       where user_id = ${userId} and id = ${id} returning version`;
+    if (r) await this.feed(userId, id, r.version, "upsert");
+  }
+
+  /**
+   * Set exactly the given annotation fields (null clears one). Used by update_activity and by
+   * revert_change, which writes the previous values back.
+   */
+  async setAnnotations(userId: string, id: string, a: ActivityAnnotations) {
+    const cols: Record<keyof ActivityAnnotations, string> = {
+      title: "title",
+      tags: "tags",
+      athleteNotes: "athlete_notes",
+      coachNotes: "coach_notes",
+      rpe: "rpe",
+    };
+    const keys = (Object.keys(cols) as (keyof ActivityAnnotations)[]).filter((k) => k in a);
+    if (keys.length === 0) return;
+    const sets = keys.map((k, i) =>
+      `${cols[k]} = $${i + 3}${k === "tags" ? "::text[]" : k === "rpe" ? "::smallint" : ""}`
+    );
+    const [r] = await this.sql.unsafe(
+      `update zone2.activities set ${sets.join(", ")}, version = version + 1, updated_at = now()
+       where user_id = $1 and id = $2 and deleted_at is null returning version`,
+      // tags: null clears to the empty list (the column is not null).
+      [userId, id, ...keys.map((k) => (k === "tags" ? a.tags ?? [] : a[k] ?? null))],
+    );
     if (r) await this.feed(userId, id, r.version, "upsert");
   }
 

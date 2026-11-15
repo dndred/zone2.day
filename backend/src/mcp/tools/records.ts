@@ -33,7 +33,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_profile", {
     title: "Get athlete profile",
     description:
-      "Thresholds (number or range with basis), zones, home time zone and travel periods, equipment, notes.",
+      "Thresholds (number or range with basis), zones, home time zone and travel periods, equipment.",
     input: {},
     readOnly: true,
   }, async (_args, env) => ({ profile: await env.profile() }));
@@ -41,7 +41,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "update_profile", {
     title: "Update athlete profile",
     description:
-      "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list; null removes a field. Only known fields are accepted (see get_profile; e.g. run.thresholdPaceSecPerKm, run.lthr, bike.ftp, swim.cssSecPer100m) — an unknown one fails with a suggestion. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
+      "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list; null removes a field. Only known fields are accepted (see get_profile; e.g. run.thresholdPaceSecPerKm, run.lthr, bike.ftp, swim.cssSecPer100m) — an unknown one fails with a suggestion. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days. The profile holds only these structured fields: free-form facts about the athlete go to the notebook (write_notebook).",
     input: {
       patch: z.record(z.string(), z.unknown()).describe(
         "Fields to change, e.g. {timezone:'Asia/Barnaul'} or {run:{lthr:{low:156,high:162,basis:'…'}}} or {travel:[{from,to,timezone,note}]}",
@@ -60,7 +60,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
           u.suggestion
             ? `${u.path} → ${u.path.replace(/[^.]+$/, u.suggestion)}`
             : `${u.path}: not a profile field`
-        ).join("; ") + ". Free-form facts go to notes or equipment.",
+        ).join("; ") + ". Free-form facts about the athlete go to the notebook (write_notebook).",
       );
     }
     const cur = await env.profile();
@@ -116,7 +116,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "upsert_event", {
     title: "Create or update event",
     description:
-      "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Notes (≤20000, markdown) hold race plan, pacing, fueling. Put place in name/notes.",
+      "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Texts: goal = the target for this race (time, place, 'finish healthy'); notes (≤20000, markdown) = this race's plan: course, pacing, fueling, logistics, place; result.notes = how the race went, after it. The season picture (which races and why) belongs in the notebook. Sources go to why.",
     input: {
       id: z.uuid().optional(),
       fields: z.record(z.string(), z.unknown()).describe(
@@ -153,7 +153,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "list_journal", {
     title: "List journal",
     description:
-      "Athlete journal: days without activity, symptoms (tags: migraine, soreness, pain, illness, sleep, stress), travel, gear, bike-fit, open questions. open=true → entries with a due date that are not closed.",
+      "Athlete journal: dated facts in the athlete's words that outlast one session — symptoms and their course (tags: migraine, soreness, pain, illness, sleep, stress), days without activity, travel, gear, bike-fit, open questions. open=true → entries with a due date that are not closed.",
     input: {
       from: IsoDate.optional(),
       to: IsoDate.optional(),
@@ -181,7 +181,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "write_journal", {
     title: "Write journal entry",
     description:
-      "Create (no id) or update a journal entry. An entry with `due` stays open (shown in get_context) until closed with close=true. Write the athlete's facts in their words.",
+      "Create (no id) or update a journal entry: a dated fact in the athlete's words that outlasts one session — symptoms and their course, illness, sleep, stress, travel, gear, bike-fit, open questions. Not for: the athlete's words about one session (→ update_activity athleteNotes), your conclusions (→ coachNotes or the week review), lasting knowledge (→ notebook). An entry with `due` stays open (shown in get_context) until closed with close=true.",
     input: {
       id: z.uuid().optional(),
       date: IsoDate.optional(),
@@ -221,7 +221,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "list_notebook", {
     title: "List notebook",
     description:
-      "Your long-term notebook about the athlete (markdown pages). Pinned pages are included verbatim in get_context. Suggested pages: athlete, principles, health (pinned); fuel, season, agreements.",
+      "Your long-term notebook about the athlete (markdown pages): knowledge that stays true beyond any one week. Pinned pages are included verbatim in get_context. Suggested pages: athlete, principles, health (pinned); fuel, season, agreements.",
     input: {},
     readOnly: true,
   }, async (_args, env) => {
@@ -253,7 +253,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "write_notebook", {
     title: "Write notebook page",
     description:
-      "Create or change a page. mode: replace (content = whole page) | append (content added at the end) | patch (replace exact text `find` with `content`). Pages sync to the athlete's phone (readable offline). Warns when pinned pages exceed the get_context budget.",
+      "Create or change a page of lasting knowledge about the athlete: who they are, goals, health and limits, training principles, agreements. Never week- or session-specific content (this week's plan or rules → upsert_week header; one session → workout notes or update_activity; dated facts → write_journal) — it goes stale while pinned pages are read in every conversation. Sources go to why, not into the page. mode: replace (content = whole page) | append (content added at the end) | patch (replace exact text `find` with `content`). Pages sync to the athlete's phone (readable offline). Warns when pinned pages exceed the get_context budget.",
     input: {
       slug: z.string(),
       title: z.string().min(1).max(80).optional(),
@@ -356,7 +356,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "revert_change", {
     title: "Revert a change",
     description:
-      "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Works for plan, profile, events, journal, notebook, activities (a created activity is deleted, a link_activities change restores the previous link) and strength sessions (a logged session is deleted). Not revertable: edits of logged sets (fix with update_strength_log), merge_exercises, re-imports of a file. Later edits of the same item are overwritten — the result says how many.",
+      "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Works for plan, profile, events, journal, notebook, activities (a created activity is deleted, a link_activities change restores the previous link, an update_activity change restores the previous notes/title/rpe/tags) and strength sessions (a logged session is deleted). Not revertable: edits of logged sets (fix with update_strength_log), merge_exercises, re-imports of a file. Later edits of the same item are overwritten — the result says how many.",
     input: { changeId: z.uuid(), why: Why },
   }, async ({ changeId, why }, env) => {
     const meta = await env.meta("revert_change", why);

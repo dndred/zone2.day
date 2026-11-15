@@ -72,7 +72,6 @@ export const Profile = z.looseObject({
   swim: SwimProfile.default({}),
   zoneModel: ZoneModel.default({}),
   equipment: z.record(z.string(), z.unknown()).default({}),
-  notes: z.string().max(4000).optional(),
   hrGuard: z.record(z.string(), z.unknown()).optional(),
 });
 export type Profile = z.infer<typeof Profile>;
