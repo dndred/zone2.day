@@ -21,6 +21,31 @@ const LoadBody = z.object({
   rpe: z.number().min(1).max(10).optional(),
 });
 
+const n = (min: number, max: number) => z.number().min(min).max(max).nullable().default(null);
+const DailyMetricsBody = z.object({
+  deviceId: z.string().max(64).optional(),
+  days: z.array(z.object({
+    date: z.iso.date(),
+    restingHr: n(25, 150),
+    hrvSdnnMs: n(1, 400),
+    hrvSamples: z.number().int().min(0).max(1000).nullable().default(null),
+    sleep: z.object({
+      asleepMin: z.number().min(0).max(1440),
+      deepMin: n(0, 1440).optional(),
+      remMin: n(0, 1440).optional(),
+      coreMin: n(0, 1440).optional(),
+      awakeMin: n(0, 1440).optional(),
+      inBedStart: z.string().max(40).nullable().optional(),
+      inBedEnd: z.string().max(40).nullable().optional(),
+      source: z.string().max(80).nullable().optional(),
+    }).nullable().default(null),
+    respiratoryRate: n(4, 60),
+    wristTempC: n(25, 45),
+    weightKg: n(20, 300),
+    vo2max: n(10, 100),
+  })).max(500),
+});
+
 const StrengthBody = z.object({
   id: z.uuid(),
   plannedWorkoutId: z.string().max(64).nullable().optional(),
@@ -138,6 +163,28 @@ export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
       }, 400);
     }
     return c.json(await deps.deliveries.report(auth.userId, parsed.data, deps.now()));
+  });
+
+  /**
+   * Daily health metrics aggregated on the phone from HealthKit (docs/05-sync.md §7). Each day is
+   * replaced as a whole; the phone resends the last week on every sync (late watch data) and the
+   * whole history once. Idempotent.
+   */
+  app.post("/v1/daily-metrics", async (c) => {
+    const auth = c.get("auth")!;
+    const parsed = DailyMetricsBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json({
+        error: "invalid_body",
+        issues: parsed.error.issues.slice(0, 5).map((i) => `${i.path.join(".")}: ${i.message}`),
+      }, 400);
+    }
+    const written = await deps.metrics.upsert(
+      auth.userId,
+      parsed.data.days,
+      parsed.data.deviceId ?? null,
+    );
+    return c.json({ days: written });
   });
 
   /**

@@ -11,13 +11,14 @@ import { PINNED_NOTEBOOK_LIMIT } from "../../domain/entities.ts";
 import { estimate, workoutStatus } from "../../domain/plan.ts";
 import { addDays, mondayOf } from "../../domain/time.ts";
 import type { McpContext } from "../server.ts";
+import { recentRecovery } from "./health.ts";
 import { defineTool } from "../util.ts";
 
 export function registerContextTool(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_context", {
     title: "Get coaching context",
     description:
-      "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client.",
+      "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client, recovery of the last 3 days (resting HR, HRV, sleep, flags; details in get_daily_metrics).",
     input: {
       days: z.number().int().min(1).max(21).optional().describe("Plan horizon ahead, default 7"),
     },
@@ -44,6 +45,7 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
     const last = await ctx.docs.lastChanges(userId, "planned_workout", plan.map((d) => d.id));
     const done = await ctx.activities.byPlanned(userId, plan.map((d) => d.id));
     const lifted = await ctx.strength.donePlanned(userId, plan.map((d) => d.id));
+    const recovery = await recentRecovery(ctx, userId, today);
     const recentActivities = await ctx.activities.list(userId, {
       from: addDays(today, -14),
       limit: 20,
@@ -117,6 +119,7 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
     return {
       profile,
       timezoneUnset: profile.timezone === "UTC" ? true : undefined,
+      recovery,
       weeks: {
         current: weekBy.get(monday) ?? null,
         next: weekBy.get(addDays(monday, 7)) ?? null,

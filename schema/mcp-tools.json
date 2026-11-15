@@ -392,7 +392,7 @@
     {
       "name": "get_context",
       "title": "Get coaching context",
-      "description": "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client.",
+      "description": "CALL FIRST in every conversation (and again after a long pause). One call returns: athlete's local date/time and time zone (incl. travel), profile with thresholds, current and next week headers + recent week reviews, plan from yesterday to +7 days, races and race ideas, open journal items and the last 14 days of journal, pinned notebook pages in full + index of the rest, recent changes by any AI client, recovery of the last 3 days (resting HR, HRV, sleep, flags; details in get_daily_metrics).",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -407,6 +407,28 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 21
+          }
+        }
+      }
+    },
+    {
+      "name": "get_daily_metrics",
+      "title": "Get daily health metrics",
+      "description": "Recovery data per day from Apple Health: resting HR, HRV (SDNN), sleep (asleep/deep/REM/core/awake minutes, bed times), respiratory rate, sleeping wrist temperature, weight, VO2max — each against the athlete's own 28-day baseline, with flags (low HRV trend, raised resting HR or temperature, short sleep). Read before planning hard sessions or when the athlete feels off; get_context already shows the last 3 days. Default: the last 14 days.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
           }
         }
       }
