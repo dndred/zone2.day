@@ -1,0 +1,71 @@
+#!/usr/bin/env zsh
+# zone2.day pre-commit: the same gate as CI's type check / lint / format, plus the MCP contract
+# when MCP code or schema/mcp-tools.json is staged. Enable once: `just hooks`.
+#
+# Checks the STAGED snapshot (exported to a temp dir), not the working tree: other sessions often
+# have unfinished edits in the same checkout, and they must neither fail nor mask this commit.
+# Skip in an emergency: git commit --no-verify (CI still runs everything).
+set -euo pipefail
+export NO_COLOR=1
+
+root=$(git rev-parse --show-toplevel)
+cd "$root"
+
+staged=("${(@f)$(git diff --cached --name-only --diff-filter=ACMR)}")
+[[ -n ${staged[1]:-} ]] || exit 0
+
+ts=0 mcp=0
+for f in $staged; do
+  case $f in
+    backend/*|edge-proxy/*|supabase/functions/*|deno.json|deno.lock) ts=1 ;;
+  esac
+  case $f in
+    supabase/migrations/*) mcp=1 ;;
+  esac
+  case $f in
+    backend/src/mcp/*|backend/src/domain/*|schema/mcp-tools.json) mcp=1 ;;
+  esac
+done
+(( ts || mcp )) || exit 0
+
+snap=$(mktemp -d "${TMPDIR:-/tmp}/zone2-precommit.XXXXXX")
+trap 'rm -rf "$snap"' EXIT
+git ls-files -z -- backend edge-proxy supabase schema deno.json deno.lock \
+  | xargs -0 git checkout-index --prefix="$snap/" --
+cd "$snap"
+
+fail=0
+# step <name> <filter> <cmd…>: on failure prints the output through <filter> (an ERE; '' = all).
+step() {
+  local name=$1 filter=$2; shift 2
+  local out
+  if out=$("$@" 2>&1); then
+    print -P "%F{green}✓%f $name"
+  else
+    print -P "%F{red}✗ $name%f"
+    out=$(print -r -- "$out" | grep -vE '^\{"ts"|^Check ')
+    [[ -n $filter ]] && out=$(print -r -- "$out" | grep -E "$filter" | head -10)
+    print -r -- "$out" | tail -40
+    fail=1
+  fi
+}
+
+if (( ts )); then
+  step "deno check" "" deno check backend/src backend/tests edge-proxy/src supabase/functions/api/index.ts
+  step "deno lint" "" deno lint
+  step "deno fmt --check (fix: just fmt)" "" deno fmt --check
+fi
+
+if (( mcp )); then
+  if (cd "$root" && just test-db-up >/dev/null 2>&1); then
+    step "MCP contract (accept: just mcp-snapshot-update)" 'contract changed|ERROR|error:' \
+      deno test --allow-net --allow-env --allow-read backend/tests/mcp_contract_test.ts
+  else
+    print -P "%F{yellow}!%f MCP contract skipped: test Postgres is not running (docker?)"
+  fi
+fi
+
+if (( fail )); then
+  print -P "%F{red}pre-commit failed%f — fix and re-stage (checked the staged version, not the working tree)"
+  exit 1
+fi

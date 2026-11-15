@@ -7,6 +7,7 @@
 | Команда | Что делает |
 |---|---|
 | `just bootstrap` | Проверка и установка зависимостей (deno, supabase CLI, xcodegen, wrangler), `.env` из `.env.example` |
+| `just hooks` | Включить git-хуки репозитория (`core.hooksPath = .githooks`) — один раз на клон |
 | `just dev` | `supabase start` + локальный сервер API с hot reload на `:8787` |
 | `just test-db-up` | Поднять тестовый Postgres (Docker, `localhost:54329`); каждый прогон тестов создаёт и удаляет свою временную базу с настоящими миграциями |
 | `just db-push target=…` | Применить `supabase/migrations` к staging/prod |
@@ -84,6 +85,14 @@
 4. При изменении схемы БД — миграция, `just db-reset` проходит.
 5. Изменено поведение — обновлены доки в `docs/`.
 6. Для изменений, затрагивающих устройство, — пункт в чек-листе ручной проверки и логи нужной категории.
+
+### Pre-commit хук (`.githooks/pre-commit`)
+
+Включается `just hooks`. Проверяет **проиндексированный снимок** (выгружает индекс во временную папку), а не рабочее дерево: в общем чекауте часто лежат незаконченные правки параллельных сессий, и они не должны ни ронять коммит, ни маскировать ошибки в нём.
+
+- Изменены `backend/`, `edge-proxy/`, `supabase/functions/`, `deno.json`/`deno.lock` → `deno check`, `deno lint`, `deno fmt --check` (как в CI).
+- Изменены `backend/src/mcp/`, `backend/src/domain/`, `supabase/migrations/` или `schema/mcp-tools.json` → контрактный тест MCP (поднимает тестовый Postgres через `just test-db-up`; если Docker не запущен — пропуск с предупреждением).
+- Обычно 2–4 с. Полные тесты хук не гоняет — это `just test` и CI. Обойти в крайнем случае: `git commit --no-verify`.
 
 ## 7. CI/CD (GitHub Actions, `.github/workflows/ci.yml`)
 

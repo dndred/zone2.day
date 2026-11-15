@@ -23,6 +23,11 @@ bootstrap:
     op vault list >/dev/null 2>&1 && echo "✓ 1password cli" || { echo "✗ 1password cli (enable CLI integration in the 1Password app)"; ok=0; }
     [[ $ok == 1 ]]
 
+# Enable the repo's git hooks (.githooks/pre-commit: check, lint, fmt, MCP contract on the staged snapshot)
+hooks:
+    git config core.hooksPath .githooks
+    @echo "hooks enabled: .githooks"
+
 # Run the API locally on :8787 with hot reload
 dev:
     cd backend && ZONE2_ENV=local deno task dev
