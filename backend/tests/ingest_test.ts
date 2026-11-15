@@ -3,6 +3,8 @@ import { HealthKitDump, lapsOf, streams, summarize } from "../src/domain/healthk
 import { gzip } from "../src/ingest/healthkit.ts";
 import { makeDump } from "./helpers/dump.ts";
 import { mcpHarness } from "./helpers/mcp.ts";
+import type { ActivityRow } from "../src/db/activities.ts";
+import { brief } from "../src/mcp/tools/activities.ts";
 
 const enc = (d: unknown) => new TextEncoder().encode(JSON.stringify(d));
 
@@ -56,6 +58,17 @@ Deno.test("laps: manual markers first, km splits, mile splits dropped as duplica
   assertEquals(s.intervals?.[1].paceSecPerKm, 300);
   assertEquals(s.intervals?.[1].durationSec, 1200);
   assertEquals(summarize(HealthKitDump.parse(makeDump({}))).intervals, null);
+  // Lists (list_activities, get_plan) show them in short form too.
+  const row = { summary: s, durationSec: 2400, sport: "run" } as unknown as ActivityRow;
+  assertEquals(brief(row).intervals?.[1], {
+    startSec: 600,
+    durationSec: 1200,
+    distanceM: 4000,
+    paceSecPerKm: 300,
+    speedKmh: undefined,
+    hrAvg: s.intervals?.[1].avgHr ?? undefined,
+    hrMax: s.intervals?.[1].maxHr ?? undefined,
+  });
 
   // Only mile splits (watch set to miles) → kept.
   const miles = HealthKitDump.parse(makeDump({ minutes: 40, distanceM: 8000, autoSplits: true }));
