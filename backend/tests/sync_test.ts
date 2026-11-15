@@ -70,6 +70,22 @@ Deno.test("sync feed: snapshot, increments, deletes, profile re-resolves upcomin
       unit: "abs",
       basis: "run.lthr 160",
     });
+    assertEquals(tempo.data.lastChange.why, "тест"); // "changed …: why" on the card
+
+    // Curves for the activity screen; another id → 404.
+    const st = await h.app.request(`/v1/activities/${activityId}/streams?maxPoints=50`, {
+      headers: { authorization: `Bearer ${h.appToken}` },
+    });
+    assertEquals(st.status, 200);
+    const curves = await st.json();
+    assertEquals(curves.columns.t.length, 50);
+    assert(curves.columns.heartRate.some((x: number | null) => x !== null));
+    assert(curves.columns.speed.some((x: number | null) => (x ?? 0) > 3)); // ~3.3 m/s in the dump
+    const missing = await h.app.request(`/v1/activities/${crypto.randomUUID()}/streams`, {
+      headers: { authorization: `Bearer ${h.appToken}` },
+    });
+    assertEquals(missing.status, 404);
+
     const act = find(changes, "activity", activityId)[0];
     assertEquals(act.data.date, "2026-11-13");
     assertEquals(act.data.summary.v, 7);

@@ -3,8 +3,8 @@ import { z } from "zod";
 import type { ActivityRow } from "../../db/activities.ts";
 import type { PlannedWorkout } from "../../domain/entities.ts";
 import { IsoDate } from "../../domain/entities.ts";
-import { defaultTitle, HealthKitDump, streams, type Summary } from "../../domain/healthkit.ts";
-import { gunzip } from "../../ingest/healthkit.ts";
+import { defaultTitle, streams, type Summary } from "../../domain/healthkit.ts";
+import { loadDump, NoStreamsError } from "../../sync/streams.ts";
 import { resolveStructure } from "../../domain/plan.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError } from "../util.ts";
@@ -118,7 +118,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
   defineTool(server, ctx, "get_activity_streams", {
     title: "Get activity streams",
     description:
-      "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, cadence (run: spm from steps; bike: rpm), distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",
+      "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, cadence (run: spm from steps; bike: rpm), speed (m/s from distance, any sport), distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",
     input: {
       id: z.uuid(),
       channels: z.array(z.string()).min(1).max(8).default(["heartRate", "distance"]),
@@ -128,13 +128,14 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
     },
     readOnly: true,
   }, async ({ id, channels, fromSec, toSec, maxPoints }, env) => {
-    const a = await ctx.activities.get(env.userId, id);
-    if (!a) throw new ToolError("not_found", `activity ${id} not found`);
-    const file = (await ctx.activities.files(a.id)).find((f) => f.kind === "healthkit_dump");
-    if (!file) throw new ToolError("no_streams", "this activity has no raw data");
-    const raw = await ctx.blobs.get(file.key);
-    if (!raw) throw new ToolError("no_streams", "raw file is missing in storage");
-    const dump = HealthKitDump.parse(JSON.parse(new TextDecoder().decode(await gunzip(raw))));
+    let dump;
+    try {
+      dump = await loadDump(ctx.activities, ctx.blobs, env.userId, id);
+    } catch (err) {
+      if (err instanceof NoStreamsError) throw new ToolError("no_streams", err.message);
+      throw err;
+    }
+    if (!dump) throw new ToolError("not_found", `activity ${id} not found`);
     const from = fromSec ?? 0;
     const to = Math.min(toSec ?? dump.workout.durationSec, dump.workout.durationSec);
     if (to <= from) throw new ToolError("bad_range", "toSec must be > fromSec");
@@ -146,6 +147,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
       ...(dump.route.length ? ["lat", "lon", "altitude"] : []),
       ...(dump.samples.stepCount || dump.samples.cyclingCadence ? ["cadence"] : []),
       "distance",
+      "speed",
     ];
     return {
       activityId: id,

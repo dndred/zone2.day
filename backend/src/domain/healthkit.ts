@@ -534,6 +534,14 @@ export function streams(
         acc += sumIn(dump, dk, from + i * width, from + (i + 1) * width);
         return round(acc, 1);
       });
+    } else if (ch === "speed") {
+      // m/s from distance samples per bucket (works for every sport, unlike runningSpeed).
+      const dk = distanceKey(sport);
+      if (dump.samples[dk]) {
+        out.speed = out.t.map((_, i) =>
+          round(sumIn(dump, dk, from + i * width, from + (i + 1) * width) / width, 2)
+        );
+      }
     } else if (ch === "cadence") {
       // Run: steps per minute from step-count intervals. Bike: rpm samples.
       if (sport === "run" && dump.samples.stepCount) {

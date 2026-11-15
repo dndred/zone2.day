@@ -59,17 +59,22 @@ function activityData(a: ActivityRow) {
 /** Hidden from the app: deleted, or a worse copy of another activity (e.g. Strava's). */
 const activityVisible = (a: ActivityRow) => !a.deletedAt && !a.duplicateOf;
 
-function docChange(d: DocRow, profile: Profile): SyncChange {
+type LastChanges = Map<string, { at: Date; why: string | null }>;
+
+function docChange(d: DocRow, profile: Profile, last: LastChanges = new Map()): SyncChange {
   if (d.deletedAt) return { entity: d.entity, id: d.id, op: "delete", version: d.version };
   let data = d.data;
   if (d.entity === "planned_workout") {
     // Targets resolved to absolute units: the app builds watch workouts without its own resolver.
+    // lastChange: "changed 10.11: <why>" on the card (docs/07-ios-app.md §3.1).
     const w = d.data as PlannedWorkout;
+    const lc = last.get(d.id);
     data = {
       ...w,
       resolved: w.structure && w.sport !== "strength"
         ? resolveStructure(w.structure, w.sport, profile)
         : undefined,
+      lastChange: lc ? { at: lc.at.toISOString(), why: lc.why } : undefined,
     };
   }
   return { entity: d.entity, id: d.id, op: "upsert", version: d.version, data };
@@ -85,6 +90,11 @@ function strengthChange(s: StrengthSession): SyncChange {
   return s.deleted
     ? { entity: "strength_session", id: s.id, op: "delete", version: s.version }
     : { entity: "strength_session", id: s.id, op: "upsert", version: s.version, data: s };
+}
+
+async function lastOf(deps: AppDeps, userId: string, docs: DocRow[]): Promise<LastChanges> {
+  const ids = docs.filter((d) => d.entity === "planned_workout" && !d.deletedAt).map((d) => d.id);
+  return await deps.docs.lastChanges(userId, "planned_workout", ids);
 }
 
 async function loadProfile(deps: AppDeps, userId: string): Promise<Profile> {
@@ -112,6 +122,7 @@ export async function syncPage(
     const cursor = await head(deps, userId);
     const from = addDays(today, -SNAPSHOT_PAST_DAYS);
     const docs = await deps.docs.snapshot(userId, from, addDays(today, SNAPSHOT_FUTURE_DAYS));
+    const last = await lastOf(deps, userId, docs);
     const acts = await deps.activities.list(userId, {
       from,
       limit: 5000,
@@ -120,7 +131,7 @@ export async function syncPage(
     const lifts = await deps.strength.list(userId, { from, limit: 500 });
     return {
       changes: [
-        ...docs.map((d) => docChange(d, profile)),
+        ...docs.map((d) => docChange(d, profile, last)),
         ...acts.map(activityChange),
         ...lifts.map((s) => strengthChange(s)),
       ],
@@ -151,12 +162,15 @@ export async function syncPage(
     else docKeys.set(`${r.entity}/${r.entity_id}`, { entity: r.entity, id: r.entity_id });
   }
   const docs = await deps.docs.getPairs(userId, [...docKeys.values()]);
-  const changes = docs.map((d) => docChange(d, profile));
+  const last = await lastOf(deps, userId, docs);
+  const changes = docs.map((d) => docChange(d, profile, last));
   // A profile change can move %-of-threshold targets: re-send upcoming workouts resolved anew.
   if (docKeys.has("profile/profile")) {
     const sent = new Set(docs.filter((d) => d.entity === "planned_workout").map((d) => d.id));
-    for (const d of await deps.docs.plannedFrom(userId, today)) {
-      if (!sent.has(d.id)) changes.push(docChange(d, profile));
+    const upcoming = await deps.docs.plannedFrom(userId, today);
+    const lastUpcoming = await lastOf(deps, userId, upcoming);
+    for (const d of upcoming) {
+      if (!sent.has(d.id)) changes.push(docChange(d, profile, lastUpcoming));
     }
   }
   const acts = await deps.activities.getMany(userId, [...actIds]);

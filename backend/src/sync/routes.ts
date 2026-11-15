@@ -9,6 +9,7 @@ import { ingestHealthKit } from "../ingest/healthkit.ts";
 import { log } from "../log.ts";
 import { ForeignIdError } from "../db/strength.ts";
 import { CursorGoneError, syncPage } from "./feed.ts";
+import { appStreams, loadDump, NoStreamsError } from "./streams.ts";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
@@ -157,6 +158,24 @@ export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
       return c.json({ id: s.id, version: s.version, sets: s.sets.length });
     } catch (err) {
       if (err instanceof ForeignIdError) return c.json({ error: "conflict" }, 409);
+      throw err;
+    }
+  });
+
+  /** Curves for the activity screen (the app caches them; docs/05-sync.md §2). */
+  app.get("/v1/activities/:id/streams", async (c) => {
+    const auth = c.get("auth")!;
+    const id = c.req.param("id");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "not_found" }, 404);
+    const maxPoints = Math.min(Math.max(Number(c.req.query("maxPoints") ?? 300) || 300, 20), 1000);
+    try {
+      const dump = await loadDump(deps.activities, deps.blobs, auth.userId, id);
+      if (!dump) return c.json({ error: "not_found" }, 404);
+      return c.json({ activityId: id, ...appStreams(dump, maxPoints) });
+    } catch (err) {
+      if (err instanceof NoStreamsError) {
+        return c.json({ error: "no_streams", message: err.message }, 404);
+      }
       throw err;
     }
   });
