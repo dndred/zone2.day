@@ -73,7 +73,8 @@ S6 можно провести в начале фазы 2, остальные �
 
 ### 1.5 iOS: данные 🛠
 - [x] Вход (`ASWebAuthenticationSession`, passkey, Keychain, refresh). Регистрация устройства — позже.
-- [ ] GRDB-схема и миграции, SyncEngine (pull + apply), outbox, триггеры: foreground, BGAppRefresh, HK observers, BGProcessing.
+- [x] GRDB (`record` = JSON сущностей ленты + `sync_state`), SyncEngine (pull страницами, 410 → ресинк), триггеры: foreground, pull-to-refresh, BGAppRefresh, после выгрузки тренировок.
+- [ ] Outbox, BGProcessing, HK observers → pull.
 - [x] Экспорт тренировок: разрешения, anchored query (новые + удалённые), дамп, очередь, **бэкфилл всей истории** (≈700 тренировок, ~255 КБ/шт в gzip).
 - [ ] Суточные метрики, запись внешних активностей в Health.
 - [x] Фоновая отправка: экспорт дампов в gzip-файлы → **фоновая URLSession** (досылает при свёрнутом/выгруженном приложении), `beginBackgroundTask` при уходе с экрана. Экспорт требует разблокированного телефона (HealthKit зашифрован при блокировке), поэтому `BGProcessingTask` для бэкфилла не используется.
@@ -83,7 +84,8 @@ S6 можно провести в начале фазы 2, остальные �
 ### 1.6 iOS: UI 🛠👤
 - [ ] **Макеты** Today, Planned workout, Completed, Gym → согласование с атлетом.
 - [ ] Zone2UI: цвета, компоненты, снапшоты.
-- [ ] Экраны: Today (шапка недели, тренировки по `order`), Calendar (недели, журнал в днях), Planned workout (последнее изменение, блокнот), Completed/Activity (официальный результат, слова атлета), Activities, Gym mode, Profile (+ блокнот офлайн), Debug.
+- [x] Первая версия экранов: Today (шапка недели, карточки по `order`, план и факт в одной карточке, ближайшие дни, обратный отсчёт до старта), Calendar (недели −8…+6, объём недели, журнал), Planned workout (профиль структуры, шаги с абсолютными таргетами, силовая), Activity (ручные интервалы первыми, сводка, сплиты, заметки), Activities, Profile (аккаунт, Health, синк, debug). Демо-режим `-DemoFeed fixtures/sync/demo-feed.json`.
+- [ ] Экраны дальше: последнее изменение плана, блокнот офлайн, графики (Swift Charts), карта, Gym mode, снапшот-тесты.
 - [ ] Share `.zwo`, «Open in Workout app».
 - [ ] Локализация en/ru.
 

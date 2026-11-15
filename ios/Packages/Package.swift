@@ -11,9 +11,12 @@ let package = Package(
         .library(name: "Zone2Kit", targets: ["Zone2Kit"]),
         .library(name: "Zone2UI", targets: ["Zone2UI"]),
     ],
+    dependencies: [
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
+    ],
     targets: [
-        // Models, API client, (later) GRDB store, SyncEngine, formatting. Pure Swift.
-        .target(name: "Zone2Kit"),
+        // Models, API client, GRDB store, SyncEngine, formatting. No UI.
+        .target(name: "Zone2Kit", dependencies: [.product(name: "GRDB", package: "GRDB.swift")]),
         // Design system and screens.
         .target(
             name: "Zone2UI",

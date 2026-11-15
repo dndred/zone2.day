@@ -1,5 +1,6 @@
 import SwiftUI
 import Zone2Kit
+import Zone2UI
 
 @main
 struct Zone2App: App {
@@ -14,28 +15,31 @@ struct Zone2App: App {
 
     var body: some Scene {
         WindowGroup {
-            #if DEBUG
             TabView {
-                Tab("Home", systemImage: "figure.run") { home }
-                Tab("S1", systemImage: "stethoscope") { S1SpikeView() }
-                Tab("S4", systemImage: "alarm") { S4WakeView() }
+                Tab(String(localized: "Today"), systemImage: "sun.max") {
+                    TodayView(context: context, syncing: model.syncing)
+                }
+                Tab(String(localized: "Calendar"), systemImage: "calendar") {
+                    CalendarView(context: context, syncing: model.syncing)
+                }
+                Tab(String(localized: "Activities"), systemImage: "figure.run") {
+                    ActivitiesView(context: context)
+                }
+                Tab(String(localized: "Profile"), systemImage: "person.crop.circle") {
+                    HomeView(model: model, health: model.health)
+                }
             }
-            #else
-            home
-            #endif
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
             case .active:
+                BackgroundRefresh.schedule()
                 #if DEBUG
-                WakeMonitor.scheduleRefresh()
                 Task { await WakeMonitor.record("foreground") }
                 #endif
-                Task { await model.health.sync() }
+                Task { await model.sync() }
             case .background:
-                #if DEBUG
-                WakeMonitor.scheduleRefresh()
-                #endif
+                BackgroundRefresh.schedule()
             default: break
             }
         }
@@ -43,16 +47,17 @@ struct Zone2App: App {
         .backgroundTask(.urlSession(BackgroundUploader.identifier)) {
             await model.health.uploader.waitForEvents()
         }
-        #if DEBUG
-        .backgroundTask(.appRefresh(WakeMonitor.refreshTaskId)) {
-            WakeMonitor.scheduleRefresh()
+        .backgroundTask(.appRefresh(BackgroundRefresh.taskId)) {
+            BackgroundRefresh.schedule()
+            #if DEBUG
             await WakeMonitor.record("bg.refresh")
-            await model.health.sync(budget: 20)
+            #endif
+            await model.sync(budget: 20)
         }
-        #endif
     }
 
-    private var home: some View {
-        HomeView(model: model, health: model.health)
+    private var context: PlanContext {
+        let model = model
+        return PlanContext(store: model.store) { await model.pull() }
     }
 }

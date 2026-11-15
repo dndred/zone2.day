@@ -1,0 +1,762 @@
+{
+  "snapshot": true,
+  "hasMore": false,
+  "cursor": "0",
+  "serverTime": "2026-11-15T03:00:00Z",
+  "changes": [
+    {
+      "entity": "profile",
+      "id": "profile",
+      "op": "upsert",
+      "version": 3,
+      "data": {
+        "timezone": "Asia/Barnaul",
+        "run": {
+          "lthr": 160
+        }
+      }
+    },
+    {
+      "entity": "week",
+      "id": "2026-11-09",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "weekStart": "2026-11-09",
+        "title": "БАЗА — неделя 1",
+        "header": "Вектор: объём Z2, одна пороговая. Силовая 2 раза.",
+        "review": "Неделя выполнена, паркран 25:26 — личный рекорд сезона."
+      }
+    },
+    {
+      "entity": "week",
+      "id": "2026-11-16",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "weekStart": "2026-11-16",
+        "title": "БАЗА — неделя 2",
+        "header": "Добавляем 10% объёма. Пульс на лёгких ≤ 145."
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-skip",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-skip",
+        "date": "2026-11-12",
+        "order": 0,
+        "sport": "run",
+        "title": "Лёгкий бег 50 мин",
+        "tags": [],
+        "key": false,
+        "execution": "workoutkit",
+        "skipped": {
+          "reason": "Крепатура после зала"
+        },
+        "resolved": {
+          "steps": [
+            {
+              "type": "step",
+              "id": "a",
+              "kind": "work",
+              "duration": {
+                "type": "time",
+                "sec": 3000
+              },
+              "target": {
+                "metric": "hr",
+                "low": 130,
+                "high": 145,
+                "unit": "abs",
+                "basis": "run.lthr 160"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-park",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-park",
+        "date": "2026-11-14",
+        "order": 0,
+        "sport": "run",
+        "title": "Паркран",
+        "tags": [],
+        "key": true,
+        "goal": "Темповый 5 км в ~5:00/км",
+        "execution": "workoutkit",
+        "resolved": {
+          "steps": [
+            {
+              "type": "step",
+              "id": "wu",
+              "kind": "warmup",
+              "duration": {
+                "type": "time",
+                "sec": 1800
+              },
+              "target": {
+                "metric": "hr",
+                "low": 120,
+                "high": 140,
+                "unit": "abs",
+                "basis": "run.lthr 160"
+              }
+            },
+            {
+              "type": "step",
+              "id": "race",
+              "kind": "work",
+              "duration": {
+                "type": "distance",
+                "m": 5000
+              },
+              "target": {
+                "metric": "pace",
+                "low": 295,
+                "high": 305,
+                "unit": "abs"
+              }
+            },
+            {
+              "type": "step",
+              "id": "cd",
+              "kind": "cooldown",
+              "duration": {
+                "type": "time",
+                "sec": 1200
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-gym",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-gym",
+        "date": "2026-11-15",
+        "order": 0,
+        "sport": "strength",
+        "title": "Зал A",
+        "tags": [],
+        "key": false,
+        "goal": "Ноги и кор",
+        "execution": "none",
+        "structure": {
+          "items": [
+            {
+              "type": "exercise",
+              "id": "sq",
+              "exercise": "Присед со штангой",
+              "sets": 4,
+              "reps": 6,
+              "weightKg": 70
+            },
+            {
+              "type": "exercise",
+              "id": "rdl",
+              "exercise": "Румынская тяга",
+              "sets": 3,
+              "reps": 8,
+              "weightKg": 60
+            },
+            {
+              "type": "superset",
+              "id": "core",
+              "rounds": 3,
+              "items": [
+                {
+                  "exercise": "Планка",
+                  "holdSec": 45
+                },
+                {
+                  "exercise": "Боковая планка",
+                  "holdSec": 30,
+                  "perSide": true
+                }
+              ]
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-hill",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-hill",
+        "date": "2026-11-15",
+        "order": 1,
+        "sport": "run",
+        "title": "10 км + 6×12 с в горку",
+        "tags": [],
+        "key": true,
+        "goal": "Нейромышечная работа без закисления",
+        "execution": "workoutkit",
+        "resolved": {
+          "steps": [
+            {
+              "type": "step",
+              "id": "wu",
+              "kind": "warmup",
+              "duration": {
+                "type": "distance",
+                "m": 3000
+              },
+              "target": {
+                "metric": "hr",
+                "low": 125,
+                "high": 145,
+                "unit": "abs",
+                "basis": "run.lthr 160"
+              }
+            },
+            {
+              "type": "repeat",
+              "id": "r",
+              "count": 6,
+              "steps": [
+                {
+                  "type": "step",
+                  "id": "s",
+                  "kind": "work",
+                  "duration": {
+                    "type": "time",
+                    "sec": 12
+                  },
+                  "target": {
+                    "metric": "rpe",
+                    "low": 9,
+                    "high": 10,
+                    "unit": "abs"
+                  },
+                  "label": "Спринт в горку"
+                },
+                {
+                  "type": "step",
+                  "id": "w",
+                  "kind": "recovery",
+                  "duration": {
+                    "type": "time",
+                    "sec": 105
+                  },
+                  "note": "Шагом вниз"
+                }
+              ]
+            },
+            {
+              "type": "step",
+              "id": "easy",
+              "kind": "work",
+              "duration": {
+                "type": "distance",
+                "m": 6000
+              },
+              "target": {
+                "metric": "hr",
+                "low": 130,
+                "high": 145,
+                "unit": "abs",
+                "basis": "run.lthr 160"
+              },
+              "secondary": [
+                {
+                  "metric": "pace",
+                  "low": 330,
+                  "high": 360,
+                  "unit": "abs"
+                }
+              ]
+            },
+            {
+              "type": "step",
+              "id": "cd",
+              "kind": "cooldown",
+              "duration": {
+                "type": "open"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-z2",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-z2",
+        "date": "2026-11-16",
+        "order": 0,
+        "sport": "run",
+        "title": "Лёгкий бег 40 мин, Z2",
+        "tags": [],
+        "key": false,
+        "goal": "Аэробная база",
+        "execution": "workoutkit",
+        "resolved": {
+          "steps": [
+            {
+              "type": "step",
+              "id": "a",
+              "kind": "work",
+              "duration": {
+                "type": "time",
+                "sec": 2400
+              },
+              "target": {
+                "metric": "hr",
+                "low": 130,
+                "high": 145,
+                "unit": "abs",
+                "basis": "run.lthr 160"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-bike",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-bike",
+        "date": "2026-11-17",
+        "order": 0,
+        "sport": "bike",
+        "title": "Sweet spot 3×12",
+        "tags": [],
+        "key": true,
+        "subSport": "indoor_bike",
+        "goal": "Мощность у порога",
+        "execution": "mywhoosh",
+        "resolved": {
+          "steps": [
+            {
+              "type": "step",
+              "id": "wu",
+              "kind": "warmup",
+              "duration": {
+                "type": "time",
+                "sec": 600
+              },
+              "target": {
+                "metric": "power",
+                "low": 120,
+                "high": 160,
+                "unit": "abs",
+                "basis": "bike.ftp 230"
+              }
+            },
+            {
+              "type": "repeat",
+              "id": "r",
+              "count": 3,
+              "steps": [
+                {
+                  "type": "step",
+                  "id": "ss",
+                  "kind": "work",
+                  "duration": {
+                    "type": "time",
+                    "sec": 720
+                  },
+                  "target": {
+                    "metric": "power",
+                    "low": 202,
+                    "high": 216,
+                    "unit": "abs",
+                    "basis": "bike.ftp 230"
+                  }
+                },
+                {
+                  "type": "step",
+                  "id": "rec",
+                  "kind": "recovery",
+                  "duration": {
+                    "type": "time",
+                    "sec": 300
+                  },
+                  "target": {
+                    "metric": "power",
+                    "low": 110,
+                    "high": 130,
+                    "unit": "abs",
+                    "basis": "bike.ftp 230"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "step",
+              "id": "cd",
+              "kind": "cooldown",
+              "duration": {
+                "type": "time",
+                "sec": 600
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-swim",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-swim",
+        "date": "2026-11-18",
+        "order": 0,
+        "sport": "swim",
+        "title": "Бассейн 2 км",
+        "tags": [],
+        "key": false,
+        "goal": "Техника и CSS",
+        "execution": "workoutkit",
+        "resolved": {
+          "poolLengthM": 25,
+          "steps": [
+            {
+              "type": "step",
+              "id": "wu",
+              "kind": "warmup",
+              "duration": {
+                "type": "distance",
+                "m": 400
+              }
+            },
+            {
+              "type": "repeat",
+              "id": "r",
+              "count": 8,
+              "steps": [
+                {
+                  "type": "step",
+                  "id": "f",
+                  "kind": "work",
+                  "duration": {
+                    "type": "distance",
+                    "m": 100
+                  },
+                  "target": {
+                    "metric": "pace",
+                    "low": 105,
+                    "high": 110,
+                    "unit": "abs"
+                  }
+                },
+                {
+                  "type": "step",
+                  "id": "rest",
+                  "kind": "rest",
+                  "duration": {
+                    "type": "time",
+                    "sec": 20
+                  }
+                }
+              ]
+            },
+            {
+              "type": "step",
+              "id": "cd",
+              "kind": "cooldown",
+              "duration": {
+                "type": "distance",
+                "m": 200
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "planned_workout",
+      "id": "w-long",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "w-long",
+        "date": "2026-11-19",
+        "order": 0,
+        "sport": "run",
+        "title": "Длительная 18 км",
+        "tags": [],
+        "key": false,
+        "execution": "workoutkit",
+        "resolved": {
+          "steps": [
+            {
+              "type": "step",
+              "id": "a",
+              "kind": "work",
+              "duration": {
+                "type": "distance",
+                "m": 18000
+              },
+              "target": {
+                "metric": "hr",
+                "low": 130,
+                "high": 148,
+                "unit": "abs",
+                "basis": "run.lthr 160"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "entity": "activity",
+      "id": "a-park",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "a-park",
+        "date": "2026-11-14",
+        "startLocal": "08:33",
+        "sport": "run",
+        "kind": "training",
+        "title": "Паркран 11.7 km",
+        "plannedWorkoutId": "w-park",
+        "source": "Apple Watch",
+        "device": "Apple Watch Ultra 2",
+        "summary": {
+          "v": 7,
+          "elapsedSec": 5191,
+          "movingSec": 3950,
+          "distanceM": 11684,
+          "distanceKind": "measured",
+          "paceSecPerKm": 338,
+          "hr": {
+            "avg": 136,
+            "max": 162
+          },
+          "elevationGainM": 42,
+          "energyKcal": 780,
+          "weather": {
+            "tempC": -3,
+            "humidityPct": 88
+          },
+          "running": {
+            "powerAvg": 250,
+            "cadenceSpm": 167,
+            "strideLengthM": 1.12,
+            "verticalOscillationCm": 8.4,
+            "groundContactMs": 248
+          },
+          "intervals": [
+            {
+              "startSec": 0,
+              "durationSec": 2407.8,
+              "distanceM": 3635,
+              "movingSec": 1377,
+              "paceSecPerKm": 379,
+              "avgHr": 118,
+              "maxHr": 151,
+              "cadence": 162
+            },
+            {
+              "startSec": 2407.8,
+              "durationSec": 1526.2,
+              "distanceM": 5062.7,
+              "movingSec": 1517,
+              "paceSecPerKm": 300,
+              "avgHr": 156,
+              "maxHr": 162,
+              "cadence": 173
+            },
+            {
+              "startSec": 3934,
+              "durationSec": 1257.1,
+              "distanceM": 2986.5,
+              "movingSec": 1055,
+              "paceSecPerKm": 353,
+              "avgHr": 135,
+              "maxHr": 154,
+              "cadence": 164
+            }
+          ]
+        },
+        "laps": [
+          {
+            "kind": "split_km",
+            "startSec": 0,
+            "durationSec": 291,
+            "distanceM": 1000,
+            "movingSec": 291,
+            "paceSecPerKm": 291,
+            "avgHr": 157,
+            "cadence": 173
+          },
+          {
+            "kind": "split_km",
+            "startSec": 300,
+            "durationSec": 298,
+            "distanceM": 1000,
+            "movingSec": 298,
+            "paceSecPerKm": 298,
+            "avgHr": 158,
+            "cadence": 173
+          },
+          {
+            "kind": "split_km",
+            "startSec": 600,
+            "durationSec": 303,
+            "distanceM": 1000,
+            "movingSec": 303,
+            "paceSecPerKm": 303,
+            "avgHr": 158,
+            "cadence": 171
+          },
+          {
+            "kind": "split_km",
+            "startSec": 900,
+            "durationSec": 310,
+            "distanceM": 1000,
+            "movingSec": 310,
+            "paceSecPerKm": 310,
+            "avgHr": 157,
+            "cadence": 173
+          },
+          {
+            "kind": "split_km",
+            "startSec": 1200,
+            "durationSec": 301,
+            "distanceM": 1000,
+            "movingSec": 301,
+            "paceSecPerKm": 301,
+            "avgHr": 160,
+            "cadence": 174
+          }
+        ],
+        "coachNotes": "**Отлично.** Ровная раскладка, последний км быстрее среднего."
+      }
+    },
+    {
+      "entity": "activity",
+      "id": "a-gym",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "a-gym",
+        "date": "2026-11-15",
+        "startLocal": "09:10",
+        "sport": "strength",
+        "kind": "training",
+        "title": "Силовая",
+        "plannedWorkoutId": "w-gym",
+        "source": "Apple Watch",
+        "device": "Apple Watch Ultra 2",
+        "summary": {
+          "v": 7,
+          "elapsedSec": 3300,
+          "movingSec": 3300,
+          "hr": {
+            "avg": 104,
+            "max": 141
+          },
+          "energyKcal": 310
+        },
+        "laps": []
+      }
+    },
+    {
+      "entity": "activity",
+      "id": "a-yoga",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "a-yoga",
+        "date": "2026-11-13",
+        "startLocal": "21:00",
+        "sport": "other",
+        "kind": "recovery",
+        "title": "Mind & Body",
+        "plannedWorkoutId": null,
+        "source": "Apple Watch",
+        "device": "Apple Watch Ultra 2",
+        "summary": {
+          "v": 7,
+          "elapsedSec": 900
+        },
+        "laps": []
+      }
+    },
+    {
+      "entity": "activity",
+      "id": "a-ride",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "a-ride",
+        "date": "2026-11-11",
+        "startLocal": "19:00",
+        "sport": "bike",
+        "kind": "training",
+        "title": "MyWhoosh ride",
+        "plannedWorkoutId": null,
+        "source": "Apple Watch",
+        "device": "Apple Watch Ultra 2",
+        "summary": {
+          "v": 7,
+          "elapsedSec": 3600,
+          "movingSec": 3600,
+          "distanceM": 31200,
+          "distanceKind": "virtual",
+          "speedKmh": 31.2,
+          "detail": "summary_only"
+        },
+        "laps": [],
+        "subSport": "indoor_bike"
+      }
+    },
+    {
+      "entity": "journal",
+      "id": "j1",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "j1",
+        "date": "2026-11-14",
+        "text": "Новые кроссовки: первый забег, всё ок",
+        "tags": [
+          "gear"
+        ]
+      }
+    },
+    {
+      "entity": "event",
+      "id": "e1",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "id": "e1",
+        "name": "Полумарафон",
+        "sport": "run",
+        "status": "registered",
+        "datePrecision": "day",
+        "dateFrom": "2026-12-06",
+        "dateTo": "2026-12-06"
+      }
+    }
+  ]
+}

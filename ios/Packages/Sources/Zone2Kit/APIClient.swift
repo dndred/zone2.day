@@ -65,6 +65,19 @@ public struct APIClient: Sendable {
         return try JSONDecoder().decode(UploadResult.self, from: data)
     }
 
+    /// One page of the sync feed; nil cursor → snapshot. Throws `.status(410, …)` for a cursor
+    /// the server does not know (→ full resync).
+    public func sync(cursor: String?, limit: Int = 500, auth: AuthSession) async throws -> SyncPage {
+        var path = "v1/sync?limit=\(limit)"
+        if let cursor { path += "&cursor=\(cursor)" }
+        let data = try await authorized(auth, method: "GET", path: path, body: nil, contentType: nil)
+        do {
+            return try JSONDecoder().decode(SyncPage.self, from: data)
+        } catch {
+            throw APIError.decoding(String(describing: error))
+        }
+    }
+
     public func reportHealthDeletions(_ uuids: [String], auth: AuthSession) async throws {
         let body = try JSONEncoder().encode(["uuids": uuids])
         _ = try await authorized(auth, method: "POST", path: "v1/health-deletions", body: body, contentType: "application/json")
@@ -74,7 +87,7 @@ public struct APIClient: Sendable {
     func authorized(_ auth: AuthSession, method: String, path: String, body: Data?, contentType: String?) async throws -> Data {
         for attempt in 0..<2 {
             let token = try await auth.accessToken(forceRefresh: attempt > 0)
-            var request = URLRequest(url: baseURL.appending(path: path))
+            var request = URLRequest(url: Self.url(baseURL, path))
             request.httpMethod = method
             request.httpBody = body
             request.timeoutInterval = 60
@@ -90,6 +103,17 @@ public struct APIClient: Sendable {
             return data
         }
         throw AuthError.signedOut
+    }
+
+    /// `path` may carry a query ("v1/sync?cursor=1"); appending(path:) would escape the "?".
+    static func url(_ base: URL, _ path: String) -> URL {
+        let parts = path.split(separator: "?", maxSplits: 1).map(String.init)
+        var url = base.appending(path: parts[0])
+        if parts.count == 2, var c = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+            c.percentEncodedQuery = parts[1]
+            url = c.url!
+        }
+        return url
     }
 
     func get<T: Decodable>(_ path: String) async throws -> T {
