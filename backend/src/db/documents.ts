@@ -41,6 +41,15 @@ export interface ChangeEntry {
   revertedBy: string | null;
 }
 
+export const DOCUMENT_ENTITIES: string[] = [
+  "profile",
+  "week",
+  "planned_workout",
+  "event",
+  "journal",
+  "notebook_page",
+];
+
 export class NotFoundError extends Error {}
 export class ConflictError extends Error {}
 
@@ -156,6 +165,27 @@ export class DocumentStore {
     return rows.map((r) => toDoc<T>(r));
   }
 
+  /** Audit entry for changes stored outside documents (strength log): visible in get_changes. */
+  async logExternal(
+    userId: string,
+    meta: ChangeMeta,
+    entity: string,
+    id: string,
+    op: "create" | "update" | "delete",
+    before: unknown,
+    after: unknown,
+  ): Promise<string> {
+    const [row] = await this.sql`
+      insert into zone2.change_log (user_id, actor, tool, entity, entity_id, op, before, after, why)
+      values (${userId}, ${meta.actor}, ${meta.tool}, ${entity}, ${id}, ${op},
+              ${before === null ? null : json(this.sql, before)}, ${
+      after === null ? null : json(this.sql, after)
+    },
+              ${meta.why ?? null})
+      returning id`;
+    return row.id;
+  }
+
   /** Create/update (`next` object) or soft-delete (`next` null). Records change log + sync feed. */
   async mutate(
     tx: postgres.TransactionSql,
@@ -255,6 +285,11 @@ export class DocumentStore {
         from zone2.change_log where id = ${changeId} and user_id = ${userId} for update`;
       if (!row) throw new NotFoundError(`change ${changeId} not found`);
       const entry = toChange(row);
+      if (!DOCUMENT_ENTITIES.includes(entry.entity)) {
+        throw new ConflictError(
+          `${entry.entity} changes cannot be reverted here; fix them with their own tool (e.g. update_strength_log)`,
+        );
+      }
       if (entry.revertedBy) {
         throw new ConflictError(`change already reverted by ${entry.revertedBy}`);
       }

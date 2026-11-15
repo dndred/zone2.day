@@ -114,6 +114,7 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
         docs: deps.docs,
         activities: deps.activities,
         deliveries: deps.deliveries,
+        strength: deps.strength,
         blobs: deps.blobs,
         now: deps.now,
       });

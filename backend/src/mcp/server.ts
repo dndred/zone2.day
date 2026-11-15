@@ -6,6 +6,7 @@ import type { AuthStore } from "../auth/store.ts";
 import type { Config } from "../config.ts";
 import type { ActivityStore } from "../db/activities.ts";
 import type { DeliveryStore } from "../db/deliveries.ts";
+import type { StrengthStore } from "../db/strength.ts";
 import type { DocumentStore } from "../db/documents.ts";
 import type { BlobStore } from "../ports/blob.ts";
 import { registerActivityTools } from "./tools/activities.ts";
@@ -13,6 +14,7 @@ import { registerContextTool } from "./tools/context.ts";
 import { registerDeliveryTools } from "./tools/delivery.ts";
 import { registerPing } from "./tools/ping.ts";
 import { registerPlanTools } from "./tools/plan.ts";
+import { registerStrengthTools } from "./tools/strength.ts";
 import { registerRecordTools } from "./tools/records.ts";
 
 export interface McpContext {
@@ -22,6 +24,7 @@ export interface McpContext {
   docs: DocumentStore;
   activities: ActivityStore;
   deliveries: DeliveryStore;
+  strength: StrengthStore;
   blobs: BlobStore;
   now: () => Date;
 }
@@ -30,7 +33,8 @@ const INSTRUCTIONS = `zone2.day is the athlete's personal training system (run â
 You act as their coach: plans you write here reach their phone and Apple Watch automatically.
 Human-readable fields you write (titles, goals, notes) must be in the athlete's language.
 Start every conversation with get_context. Every write is logged with your \`why\` and can be undone with revert_change.
-Completed workouts from Apple Health: list_activities / get_activity / get_activity_streams. Health metrics are not connected yet.`;
+Completed workouts from Apple Health: list_activities / get_activity / get_activity_streams. Health metrics are not connected yet.
+Gym: the athlete logs sets in the app; read get_strength_log, and get_exercise_history before choosing weights.`;
 
 export function buildMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
@@ -42,6 +46,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
   registerRecordTools(server, ctx);
   registerActivityTools(server, ctx);
   registerDeliveryTools(server, ctx);
+  registerStrengthTools(server, ctx);
   registerPing(server, ctx);
   return server;
 }

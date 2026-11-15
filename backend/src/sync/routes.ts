@@ -7,9 +7,38 @@ import type { AppDeps } from "../deps.ts";
 import type { AppEnv } from "../http.ts";
 import { ingestHealthKit } from "../ingest/healthkit.ts";
 import { log } from "../log.ts";
+import { ForeignIdError } from "../db/strength.ts";
 import { CursorGoneError, syncPage } from "./feed.ts";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
+
+const LoadBody = z.object({
+  reps: z.number().int().nonnegative().max(200).optional(),
+  weightKg: z.number().nonnegative().max(500).nullable().optional(),
+  holdSec: z.number().int().nonnegative().max(3600).optional(),
+  distanceM: z.number().nonnegative().max(10_000).optional(),
+  rpe: z.number().min(1).max(10).optional(),
+});
+
+const StrengthBody = z.object({
+  id: z.uuid(),
+  plannedWorkoutId: z.string().max(64).nullable().optional(),
+  date: z.iso.date(),
+  notes: z.string().max(1000).nullable().optional(),
+  deleted: z.boolean().optional(),
+  sets: z.array(z.object({
+    id: z.uuid(),
+    exercise: z.string().min(1).max(80),
+    order: z.number().int().min(0).max(100),
+    setIndex: z.number().int().min(0).max(100),
+    planned: LoadBody.nullable().optional(),
+    actual: LoadBody.nullable().optional(),
+    rpe: z.number().min(1).max(10).nullable().optional(),
+    note: z.string().max(200).nullable().optional(),
+    loggedAt: z.iso.datetime({ offset: true }).optional(),
+    deleted: z.boolean().optional(),
+  })).max(200),
+});
 
 const DeliveryBody = z.object({
   deviceId: z.string().min(8).max(64),
@@ -108,6 +137,28 @@ export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
       }, 400);
     }
     return c.json(await deps.deliveries.report(auth.userId, parsed.data, deps.now()));
+  });
+
+  /**
+   * Gym log from the phone: a session snapshot (all its sets so far). Idempotent by client ids;
+   * sent again on every change through the outbox (docs/05-sync.md §3).
+   */
+  app.post("/v1/strength-sessions", async (c) => {
+    const auth = c.get("auth")!;
+    const parsed = StrengthBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json({
+        error: "invalid_body",
+        issues: parsed.error.issues.slice(0, 5).map((i) => i.message),
+      }, 400);
+    }
+    try {
+      const s = await deps.strength.upsert(auth.userId, parsed.data, "app", deps.now());
+      return c.json({ id: s.id, version: s.version, sets: s.sets.length });
+    } catch (err) {
+      if (err instanceof ForeignIdError) return c.json({ error: "conflict" }, 409);
+      throw err;
+    }
   });
 
   /** Workouts deleted in Apple Health (anchored query deletedObjects). */

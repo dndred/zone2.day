@@ -104,7 +104,7 @@ Deno.test("delivery: reports, states, outdated, removed, problems, isolation", a
     await h.db
       .sql`insert into zone2.oauth_tokens (token_hash, kind, client_id, user_id, scopes, resource, family_id, expires_at)
       values (${await sha256(otherToken)}, 'access', 'zone2-ios', ${other}, ${["app"]}, null,
-              ${crypto.randomUUID()}, now() + interval '1 day')`;
+              ${crypto.randomUUID()}, now() + interval '3650 days')`;
     const foreign = await h.app.request("/v1/deliveries", {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${otherToken}` },

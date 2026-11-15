@@ -135,7 +135,7 @@ Deno.test("sync feed: snapshot, increments, deletes, profile re-resolves upcomin
     await h.db
       .sql`insert into zone2.oauth_tokens (token_hash, kind, client_id, user_id, scopes, resource, family_id, expires_at)
       values (${await sha256(otherToken)}, 'access', 'zone2-ios', ${other}, ${["app"]}, null,
-              ${crypto.randomUUID()}, now() + interval '1 day')`;
+              ${crypto.randomUUID()}, now() + interval '3650 days')`;
     const theirs = await get("", otherToken);
     assertEquals(theirs.status, 200);
     assertEquals(theirs.body.changes, []);

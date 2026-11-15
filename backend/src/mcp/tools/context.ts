@@ -43,6 +43,7 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
     ]);
     const last = await ctx.docs.lastChanges(userId, "planned_workout", plan.map((d) => d.id));
     const done = await ctx.activities.byPlanned(userId, plan.map((d) => d.id));
+    const lifted = await ctx.strength.donePlanned(userId, plan.map((d) => d.id));
     const recentActivities = await ctx.activities.list(userId, {
       from: addDays(today, -14),
       limit: 20,
@@ -70,7 +71,7 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
         goal: w.goal,
         key: w.key,
         execution: w.execution,
-        status: workoutStatus(w, done.has(w.id), today),
+        status: workoutStatus(w, done.has(w.id) || lifted.has(w.id), today),
         activityId: done.get(w.id)?.id,
         skipReason: w.skipped?.reason,
         estimate: est ? { durationSec: est.durationSec, distanceM: est.distanceM } : undefined,

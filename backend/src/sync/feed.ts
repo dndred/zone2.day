@@ -3,6 +3,7 @@
 // time, so several changes of one record collapse into its current state.
 import type { ActivityRow } from "../db/activities.ts";
 import type { Entity } from "../db/documents.ts";
+import type { StrengthSession } from "../db/strength.ts";
 import type { AppDeps } from "../deps.ts";
 import { DEFAULT_PROFILE, type PlannedWorkout, Profile } from "../domain/entities.ts";
 import { resolveStructure } from "../domain/plan.ts";
@@ -13,7 +14,7 @@ export const SNAPSHOT_PAST_DAYS = 90;
 export const SNAPSHOT_FUTURE_DAYS = 60;
 
 export interface SyncChange {
-  entity: Entity | "activity";
+  entity: Entity | "activity" | "strength_session";
   id: string;
   op: "upsert" | "delete";
   version: number;
@@ -80,6 +81,12 @@ function activityChange(a: ActivityRow): SyncChange {
     : { entity: "activity", id: a.id, op: "delete", version: a.version };
 }
 
+function strengthChange(s: StrengthSession): SyncChange {
+  return s.deleted
+    ? { entity: "strength_session", id: s.id, op: "delete", version: s.version }
+    : { entity: "strength_session", id: s.id, op: "upsert", version: s.version, data: s };
+}
+
 async function loadProfile(deps: AppDeps, userId: string): Promise<Profile> {
   const d = await deps.docs.get(userId, "profile", "profile");
   return d ? Profile.parse(d.data) : DEFAULT_PROFILE;
@@ -110,8 +117,13 @@ export async function syncPage(
       limit: 5000,
       includeRecovery: true,
     });
+    const lifts = await deps.strength.list(userId, { from, limit: 500 });
     return {
-      changes: [...docs.map((d) => docChange(d, profile)), ...acts.map(activityChange)],
+      changes: [
+        ...docs.map((d) => docChange(d, profile)),
+        ...acts.map(activityChange),
+        ...lifts.map((s) => strengthChange(s)),
+      ],
       cursor: String(cursor),
       hasMore: false,
       snapshot: true,
@@ -132,8 +144,10 @@ export async function syncPage(
   // Latest state per record; order of first appearance is irrelevant (each change is absolute).
   const docKeys = new Map<string, { entity: string; id: string }>();
   const actIds = new Set<string>();
+  const liftIds = new Set<string>();
   for (const r of page) {
     if (r.entity === "activity") actIds.add(r.entity_id as string);
+    else if (r.entity === "strength_session") liftIds.add(r.entity_id as string);
     else docKeys.set(`${r.entity}/${r.entity_id}`, { entity: r.entity, id: r.entity_id });
   }
   const docs = await deps.docs.getPairs(userId, [...docKeys.values()]);
@@ -147,5 +161,7 @@ export async function syncPage(
   }
   const acts = await deps.activities.getMany(userId, [...actIds]);
   changes.push(...acts.map(activityChange));
+  const lifts = await deps.strength.getMany(userId, [...liftIds], { includeDeleted: true });
+  changes.push(...lifts.map(strengthChange));
   return { changes, cursor: String(cursor), hasMore, snapshot: false, serverTime };
 }

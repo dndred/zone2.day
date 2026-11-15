@@ -30,9 +30,10 @@ export function registerDeliveryTools(server: McpServer, ctx: McpContext): void 
     const rows = await ctx.deliveries.forWorkouts(env.userId, docs.map((d) => d.id));
     const devices = await ctx.deliveries.devices(env.userId);
     const done = await ctx.activities.byPlanned(env.userId, docs.map((d) => d.id));
+    const lifted = await ctx.strength.donePlanned(env.userId, docs.map((d) => d.id));
     return {
       workouts: docs.map((d) => {
-        const status = workoutStatus(d.data, done.has(d.id), today);
+        const status = workoutStatus(d.data, done.has(d.id) || lifted.has(d.id), today);
         return {
           id: d.id,
           date: d.data.date,

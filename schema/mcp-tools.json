@@ -309,6 +309,35 @@
       }
     },
     {
+      "name": "get_exercise_history",
+      "title": "Get exercise history",
+      "description": "Progression of one exercise: per session the sets done, best set, estimated 1RM (Epley, 1–12 reps), RPE, plan vs actual, and gaps between sessions. The only source for weights in new strength plans — read it before planning a lift.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "exercise": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "sessions": {
+            "type": "integer",
+            "minimum": 2,
+            "maximum": 20
+          }
+        },
+        "required": [
+          "exercise"
+        ]
+      }
+    },
+    {
       "name": "get_plan",
       "title": "Get plan",
       "description": "Weeks (title/header/review) → days → planned workouts (id, order, status, estimate, delivery to the watch, last change with why) for a date range, plus events in range. Max 62 days. Use include_structure only when you need step details.",
@@ -374,6 +403,37 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {}
+      }
+    },
+    {
+      "name": "get_strength_log",
+      "title": "Get strength log",
+      "description": "Gym sessions set by set: plan vs actual (\"60×8\" = 60 kg × 8 reps, \"×12\" = bodyweight, \"—\" = planned but not done), RPE, notes. Logged by the athlete in the app (source app) or by you (source ai). Newest first.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "exercise": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 60
+          }
+        }
       }
     },
     {
@@ -497,6 +557,135 @@
         "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
         "properties": {}
+      }
+    },
+    {
+      "name": "log_strength_session",
+      "title": "Log strength session",
+      "description": "Record a gym session after the fact: weights moved over from notes, or what the athlete told you in chat. Each set is one item (repeat an exercise for several sets, in order). Link plannedWorkoutId to mark that planned workout done.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "date": {
+            "type": "string"
+          },
+          "plannedWorkoutId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "sets": {
+            "minItems": 1,
+            "maxItems": 120,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "exercise": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "reps": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 100
+                },
+                "weightKg": {
+                  "description": "Omit for bodyweight",
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "holdSec": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 3600
+                },
+                "distanceM": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "maximum": 10000
+                },
+                "rpe": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 200
+                }
+              },
+              "required": [
+                "exercise"
+              ]
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "date",
+          "sets",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "merge_exercises",
+      "title": "Merge exercises",
+      "description": "One movement logged under several names (\"Присед\", \"Приседания со штангой\"): move all their sets to `into` and keep the old names as aliases, so history and plans find it under any name.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "names": {
+            "minItems": 1,
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          },
+          "into": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "names",
+          "into",
+          "why"
+        ]
       }
     },
     {
@@ -849,6 +1038,90 @@
         },
         "required": [
           "patch",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "update_strength_log",
+      "title": "Update strength log",
+      "description": "Fix logged sets (the athlete said they mistyped a weight, did fewer reps, skipped a set). Set ids come from get_strength_log. Only given fields change; delete:true removes a set; done:false marks it not done.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "sessionId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "sets": {
+            "minItems": 1,
+            "maxItems": 60,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "reps": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 100
+                },
+                "weightKg": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 500
+                },
+                "holdSec": {
+                  "type": "integer",
+                  "exclusiveMinimum": 0,
+                  "maximum": 3600
+                },
+                "rpe": {
+                  "type": "number",
+                  "minimum": 1,
+                  "maximum": 10
+                },
+                "note": {
+                  "type": "string",
+                  "maxLength": 200
+                },
+                "done": {
+                  "type": "boolean"
+                },
+                "delete": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "id"
+              ]
+            }
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 1000
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "sessionId",
+          "sets",
           "why"
         ]
       }

@@ -57,9 +57,11 @@ function summary(
   activity: ActivityRow | undefined,
   lastChange?: { at: Date; why: string | null },
   delivery?: { rows: DeliveryRow[]; devices: DeviceRow[] },
+  /** Strength: done when sets were logged (app or log_strength_session). */
+  lifted = false,
 ) {
   const w = doc.data;
-  const status = workoutStatus(w, Boolean(activity), today);
+  const status = workoutStatus(w, Boolean(activity) || lifted, today);
   const est = w.sport === "strength" || !w.structure
     ? null
     : estimate(w.structure, w.sport, profile);
@@ -115,6 +117,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     const docs = await ctx.docs.listByDate<PlannedWorkout>(env.userId, "planned_workout", from, to);
     const last = await ctx.docs.lastChanges(env.userId, "planned_workout", docs.map((d) => d.id));
     const done = await ctx.activities.byPlanned(env.userId, docs.map((d) => d.id));
+    const lifted = await ctx.strength.donePlanned(env.userId, docs.map((d) => d.id));
     const today = (await env.now()).date;
     const delivery = {
       rows: await ctx.deliveries.forWorkouts(env.userId, docs.map((d) => d.id)),
@@ -125,7 +128,15 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     const weeks = await ctx.docs.getMany<Week>(env.userId, "week", weekIds);
     const days = new Map<string, unknown[]>();
     for (const d of docs) {
-      const s = summary(d, profile, today, done.get(d.id), last.get(d.id), delivery);
+      const s = summary(
+        d,
+        profile,
+        today,
+        done.get(d.id),
+        last.get(d.id),
+        delivery,
+        lifted.has(d.id),
+      );
       const item = include_structure
         ? { ...s, structure: d.data.structure, notes: d.data.notes }
         : s;
@@ -167,7 +178,8 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     const w = doc.data;
     const activity = (await ctx.activities.byPlanned(env.userId, [id])).get(id);
     const today = (await env.now()).date;
-    const status = doc.deletedAt ? "deleted" : workoutStatus(w, Boolean(activity), today);
+    const lifted = (await ctx.strength.donePlanned(env.userId, [id])).has(id);
+    const status = doc.deletedAt ? "deleted" : workoutStatus(w, Boolean(activity) || lifted, today);
     const delivery = deliveryOf(
       w,
       doc.version,
