@@ -10,7 +10,7 @@ struct ActivityHeadline: View {
         let s = activity.summary
         VStack(alignment: .leading, spacing: 6) {
             if let main = mainInterval {
-                HStack(spacing: 14) {
+                HStack(spacing: 12) {
                     if let d = main.distanceM { Metric(Formats.distance(d)) }
                     Metric(Formats.clock(main.durationSec))
                     if let p = main.paceSecPerKm, activity.sport == .run { Metric(Formats.pace(p)) }
@@ -18,12 +18,12 @@ struct ActivityHeadline: View {
                 }
                 Text(totalsLine(s)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
             } else {
-                HStack(spacing: 14) {
+                HStack(spacing: 12) {
                     if let d = s.distanceM { Metric(Formats.distance(d)) }
                     if let t = s.movingSec ?? s.elapsedSec { Metric(Formats.clock(t)) }
                     if let p = s.paceSecPerKm { Metric(Formats.pace(p)) }
                     else if let p = s.paceSecPer100m { Metric(Formats.pace100(p)) }
-                    else if let v = s.speedKmh { Metric(String(format: "%.1f ", v) + Units.current.kmh) }
+                    else if let v = s.speedKmh { Metric(Formats.speed(v)) }
                     if let hr = s.hr?.avg { Metric("♥ \(Int(hr))") }
                 }
             }
@@ -48,12 +48,14 @@ private struct Metric: View {
     let text: String
     init(_ text: String) { self.text = text }
     var body: some View {
-        Text(text).font(.headline.monospacedDigit())
+        Text(text).font(.headline.monospacedDigit()).lineLimit(1).fixedSize()
     }
 }
 
 /// Full activity screen.
 public struct ActivityView: View {
+    @Environment(\.planContext) private var context
+    @State private var streams: ActivityStreams?
     let activity: Activity
     let planned: PlannedWorkout?
 
@@ -85,13 +87,16 @@ public struct ActivityView: View {
             if let intervals = s.intervals, !intervals.isEmpty {
                 Section(L("Intervals")) { LapTable(laps: intervals, sport: activity.sport) }
             }
+            if let streams {
+                Section { ActivityCharts(activity: activity, streams: streams).padding(.vertical, 6) }
+            }
 
             Section(L("Summary")) {
                 row(L("Distance"), s.distanceM.map { Formats.distance($0) + (s.distanceKind == "virtual" ? " ⓥ" : "") })
                 row(L("Moving time"), s.movingSec.map(Formats.clock))
                 row(L("Elapsed"), s.elapsedSec.map(Formats.clock))
                 row(L("Pace"), s.paceSecPerKm.map { Formats.pace($0) } ?? s.paceSecPer100m.map { Formats.pace100($0) })
-                row(L("Speed"), s.speedKmh.map { String(format: "%.1f ", $0) + u.kmh })
+                row(L("Speed"), s.speedKmh.map { Formats.speed($0) })
                 row(L("Heart rate"), s.hr.flatMap { hr in hr.avg.map { "\(Int($0)) / \(Int(hr.max ?? $0)) \(u.bpm)" } })
                 row(L("Cadence"), (s.running?.cadenceSpm.map { "\(Int($0)) \(u.spm)" }) ?? s.cycling?.cadenceAvg.map { "\(Int($0)) \(u.rpm)" })
                 row(L("Power"), (s.running?.powerAvg ?? s.cycling?.powerAvg).map { "\(Int($0)) \(u.watt)" })
@@ -99,8 +104,8 @@ public struct ActivityView: View {
                 row(L("Energy"), s.energyKcal.map { "\(Int($0)) \(u.kcal)" })
                 row(L("Weather"), s.weather.flatMap { w in w.tempC.map { String(format: "%.0f °C", $0) + (w.humidityPct.map { " · \(Int($0))%" } ?? "") } })
                 if let r = s.running {
-                    row(L("Stride length"), r.strideLengthM.map { String(format: "%.2f ", $0) + u.m })
-                    row(L("Vertical oscillation"), r.verticalOscillationCm.map { String(format: "%.1f ", $0) + u.cm })
+                    row(L("Stride length"), r.strideLengthM.map { $0.formatted(.number.precision(.fractionLength(2))) + " " + u.m })
+                    row(L("Vertical oscillation"), r.verticalOscillationCm.map { $0.formatted(.number.precision(.fractionLength(1))) + " " + u.cm })
                     row(L("Ground contact"), r.groundContactMs.map { "\(Int($0)) \(u.ms)" })
                 }
                 if let sw = s.swim {
@@ -141,6 +146,13 @@ public struct ActivityView: View {
                 }
             }
         }
+        .task {
+            guard let context, s.detail != "summary_only" else { return }
+            Task { await context.loadStreams(activity.id) }
+            do {
+                for try await cached in context.store.observeStreams(activity.id) { streams = cached }
+            } catch {}
+        }
         .navigationTitle(activity.date.formatted(.dateTime.day().month(.abbreviated)))
         .inlineTitle()
     }
@@ -174,7 +186,7 @@ struct LapTable: View {
                     Text("\(i + 1)").foregroundStyle(.secondary)
                     Text(lap.distanceM.map { Formats.distance($0) } ?? "–")
                     Text(Formats.clock(lap.durationSec))
-                    Text(sport == .bike ? (lap.speedKmh.map { String(format: "%.1f", $0) } ?? "–") : (lap.paceSecPerKm.map(Formats.clock) ?? "–"))
+                    Text(sport == .bike ? (lap.speedKmh.map { $0.formatted(.number.precision(.fractionLength(1))) } ?? "–") : (lap.paceSecPerKm.map(Formats.clock) ?? "–"))
                     Text(lap.avgHr.map { "\(Int($0))" } ?? "–")
                     Text(lap.cadence.map { "\(Int($0))" } ?? "–")
                 }

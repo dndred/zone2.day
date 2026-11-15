@@ -38,6 +38,7 @@ struct WorkoutCard: View {
             if let skipped = w.skipped {
                 Text(skipped.reason).font(.footnote).foregroundStyle(.secondary)
             }
+            if expanded, item.status == .planned, let change = w.lastChange { LastChangeLine(change: change) }
             if let a = item.activity {
                 Divider()
                 ActivityHeadline(activity: a)
@@ -48,6 +49,25 @@ struct WorkoutCard: View {
         .padding(14)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
         .opacity(item.status == .skipped ? 0.55 : 1)
+    }
+}
+
+/// "Changed 10 Nov: easier after the race" — why the coach changed it last.
+struct LastChangeLine: View {
+    let change: PlannedWorkout.LastChange
+
+    var body: some View {
+        if let why = change.why, !why.isEmpty {
+            let when = change.date.map { $0.formatted(.dateTime.day().month(.abbreviated)) } ?? ""
+            Label {
+                Text("Changed \(when): \(why)", bundle: .module)
+            } icon: {
+                Image(systemName: "pencil.line")
+            }
+            .font(.caption)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+        }
     }
 }
 
@@ -107,6 +127,7 @@ public struct PlannedWorkoutView: View {
                         if item.status != .planned { Chip(text: item.status.title, color: item.status.color) }
                     }
                     if let goal = w.goal { Text(goal).font(.body) }
+                    if let change = w.lastChange { LastChangeLine(change: change) }
                     if let s = w.resolved { StructureBar(structure: s, sport: w.sport, height: 40) }
                     if item.status == .planned {
                         DeliveryLabel(execution: w.execution, onWatch: onWatch)

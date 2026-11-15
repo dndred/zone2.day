@@ -94,6 +94,16 @@
         }
       }
     },
+    "Changed %@: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменено %1$@: %2$@"
+          }
+        }
+      }
+    },
     "Coach notes": {
       "localizations": {
         "ru": {
@@ -330,6 +340,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заметка"
+          }
+        }
+      }
+    },
+    "Notebook": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокнот"
+          }
+        }
+      }
+    },
+    "Notebook is empty": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокнот пуст"
           }
         }
       }

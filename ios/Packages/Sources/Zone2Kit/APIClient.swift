@@ -78,6 +78,16 @@ public struct APIClient: Sendable {
         }
     }
 
+    /// Curves of an activity for charts; nil when the activity has no raw samples (e.g. Strava copy).
+    public func streams(activityId: String, maxPoints: Int = 300, auth: AuthSession) async throws -> ActivityStreams? {
+        do {
+            let data = try await authorized(auth, method: "GET", path: "v1/activities/\(activityId)/streams?maxPoints=\(maxPoints)", body: nil, contentType: nil)
+            return try JSONDecoder().decode(ActivityStreams.self, from: data)
+        } catch APIError.status(404, _) {
+            return nil
+        }
+    }
+
     public func reportHealthDeletions(_ uuids: [String], auth: AuthSession) async throws {
         let body = try JSONEncoder().encode(["uuids": uuids])
         _ = try await authorized(auth, method: "POST", path: "v1/health-deletions", body: body, contentType: "application/json")

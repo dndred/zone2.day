@@ -177,6 +177,13 @@ public struct StrengthStructure: Decodable, Sendable, Equatable {
 
 public struct PlannedWorkout: Decodable, Sendable, Equatable, Identifiable {
     public struct Skipped: Decodable, Sendable, Equatable { public let reason: String }
+    /// Last change by the coach: when and why ("changed 10.11: easier after the race").
+    public struct LastChange: Decodable, Sendable, Equatable {
+        public let at: String
+        public let why: String?
+
+        public var date: Date? { ISO8601DateFormatter.withFractions.date(from: at) ?? ISO8601DateFormatter().date(from: at) }
+    }
 
     public let id: String
     public let date: LocalDate
@@ -192,9 +199,10 @@ public struct PlannedWorkout: Decodable, Sendable, Equatable, Identifiable {
     /// Endurance structure with targets resolved to absolute units by the server.
     public let resolved: EnduranceStructure?
     public let strength: StrengthStructure?
+    public let lastChange: LastChange?
 
     enum CodingKeys: String, CodingKey {
-        case id, date, order, sport, subSport, title, goal, notes, key, execution, skipped, resolved, structure
+        case id, date, order, sport, subSport, title, goal, notes, key, execution, skipped, resolved, structure, lastChange
     }
 
     public init(from decoder: Decoder) throws {
@@ -212,6 +220,7 @@ public struct PlannedWorkout: Decodable, Sendable, Equatable, Identifiable {
         skipped = try? c.decodeIfPresent(Skipped.self, forKey: .skipped)
         resolved = try? c.decodeIfPresent(EnduranceStructure.self, forKey: .resolved)
         strength = sport == .strength ? try? c.decodeIfPresent(StrengthStructure.self, forKey: .structure) : nil
+        lastChange = try? c.decodeIfPresent(LastChange.self, forKey: .lastChange)
     }
 }
 
@@ -379,4 +388,47 @@ public struct Day: Sendable, Equatable, Identifiable {
     public var events: [PlanEvent]
     public var id: String { date.iso }
     public var isEmpty: Bool { planned.isEmpty && unplanned.isEmpty && journal.isEmpty && events.isEmpty }
+}
+
+extension ISO8601DateFormatter {
+    nonisolated(unsafe) static let withFractions: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        return f
+    }()
+}
+
+public struct NotebookPage: Decodable, Sendable, Equatable, Identifiable {
+    public let slug: String
+    public let title: String
+    public let content: String
+    public let pinned: Bool
+    public var id: String { slug }
+
+    enum CodingKeys: String, CodingKey { case slug, title, content, pinned }
+
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        slug = try c.decode(String.self, forKey: .slug)
+        title = try c.decode(String.self, forKey: .title)
+        content = (try? c.decode(String.self, forKey: .content)) ?? ""
+        pinned = (try? c.decode(Bool.self, forKey: .pinned)) ?? false
+    }
+}
+
+/// Resampled curves of an activity (GET /v1/activities/{id}/streams), cached in GRDB.
+public struct ActivityStreams: Codable, Sendable, Equatable {
+    public let bucketSec: Double
+    public let columns: [String: [Double?]]
+
+    public init(bucketSec: Double, columns: [String: [Double?]]) {
+        self.bucketSec = bucketSec
+        self.columns = columns
+    }
+
+    public var t: [Double] { (columns["t"] ?? []).map { $0 ?? 0 } }
+    public func series(_ name: String) -> [Double?]? {
+        guard let xs = columns[name], xs.contains(where: { $0 != nil }) else { return nil }
+        return xs
+    }
 }

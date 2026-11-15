@@ -291,6 +291,10 @@
               }
             }
           ]
+        },
+        "lastChange": {
+          "at": "2026-11-14T15:20:00.000Z",
+          "why": "Перенёс горки на воскресенье: в субботу паркран"
         }
       }
     },
@@ -756,6 +760,30 @@
         "datePrecision": "day",
         "dateFrom": "2026-12-06",
         "dateTo": "2026-12-06"
+      }
+    },
+    {
+      "entity": "notebook_page",
+      "id": "zones",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "slug": "zones",
+        "title": "Зоны и пороги",
+        "pinned": true,
+        "content": "# Пороги\n\n- **LTHR** 160 (отрезки 8–10 мин, 01.10)\n- Порог по темпу 4:35/км\n\n## Правила\n1. Лёгкие — пульс ≤ 145\n2. После старта — два лёгких дня\n\n> Пересмотреть после полумарафона"
+      }
+    },
+    {
+      "entity": "notebook_page",
+      "id": "shoes",
+      "op": "upsert",
+      "version": 1,
+      "data": {
+        "slug": "shoes",
+        "title": "Обувь",
+        "pinned": false,
+        "content": "Темповые — Adios, длительные — Novablast."
       }
     }
   ]

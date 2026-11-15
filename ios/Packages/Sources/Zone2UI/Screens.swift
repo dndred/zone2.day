@@ -7,12 +7,16 @@ public struct PlanContext: Sendable {
     public let refresh: @Sendable () async -> Void
     /// Sends queued local changes (gym log) now; offline it just returns.
     public let send: @Sendable () async -> Void
+    /// Fetches an activity's curves into the offline cache (screens observe the cache).
+    public let loadStreams: @Sendable (String) async -> Void
 
     public init(store: LocalStore, refresh: @escaping @Sendable () async -> Void,
-                send: @escaping @Sendable () async -> Void = {}) {
+                send: @escaping @Sendable () async -> Void = {},
+                loadStreams: @escaping @Sendable (String) async -> Void = { _ in }) {
         self.store = store
         self.refresh = refresh
         self.send = send
+        self.loadStreams = loadStreams
     }
 }
 

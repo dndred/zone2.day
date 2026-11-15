@@ -101,6 +101,16 @@
         }
       }
     },
+    "Notebook": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Блокнот"
+          }
+        }
+      }
+    },
     "Outbox": {
       "shouldTranslate": false
     },

@@ -51,6 +51,11 @@ public enum Formats {
         return km.formatted(.number.precision(.fractionLength(digits)).locale(locale)) + " " + u.km
     }
 
+    /// km/h with one decimal in the user's locale: "31,2 km/h".
+    public static func speed(_ kmh: Double, locale: Locale = .current, units u: Units = .current) -> String {
+        kmh.formatted(.number.precision(.fractionLength(1)).locale(locale)) + " " + u.kmh
+    }
+
     /// Seconds per km → "5:01 /km".
     public static func pace(_ secPerKm: Double, units u: Units = .current) -> String { clock(secPerKm) + " " + u.perKm }
 

@@ -59,6 +59,7 @@ struct Zone2App: App {
 
     private var context: PlanContext {
         let model = model
-        return PlanContext(store: model.store, refresh: { await model.pull() }, send: { await model.sendQueued() })
+        return PlanContext(store: model.store, refresh: { await model.pull() }, send: { await model.sendQueued() },
+                           loadStreams: { id in await model.loadStreams(id) })
     }
 }

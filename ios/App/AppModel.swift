@@ -82,6 +82,30 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// Curves for an activity: fetched once into the offline cache (screens read the cache).
+    func loadStreams(_ activityId: String) async {
+        if (try? store.hasStreams(activityId)) == true { return }
+        if isDemo {
+            try? store.saveStreams(Self.demoStreams(), activityId: activityId)
+            return
+        }
+        guard await auth.isSignedIn else { return }
+        if let s = try? await api.streams(activityId: activityId, auth: auth) {
+            try? store.saveStreams(s, activityId: activityId)
+        }
+    }
+
+    /// Demo curve: warm-up, a 25-minute effort, cool-down (matches the demo parkrun intervals).
+    private static func demoStreams() -> ActivityStreams {
+        let n = 300, dur = 5191.0
+        let t = (0..<n).map { Double($0) * dur / Double(n) }
+        func effort(_ x: Double) -> Bool { x >= 2408 && x < 3934 }
+        let hr: [Double?] = t.map { x in effort(x) ? 150 + 10 * min((x - 2408) / 600, 1) + 2 * sin(x / 60) : 115 + 8 * sin(x / 300) + (x > 3934 ? 15 : 0) }
+        let speed: [Double?] = t.map { x in x < 600 ? 0.2 : effort(x) ? 3.33 + 0.1 * sin(x / 90) : 2.7 + 0.2 * sin(x / 200) }
+        let power: [Double?] = speed.map { $0.map { $0 * 75 } }
+        return ActivityStreams(bucketSec: dur / Double(n), columns: ["t": t, "heartRate": hr, "speed": speed, "runningPower": power])
+    }
+
     /// Sends queued local changes (gym log) right away; no-op offline or signed out.
     func sendQueued() async {
         guard !isDemo, await auth.isSignedIn else { return }

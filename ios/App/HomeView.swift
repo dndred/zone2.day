@@ -1,5 +1,6 @@
 import SwiftUI
 import Zone2Kit
+import Zone2UI
 
 /// Profile tab: account, Apple Health, plan sync, server; spikes under Debug in debug builds.
 struct HomeView: View {
@@ -58,6 +59,14 @@ struct HomeView: View {
                     Text("Apple Health")
                 } footer: {
                     Text("Workouts are uploaded with full detail (heart rate, power, route). Export from Apple Health needs the app open and the phone unlocked; uploads then continue in the background. First sync covers your whole history, newest first.")
+                }
+
+                Section {
+                    NavigationLink {
+                        NotebookView(store: model.store)
+                    } label: {
+                        Label("Notebook", systemImage: "book")
+                    }
                 }
 
                 Section("Plan sync") {

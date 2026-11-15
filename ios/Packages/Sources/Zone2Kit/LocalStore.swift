@@ -127,6 +127,14 @@ public final class LocalStore: Sendable {
                 t.column("createdAt", .double).notNull()
             }
         }
+        m.registerMigration("v3-streams") { db in
+            // Curves for the activity screen: fetched once per activity, kept offline.
+            try db.create(table: "stream_cache") { t in
+                t.primaryKey("activityId", .text)
+                t.column("data", .blob).notNull()
+                t.column("fetchedAt", .double).notNull()
+            }
+        }
         return m
     }
 
@@ -210,6 +218,38 @@ public final class LocalStore: Sendable {
         ValueObservation.tracking { db in
             try Self.strengthSessions(db, sql: "SELECT data FROM record WHERE entity = 'strength_session'", [])
                 .first { $0.plannedWorkoutId == plannedWorkoutId }
+        }
+        .removeDuplicates()
+        .values(in: db)
+    }
+
+    // MARK: Notebook & streams
+
+    public func observeNotebook() -> AsyncValueObservation<[NotebookPage]> {
+        ValueObservation.tracking { db in
+            try Self.decode(NotebookPage.self, db, sql: "SELECT data FROM record WHERE entity = 'notebook_page'", [])
+                .sorted { ($0.pinned ? 0 : 1, $0.title) < ($1.pinned ? 0 : 1, $1.title) }
+        }
+        .removeDuplicates()
+        .values(in: db)
+    }
+
+    public func saveStreams(_ s: ActivityStreams, activityId: String, now: Date = Date()) throws {
+        let data = try JSONEncoder().encode(s)
+        try db.write { db in
+            try db.execute(sql: "INSERT OR REPLACE INTO stream_cache (activityId, data, fetchedAt) VALUES (?, ?, ?)",
+                           arguments: [activityId, data, now.timeIntervalSince1970])
+        }
+    }
+
+    public func hasStreams(_ activityId: String) throws -> Bool {
+        try db.read { db in try Bool.fetchOne(db, sql: "SELECT 1 FROM stream_cache WHERE activityId = ?", arguments: [activityId]) ?? false }
+    }
+
+    public func observeStreams(_ activityId: String) -> AsyncValueObservation<ActivityStreams?> {
+        ValueObservation.tracking { db in
+            try Data.fetchOne(db, sql: "SELECT data FROM stream_cache WHERE activityId = ?", arguments: [activityId])
+                .flatMap { try? JSONDecoder().decode(ActivityStreams.self, from: $0) }
         }
         .removeDuplicates()
         .values(in: db)
