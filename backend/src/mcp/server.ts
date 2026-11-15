@@ -61,9 +61,6 @@ export function buildMcpServer(ctx: McpContext): McpServer {
   return server;
 }
 
-/** Base64 FIT uploads (import_activity_file) go through MCP: allow ~25 MB files. */
-const MAX_MCP_BODY_BYTES = 40 * 1024 * 1024;
-
 export async function handleMcpRequest(req: Request, ctx: McpContext): Promise<Response> {
   const authInfo = {
     token: ctx.auth.token,
@@ -72,9 +69,8 @@ export async function handleMcpRequest(req: Request, ctx: McpContext): Promise<R
     expiresAt: Math.floor(ctx.auth.expiresAt.getTime() / 1000),
     extra: { userId: ctx.auth.userId },
   };
-  const opts = { maxRequestBodySize: MAX_MCP_BODY_BYTES };
   // 2025-era clients: stateless Streamable HTTP with plain JSON responses (no SSE), as before.
-  if (await isLegacyRequest(req.clone(), undefined, opts)) {
+  if (await isLegacyRequest(req.clone())) {
     const server = buildMcpServer(ctx);
     const transport = new WebStandardStreamableHTTPServerTransport({
       sessionIdGenerator: undefined,
@@ -87,7 +83,6 @@ export async function handleMcpRequest(req: Request, ctx: McpContext): Promise<R
   const handler = createMcpHandler(() => buildMcpServer(ctx), {
     legacy: "reject",
     responseMode: "auto",
-    ...opts,
   });
   return await handler.fetch(req, { authInfo });
 }

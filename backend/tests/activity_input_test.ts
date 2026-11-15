@@ -1,11 +1,26 @@
 import { assert, assertAlmostEquals, assertEquals, assertStringIncludes } from "@std/assert";
 import { fitToDump, InvalidFitError } from "../src/domain/fit.ts";
 import { lapsOf, summarize } from "../src/domain/healthkit.ts";
-import { b64, makeFit } from "./helpers/fit.ts";
+import { makeFit } from "./helpers/fit.ts";
 import { makeDump } from "./helpers/dump.ts";
 import { BASE, mcpHarness } from "./helpers/mcp.ts";
 
 const enc = (d: unknown) => new TextEncoder().encode(JSON.stringify(d));
+
+type App = { request: (path: string, init?: RequestInit) => Response | Promise<Response> };
+/** The athlete's side of create_upload_link: open the link and post the file. */
+async function upload(app: App, link: { url: string }, bytes: Uint8Array, name = "ride.fit") {
+  const form = new FormData();
+  form.append("file", new File([bytes as BlobPart], name));
+  const res = await app.request(new URL(link.url).pathname, { method: "POST", body: form });
+  assertEquals(res.status, 200, await res.clone().text());
+}
+/** create_upload_link → upload → uploadId, as the coach and athlete do it in chat. */
+async function uploaded(h: Awaited<ReturnType<typeof mcpHarness>>, bytes: Uint8Array) {
+  const link = (await h.call("create_upload_link")).data;
+  await upload(h.app, link, bytes);
+  return link.uploadId as string;
+}
 
 Deno.test("FIT → dump: MyWhoosh-like ride summarizes like a Health workout", () => {
   const dump = fitToDump(makeFit({ minutes: 60, laps: 3 }), "sha256:x", new Date());
@@ -134,8 +149,8 @@ Deno.test("import FIT via upload link: page, import, plan, Strava copy, streams,
     });
     assertEquals(appSt.status, 200);
 
-    // Same file again (base64, e.g. from Claude Code) → same activity.
-    const again = await h.call("import_activity_file", { fileBase64: b64(fit) });
+    // Same file again through a new link → same activity.
+    const again = await h.call("import_activity_file", { uploadId: await uploaded(h, fit) });
     assert(!again.isError, JSON.stringify(again.data));
     assertEquals(again.data.activity.id, id);
     assertEquals(again.data.created, false);
@@ -143,10 +158,10 @@ Deno.test("import FIT via upload link: page, import, plan, Strava copy, streams,
 
     // Wrong input.
     assertEquals(
-      (await h.call("import_activity_file", { fileBase64: b64(new Uint8Array(64)) })).data.error,
-      "invalid_file",
+      (await h.call("import_activity_file", { uploadId: crypto.randomUUID() })).data.error,
+      "not_found",
     );
-    assertEquals((await h.call("import_activity_file", {})).data.error, "bad_input");
+    assert((await h.call("import_activity_file", {})).isError);
   } finally {
     await h.drop();
   }
@@ -165,7 +180,7 @@ Deno.test("import FIT: explicit plannedWorkoutId, conflict is checked before wri
     });
     const [movedId, dayId] = planned.data.created.map((c: { id: string }) => c.id);
     const imp = await h.call("import_activity_file", {
-      fileBase64: b64(makeFit({ start: "2026-11-16T12:00:00Z" })),
+      uploadId: await uploaded(h, makeFit({ start: "2026-11-16T12:00:00Z" })),
       plannedWorkoutId: movedId,
     });
     assert(!imp.isError, JSON.stringify(imp.data));
@@ -174,7 +189,7 @@ Deno.test("import FIT: explicit plannedWorkoutId, conflict is checked before wri
 
     // A second file for the same planned workout → conflict, nothing created.
     const other = await h.call("import_activity_file", {
-      fileBase64: b64(makeFit({ start: "2026-11-16T15:00:00Z", minutes: 30 })),
+      uploadId: await uploaded(h, makeFit({ start: "2026-11-16T15:00:00Z", minutes: 30 })),
       plannedWorkoutId: movedId,
     });
     assertEquals(other.data.error, "conflict");
@@ -299,6 +314,8 @@ Deno.test("activity input: users are isolated", async () => {
       });
       return JSON.parse((await res.json()).result.content[0].text);
     };
+    const linkB = await callB("create_upload_link", {});
+    await upload(a.app, linkB, makeFit());
     // B cannot import A's upload, nor attach anything to A's planned workout.
     assertEquals(
       (await callB("import_activity_file", { uploadId: link.uploadId })).error,
@@ -306,7 +323,7 @@ Deno.test("activity input: users are isolated", async () => {
     );
     assertEquals(
       (await callB("import_activity_file", {
-        fileBase64: b64(makeFit()),
+        uploadId: linkB.uploadId,
         plannedWorkoutId: plannedId,
       }))
         .error,
@@ -323,7 +340,7 @@ Deno.test("activity input: users are isolated", async () => {
       "not_found",
     );
     // The same FIT imported by B is B's own activity, invisible to A.
-    const own = await callB("import_activity_file", { fileBase64: b64(makeFit()) });
+    const own = await callB("import_activity_file", { uploadId: linkB.uploadId });
     assertEquals(own.created, true);
     assertEquals((await a.call("list_activities", {})).data.activities.length, 0);
   } finally {

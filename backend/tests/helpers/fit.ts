@@ -70,11 +70,3 @@ export function makeFit(o: FitOpts = {}): Uint8Array {
   });
   return enc.close();
 }
-
-export const b64 = (b: Uint8Array) => {
-  let s = "";
-  for (let i = 0; i < b.length; i += 0x8000) {
-    s += String.fromCharCode(...b.subarray(i, i + 0x8000));
-  }
-  return btoa(s);
-};

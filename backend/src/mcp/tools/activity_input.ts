@@ -9,7 +9,6 @@ import { manualSummary } from "../../domain/manual.ts";
 import { effectiveTimezone, isValidDate, localParts, zonedToUtc } from "../../domain/time.ts";
 import { fitSourceId, ingestFit } from "../../ingest/fit.ts";
 import { matchPlan } from "../../ingest/healthkit.ts";
-import { MAX_FIT_BYTES } from "../../uploads/routes.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, type ToolEnv, ToolError, Why } from "../util.ts";
 import { brief } from "./activities.ts";
@@ -105,7 +104,7 @@ export function registerActivityInputTools(server: McpServer, ctx: McpContext): 
   defineTool(server, ctx, "create_upload_link", {
     title: "Create upload link",
     description:
-      "One-time link (valid 1 h) where the athlete picks a .fit file in the browser — the way to get a file from a chat client, which cannot pass binary files to tools. Give the athlete the url; when they say it is uploaded, call import_activity_file({uploadId}). Clients that can read local files (Claude Code, scripts) can skip this and pass fileBase64 directly.",
+      "One-time link (valid 1 h) where the athlete picks a .fit file in the browser — the way to get a file from a chat client, which cannot pass binary files to tools. Give the athlete the url; when they say it is uploaded, call import_activity_file({uploadId}).",
     input: {},
   }, async (_args, env) => {
     const token = randomToken("z2u", 24);
@@ -122,41 +121,28 @@ export function registerActivityInputTools(server: McpServer, ctx: McpContext): 
   defineTool(server, ctx, "import_activity_file", {
     title: "Import activity file",
     description:
-      "Create an activity from a FIT file — e.g. a MyWhoosh ride export with power, cadence and HR inside, or any watch/bike computer file. Pass uploadId (from create_upload_link, after the athlete uploaded) or fileBase64 (clients that read files themselves). Summary, laps and streams are computed like for Apple Health workouts; the original FIT is kept byte for byte. Re-importing the same file returns the same activity. A copy of the same session from a worse source (e.g. Strava's copy in Apple Health) is marked as its duplicate, and the plan link moves to the FIT. Matched to the plan automatically unless plannedWorkoutId is given. Writes immediately; logged in get_changes.",
+      "Create an activity from a FIT file — e.g. a MyWhoosh ride export with power, cadence and HR inside, or any watch/bike computer file. The file always comes through create_upload_link: pass its uploadId once the athlete says it is uploaded. Summary, laps and streams are computed like for Apple Health workouts; the original FIT is kept byte for byte. Re-importing the same file returns the same activity. A copy of the same session from a worse source (e.g. Strava's copy in Apple Health) is marked as its duplicate, and the plan link moves to the FIT. Matched to the plan automatically unless plannedWorkoutId is given. Writes immediately; logged in get_changes.",
     input: {
-      uploadId: z.uuid().optional(),
-      fileBase64: z.string().min(16).max(Math.ceil(MAX_FIT_BYTES * 4 / 3) + 4).optional(),
+      uploadId: z.uuid().describe("From create_upload_link"),
       ...Annotations,
       why: Why.optional(),
     },
-  }, async ({ uploadId, fileBase64, why, plannedWorkoutId, ...ann }, env) => {
-    if (Boolean(uploadId) === Boolean(fileBase64)) {
-      throw new ToolError("bad_input", "pass exactly one of uploadId or fileBase64");
+  }, async ({ uploadId, why, plannedWorkoutId, ...ann }, env) => {
+    const up = await ctx.uploads.get(env.userId, uploadId);
+    if (!up) throw new ToolError("not_found", `upload ${uploadId} not found`);
+    if (!up.uploadedAt || !up.storageKey) {
+      const expired = up.expiresAt <= ctx.now();
+      throw new ToolError(
+        expired ? "expired" : "not_uploaded",
+        expired ? "the upload link expired before a file was uploaded" : "no file uploaded yet",
+        expired
+          ? "Create a new link with create_upload_link"
+          : "Ask the athlete to open the link and upload the file, then call again",
+      );
     }
-    let bytes: Uint8Array;
-    if (uploadId) {
-      const up = await ctx.uploads.get(env.userId, uploadId);
-      if (!up) throw new ToolError("not_found", `upload ${uploadId} not found`);
-      if (!up.uploadedAt || !up.storageKey) {
-        const expired = up.expiresAt <= ctx.now();
-        throw new ToolError(
-          expired ? "expired" : "not_uploaded",
-          expired ? "the upload link expired before a file was uploaded" : "no file uploaded yet",
-          expired
-            ? "Create a new link with create_upload_link"
-            : "Ask the athlete to open the link and upload the file, then call again",
-        );
-      }
-      const raw = await ctx.blobs.get(up.storageKey);
-      if (!raw) throw new ToolError("not_found", "uploaded file is missing in storage");
-      bytes = raw;
-    } else {
-      try {
-        bytes = Uint8Array.from(atob(fileBase64!.replace(/\s+/g, "")), (c) => c.charCodeAt(0));
-      } catch {
-        throw new ToolError("bad_input", "fileBase64 is not valid base64");
-      }
-    }
+    const raw = await ctx.blobs.get(up.storageKey);
+    if (!raw) throw new ToolError("not_found", "uploaded file is missing in storage");
+    const bytes = raw;
 
     const planned = plannedWorkoutId ? await checkPlanned(ctx, env.userId, plannedWorkoutId) : null;
     if (planned) {
@@ -181,7 +167,7 @@ export function registerActivityInputTools(server: McpServer, ctx: McpContext): 
       }
       throw err;
     }
-    if (uploadId) await ctx.uploads.markImported(env.userId, uploadId, result.activityId);
+    await ctx.uploads.markImported(env.userId, uploadId, result.activityId);
 
     const row = (await ctx.activities.get(env.userId, result.activityId))!;
     const replaced = (await ctx.activities.overlapping(
