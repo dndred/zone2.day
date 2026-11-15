@@ -50,6 +50,12 @@ Deno.test("laps: manual markers first, km splits, mile splits dropped as duplica
   assertEquals([laps[1].startSec, laps[1].endSec, laps[1].distanceM], [600, 1800, 4000]);
   assertEquals(laps[1].paceSecPerKm, 300);
   assertEquals(laps.map((l) => l.index), laps.map((_, i) => i));
+  // …and the summary carries them up front, so warm-up does not hide the effort.
+  const s = summarize(dump);
+  assertEquals(s.intervals?.length, 3);
+  assertEquals(s.intervals?.[1].paceSecPerKm, 300);
+  assertEquals(s.intervals?.[1].durationSec, 1200);
+  assertEquals(summarize(HealthKitDump.parse(makeDump({}))).intervals, null);
 
   // Only mile splits (watch set to miles) → kept.
   const miles = HealthKitDump.parse(makeDump({ minutes: 40, distanceM: 8000, autoSplits: true }));
@@ -300,7 +306,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     const out = await run.json();
     assertEquals(out.processed, 1);
     assertEquals(out.remaining, 0);
-    assertEquals(out.migrations[0].name, "activity-summaries-v6");
+    assertEquals(out.migrations[0].name, "activity-summaries-v7");
     // Idempotent: a second call has nothing to do.
     const again = await (await h.app.request("/jobs/data-migrations", {
       method: "POST",
@@ -308,7 +314,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     })).json();
     assertEquals(again.processed, 0);
     const [row] = await h.db.sql`select summary from zone2.activities where id = ${res.activityId}`;
-    assertEquals(row.summary.v, 6);
+    assertEquals(row.summary.v, 7);
     assertEquals(row.summary.legacy, undefined);
   } finally {
     await h.drop();

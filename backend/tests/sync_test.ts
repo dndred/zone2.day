@@ -72,7 +72,7 @@ Deno.test("sync feed: snapshot, increments, deletes, profile re-resolves upcomin
     });
     const act = find(changes, "activity", activityId)[0];
     assertEquals(act.data.date, "2026-11-13");
-    assertEquals(act.data.summary.v, 6);
+    assertEquals(act.data.summary.v, 7);
     assert(Array.isArray(act.data.laps));
     const cursor = snap.body.cursor;
 

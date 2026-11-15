@@ -55,7 +55,7 @@ export const HealthKitDump = z.object({
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
 /** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
-export const SUMMARY_VERSION = 6;
+export const SUMMARY_VERSION = 7;
 
 type Sport = "run" | "bike" | "swim" | "strength" | "other";
 type Kind = "training" | "recovery";
@@ -412,6 +412,11 @@ export function summarize(dump: HealthKitDump) {
   const timezone = typeof meta.HKTimeZone === "string" ? meta.HKTimeZone : null;
   const hasDetail = hr.length > 0 || dump.route.length > 0;
   const virtualDistance = subSport === "indoor_bike" || subSport === "treadmill";
+  // Manual intervals up front: in a parkrun with warm-up through traffic lights the whole-workout
+  // averages hide the effort; the coach should see the interval without opening laps.
+  const intervals = lapsOf(dump).filter((l) => l.kind === "manual").map(
+    ({ index: _i, kind: _k, endSec: _e, ...l }) => l,
+  );
   return {
     v: SUMMARY_VERSION,
     sport,
@@ -422,6 +427,8 @@ export function summarize(dump: HealthKitDump) {
     elapsedSec: Math.round(elapsed),
     movingSec: Math.round(moving.sec),
     movingBasis: moving.basis,
+    /** Intervals between the athlete's markers (null when none were set). */
+    intervals: intervals.length ? intervals : null,
     distanceM: round(distance, 1),
     distanceKind: distance === null ? null : virtualDistance ? "virtual" : "measured",
     paceSecPerKm: footSport && km ? Math.round(moving.sec / km) : null,

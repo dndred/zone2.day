@@ -348,7 +348,7 @@
     {
       "name": "list_activities",
       "title": "List activities",
-      "description": "Completed workouts imported from Apple Health (and later intervals.icu): date, sport, duration, distance, pace/speed, HR, elevation, link to the planned workout. Newest first; `limit` counts rows (default 30), it is not a date window. Copies of the same session from a worse source (e.g. Strava's copy) are hidden unless includeDuplicates.",
+      "description": "Completed workouts imported from Apple Health (and later intervals.icu): date, sport, duration, distance, pace/speed, HR, elevation, the athlete's manual intervals (e.g. the race part of a session with warm-up), link to the planned workout. Newest first; `limit` counts rows (default 30), it is not a date window. Copies of the same session from a worse source (e.g. Strava's copy) are hidden unless includeDuplicates.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

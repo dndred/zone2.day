@@ -31,6 +31,15 @@ export function brief(a: ActivityRow) {
     hrMax: hr?.max,
     elevationGainM: s.elevationGainM ?? undefined,
     detail: s.detail ?? undefined,
+    intervals: (s.intervals as Record<string, number | null>[] | null)?.map((i) => ({
+      startSec: i.startSec,
+      durationSec: i.durationSec,
+      distanceM: i.distanceM,
+      paceSecPerKm: i.paceSecPerKm ?? undefined,
+      speedKmh: i.speedKmh ?? undefined,
+      hrAvg: i.avgHr ?? undefined,
+      hrMax: i.maxHr ?? undefined,
+    })),
     plannedWorkoutId: a.plannedWorkoutId ?? undefined,
     duplicateOf: a.duplicateOf ?? undefined,
     source: a.sourceApp ?? a.source,
@@ -42,7 +51,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
   defineTool(server, ctx, "list_activities", {
     title: "List activities",
     description:
-      "Completed workouts imported from Apple Health (and later intervals.icu): date, sport, duration, distance, pace/speed, HR, elevation, link to the planned workout. Newest first; `limit` counts rows (default 30), it is not a date window. Copies of the same session from a worse source (e.g. Strava's copy) are hidden unless includeDuplicates.",
+      "Completed workouts imported from Apple Health (and later intervals.icu): date, sport, duration, distance, pace/speed, HR, elevation, the athlete's manual intervals (e.g. the race part of a session with warm-up), link to the planned workout. Newest first; `limit` counts rows (default 30), it is not a date window. Copies of the same session from a worse source (e.g. Strava's copy) are hidden unless includeDuplicates.",
     input: {
       from: IsoDate.optional(),
       to: IsoDate.optional(),
@@ -101,7 +110,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
         "Swim: paceSecPer100m uses the sum of swim lengths (rests excluded, confidence medium); paceWithRestsSecPer100m uses elapsed.",
         "detail 'summary_only' = the source (e.g. Strava's copy) wrote totals without HR/power/route. Indoor bike/treadmill distance is 'virtual' (from the trainer app) — compare power, not speed.",
         "hr avg/max come from HR samples (~every 5 s). startLocal is in the workout's own time zone.",
-        "Laps by kind: manual = intervals between markers the athlete set during the workout (often the real effort, e.g. a parkrun inside warm-up and cool-down) — listed first; segment = custom workout steps; lap = lap events; split_km = automatic km splits (mile splits dropped as duplicates). Pace and cadence in laps use moving time inside the lap. Nothing is matched to the plan automatically: the athlete may have run it differently, so compare plan.structure (targets resolved to absolute units) with laps and streams yourself.",
+        "summary.intervals (and `intervals` in lists) = the athlete's manual intervals, when set; read them before whole-workout averages, which include warm-up/cool-down. Laps by kind: manual = intervals between markers the athlete set during the workout (often the real effort, e.g. a parkrun inside warm-up and cool-down) — listed first; segment = custom workout steps; lap = lap events; split_km = automatic km splits (mile splits dropped as duplicates). Pace and cadence in laps use moving time inside the lap. Nothing is matched to the plan automatically: the athlete may have run it differently, so compare plan.structure (targets resolved to absolute units) with laps and streams yourself.",
       ],
     };
   });
