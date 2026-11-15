@@ -81,5 +81,5 @@ targets:
         ZONE2_DISPLAY_NAME: zone2 stg
         ZONE2_SERVER_URL: https:/$()/api-staging.zone2.day
         ZONE2_WATCH_DELIVERY: NO
-        # Dark icon so the two copies are told apart on the home screen.
+        # Same stencil mark with a graphite upper-right corner to distinguish staging.
         ZONE2_APP_ICON: AppIconStg
