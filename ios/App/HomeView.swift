@@ -8,6 +8,7 @@ struct HomeView: View {
     @ObservedObject var health: HealthSync
     @State private var server: String = "…"
     @State private var status: SyncStatus?
+    @State private var watchDelivery = AppEnvironment.watchDelivery()
 
     var body: some View {
         NavigationStack {
@@ -96,9 +97,21 @@ struct HomeView: View {
                     .disabled(!model.signedIn)
                 }
 
-                Section("Server") {
+                Section {
                     LabeledContent(model.api.baseURL.host() ?? "", value: server)
                         .font(.callout)
+                    Toggle("Workouts on the watch", isOn: Binding(
+                        get: { watchDelivery },
+                        set: { on in
+                            watchDelivery = on
+                            UserDefaults.standard.set(on, forKey: AppEnvironment.watchDeliveryKey)
+                            Task { await model.pull() }
+                        }
+                    ))
+                } header: {
+                    Text("Server")
+                } footer: {
+                    Text("Only one copy of the app should put the plan on the watch.")
                 }
 
                 #if DEBUG

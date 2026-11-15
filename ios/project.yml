@@ -20,8 +20,8 @@ settings:
 packages:
   Zone2Core:
     path: Packages
-targets:
-  Zone2:
+targetTemplates:
+  App:
     type: application
     platform: iOS
     sources:
@@ -32,9 +32,9 @@ targets:
       - package: Zone2Core
         product: Zone2UI
     info:
-      path: App/Info.plist
+      path: Config/${target_name}-Info.plist
       properties:
-        CFBundleDisplayName: zone2.day
+        CFBundleDisplayName: $(ZONE2_DISPLAY_NAME)
         CFBundleLocalizations: [en, ru]
         UILaunchScreen: {}
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
@@ -44,13 +44,36 @@ targets:
         NSHealthUpdateUsageDescription: zone2.day saves indoor rides (e.g. MyWhoosh) to Apple Health.
         UIBackgroundModes: [fetch, processing]
         BGTaskSchedulerPermittedIdentifiers: [day.zone2.app.refresh, day.zone2.app.processing]
+        # Which backend this copy talks to (AppEnvironment.serverURL) and whether it puts the plan
+        # on the watch by default (two copies would otherwise schedule two plans).
+        Zone2ServerURL: $(ZONE2_SERVER_URL)
+        Zone2WatchDeliveryDefault: $(ZONE2_WATCH_DELIVERY)
     entitlements:
-      path: App/Zone2.entitlements
+      path: Config/Zone2.entitlements
       properties:
         com.apple.developer.healthkit: true
         com.apple.developer.healthkit.access: []
         com.apple.developer.healthkit.background-delivery: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: day.zone2.app
         TARGETED_DEVICE_FAMILY: "1"
+
+# Two copies side by side on the phone (own sign-in, database and Health permission each):
+# zone2 → prod, zone2 stg → staging. `just ios-device` / `just ios-device stg`.
+targets:
+  Zone2:
+    templates: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: day.zone2.app
+        ZONE2_DISPLAY_NAME: zone2
+        ZONE2_SERVER_URL: https:/$()/api.zone2.day
+        ZONE2_WATCH_DELIVERY: YES
+  Zone2Stg:
+    templates: [App]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: day.zone2.app.stg
+        ZONE2_DISPLAY_NAME: zone2 stg
+        ZONE2_SERVER_URL: https:/$()/api-staging.zone2.day
+        ZONE2_WATCH_DELIVERY: NO

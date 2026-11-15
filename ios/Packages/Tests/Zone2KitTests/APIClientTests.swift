@@ -49,9 +49,17 @@ private final class Box<T: Sendable>: @unchecked Sendable {
     }
 }
 
-@Test func serverURLDefaultsToStagingAndHonorsOverride() throws {
+@Test func serverURLComesFromTheAppCopyAndHonorsOverride() throws {
     let defaults = try #require(UserDefaults(suiteName: "zone2-test-\(UUID())"))
-    #expect(AppEnvironment.serverURL(defaults: defaults) == AppEnvironment.stagingURL)
+    #expect(AppEnvironment.serverURL(defaults: defaults, info: nil) == AppEnvironment.stagingURL)
+    let prod: [String: Any] = ["Zone2ServerURL": "https://api.zone2.day", "Zone2WatchDeliveryDefault": "YES"]
+    let stg: [String: Any] = ["Zone2ServerURL": "https://api-staging.zone2.day", "Zone2WatchDeliveryDefault": "NO"]
+    #expect(AppEnvironment.serverURL(defaults: defaults, info: prod) == AppEnvironment.prodURL)
+    #expect(AppEnvironment.serverURL(defaults: defaults, info: stg) == AppEnvironment.stagingURL)
+    #expect(AppEnvironment.watchDelivery(defaults: defaults, info: prod))
+    #expect(!AppEnvironment.watchDelivery(defaults: defaults, info: stg))
+    defaults.set(true, forKey: AppEnvironment.watchDeliveryKey) // the athlete turned it on in stg
+    #expect(AppEnvironment.watchDelivery(defaults: defaults, info: stg))
     defaults.set("http://localhost:8787", forKey: "ServerURL")
-    #expect(AppEnvironment.serverURL(defaults: defaults).absoluteString == "http://localhost:8787")
+    #expect(AppEnvironment.serverURL(defaults: defaults, info: prod).absoluteString == "http://localhost:8787")
 }

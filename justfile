@@ -74,7 +74,8 @@ ios-sim lang="ru": ios-build
       -DemoFeed $PWD/fixtures/sync/demo-feed.json -AppleLanguages "({{lang}})"
 
 # Build, sign (Personal Team), install and launch on the connected iPhone. Also renews the 7-day profile.
-ios-device:
+# just ios-device → zone2 (prod); just ios-device stg → zone2 stg (staging). Two copies side by side.
+ios-device app="prod":
     #!/usr/bin/env zsh
     set -euo pipefail
     tmp=$(mktemp)
@@ -83,12 +84,17 @@ ios-device:
     rm -f "$tmp"
     [[ -n $udid ]] || { echo "No physical iPhone connected"; exit 1; }
     cd ios && xcodegen generate --quiet
-    xcodebuild -project Zone2.xcodeproj -scheme Zone2 -configuration Debug -destination "id=$udid" -derivedDataPath ../build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build -quiet
-    xcrun devicectl device install app --device "$udid" ../build/DerivedData/Build/Products/Debug-iphoneos/Zone2.app >/dev/null
-    xcrun devicectl device process launch --device "$udid" day.zone2.app >/dev/null && echo "installed and launched on $udid"
+    case "{{app}}" in
+      prod) scheme=Zone2; bundle=day.zone2.app ;;
+      stg) scheme=Zone2Stg; bundle=day.zone2.app.stg ;;
+      *) echo "app: prod | stg"; exit 1 ;;
+    esac
+    xcodebuild -project Zone2.xcodeproj -scheme $scheme -configuration Debug -destination "id=$udid" -derivedDataPath ../build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build -quiet
+    xcrun devicectl device install app --device "$udid" ../build/DerivedData/Build/Products/Debug-iphoneos/$scheme.app >/dev/null
+    xcrun devicectl device process launch --device "$udid" $bundle >/dev/null && echo "installed and launched $bundle on $udid"
 
 # Pull a file from the app container on the iPhone, e.g. just ios-pull Documents/wakes.jsonl
-ios-pull path dest="build/device":
+ios-pull path dest="build/device" app="prod":
     #!/usr/bin/env zsh
     set -euo pipefail
     mkdir -p {{dest}}
@@ -96,7 +102,7 @@ ios-pull path dest="build/device":
     xcrun devicectl list devices --json-output "$tmp" >/dev/null
     udid=$(python3 -c "import json; d=json.load(open('$tmp'))['result']['devices']; p=[x['hardwareProperties']['udid'] for x in d if x['hardwareProperties'].get('reality')=='physical']; print(p[0] if p else '')")
     rm -f "$tmp"
-    xcrun devicectl device copy from --device "$udid" --domain-type appDataContainer --domain-identifier day.zone2.app --source "{{path}}" --destination "{{dest}}/$(basename "{{path}}")" >/dev/null && echo "→ {{dest}}/$(basename "{{path}}")"
+    xcrun devicectl device copy from --device "$udid" --domain-type appDataContainer --domain-identifier {{ if app == "stg" { "day.zone2.app.stg" } else { "day.zone2.app" } }} --source "{{path}}" --destination "{{dest}}/$(basename "{{path}}")" >/dev/null && echo "→ {{dest}}/$(basename "{{path}}")"
 
 # Type check everything TypeScript
 check:

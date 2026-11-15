@@ -21,6 +21,7 @@ final class AppModel: ObservableObject {
     @Published var authError: String?
 
     init(baseURL: URL = AppEnvironment.serverURL()) {
+        EnvironmentReset.ifServerChanged(baseURL)
         api = APIClient(baseURL: baseURL)
         oauth = OAuthClient(config: .app(baseURL: baseURL))
         auth = AuthSession(client: oauth, store: KeychainTokenStore(account: baseURL.host() ?? "default"))

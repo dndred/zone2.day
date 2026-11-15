@@ -111,6 +111,16 @@
         }
       }
     },
+    "Only one copy of the app should put the plan on the watch.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "План на часы должна ставить только одна копия приложения."
+          }
+        }
+      }
+    },
     "Outbox": {
       "shouldTranslate": false
     },
@@ -266,6 +276,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Тренировки загружаются со всеми деталями (пульс, мощность, трек). Выгрузка из Apple Health идёт только при открытом приложении и разблокированном телефоне, дальше загрузка продолжается в фоне. Первая синхронизация забирает всю историю, начиная с новых."
+          }
+        }
+      }
+    },
+    "Workouts on the watch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Тренировки на часах"
           }
         }
       }

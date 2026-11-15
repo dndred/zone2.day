@@ -23,11 +23,17 @@ enum WatchSync {
                     error = "not authorized"
                 } else {
                     let (profile, today, candidates) = try store.deliveryCandidates(now: now)
-                    let desired = WatchDelivery.desired(candidates, profile: profile, today: today,
-                                                        limit: WorkoutScheduler.maxAllowedScheduledWorkoutCount)
+                    // Delivery off in this copy (staging by default): reconcile to nothing, which
+                    // also takes back whatever this copy scheduled before.
+                    let on = AppEnvironment.watchDelivery()
+                    let desired = on
+                        ? WatchDelivery.desired(candidates, profile: profile, today: today,
+                                                limit: WorkoutScheduler.maxAllowedScheduledWorkoutCount)
+                        : []
                     let result = await WatchReconciler.reconcile(desired: desired, scheduler: SystemWatchScheduler())
                     items = result.report
-                    try store.setWatchState(WatchState(onWatch: result.onWatch, at: now, error: nil, warnings: result.warnings))
+                    if !on { error = "delivery off in this app" }
+                    try store.setWatchState(WatchState(onWatch: result.onWatch, at: now, error: error, warnings: result.warnings))
                 }
             }
             if let error {
