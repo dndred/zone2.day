@@ -1,3 +1,4 @@
+import CryptoKit
 import Foundation
 import GRDB
 
@@ -31,6 +32,25 @@ public struct SyncStatus: Sendable, Equatable {
     public var lastSyncAt: Date?
     public var lastError: String?
     public var records: Int = 0
+    /// Planned workout ids scheduled on the watch by the last reconcile.
+    public var onWatch: Set<String> = []
+    public var watchAt: Date?
+    public var watchError: String?
+}
+
+/// Last watch delivery, stored in sync_state as JSON.
+public struct WatchState: Codable, Sendable, Equatable {
+    public var onWatch: [String]
+    public var at: Date
+    public var error: String?
+    public var warnings: [String]
+
+    public init(onWatch: [String], at: Date, error: String?, warnings: [String]) {
+        self.onWatch = onWatch
+        self.at = at
+        self.error = error
+        self.warnings = warnings
+    }
 }
 
 /// Everything a plan screen needs for a date range, read in one consistent snapshot.
@@ -107,6 +127,39 @@ public final class LocalStore: Sendable {
         }
     }
 
+    public func setWatchState(_ state: WatchState) throws {
+        let json = String(decoding: try JSONEncoder().encode(state), as: UTF8.self)
+        try db.write { db in try Self.set(db, "watch", json) }
+    }
+
+    public func watchState() throws -> WatchState? {
+        try db.read { db in
+            try String.fetchOne(db, sql: "SELECT value FROM sync_state WHERE key = 'watch'")
+                .flatMap { try? JSONDecoder().decode(WatchState.self, from: Data($0.utf8)) }
+        }
+    }
+
+    /// Planned workouts from today to the delivery horizon (athlete's zone), each with a content
+    /// digest and whether an activity matched it.
+    public func deliveryCandidates(now: Date = Date()) throws -> (profile: Profile, today: LocalDate, candidates: [DeliveryCandidate]) {
+        try db.read { db in
+            let profile = try Self.decode(Profile.self, db, sql: "SELECT data FROM record WHERE entity = 'profile'", []).first ?? Profile()
+            let today = LocalDate.today(in: profile.effectiveTimeZone(now: now), now: now)
+            let from = today, to = today.adding(days: WatchDelivery.horizonDays)
+            let done = Set(try Self.decode(Activity.self, db, sql: "SELECT data FROM record WHERE entity = 'activity' AND date BETWEEN ? AND ?", [from.iso, to.iso])
+                .compactMap(\.plannedWorkoutId))
+            let decoder = JSONDecoder()
+            let rows = try Row.fetchAll(db, sql: "SELECT data FROM record WHERE entity = 'planned_workout' AND date BETWEEN ? AND ?", arguments: [from.iso, to.iso])
+            let candidates = rows.compactMap { row -> DeliveryCandidate? in
+                let data: Data = row["data"]
+                guard let w = try? decoder.decode(PlannedWorkout.self, from: data) else { return nil }
+                let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+                return DeliveryCandidate(workout: w, digest: digest, done: done.contains(w.id))
+            }
+            return (profile, today, candidates)
+        }
+    }
+
     public func recordError(_ message: String) throws {
         try db.write { db in try Self.set(db, "lastError", message) }
     }
@@ -150,6 +203,12 @@ public final class LocalStore: Sendable {
             case "cursor": s.cursor = value
             case "lastSyncAt": s.lastSyncAt = value.flatMap(Double.init).map(Date.init(timeIntervalSince1970:))
             case "lastError": s.lastError = value
+            case "watch":
+                if let w = value.flatMap({ try? JSONDecoder().decode(WatchState.self, from: Data($0.utf8)) }) {
+                    s.onWatch = Set(w.onWatch)
+                    s.watchAt = w.at
+                    s.watchError = w.error
+                }
             default: break
             }
         }

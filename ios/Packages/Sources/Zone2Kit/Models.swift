@@ -34,12 +34,16 @@ public struct Profile: Decodable, Sendable, Equatable {
     /// Zone the plan's dates are in right now: home, or a travel period covering home's today.
     public func effectiveTimeZone(now: Date = Date()) -> TimeZone {
         let home = TimeZone(identifier: timezone) ?? TimeZone(identifier: "UTC")!
-        let today = LocalDate.today(in: home, now: now)
-        if let t = travel.first(where: { $0.from <= today && today <= $0.to }),
+        return timeZone(on: LocalDate.today(in: home, now: now))
+    }
+
+    /// Zone of a plan date: a travel period covering it, else home.
+    public func timeZone(on date: LocalDate) -> TimeZone {
+        if let t = travel.first(where: { $0.from <= date && date <= $0.to }),
            let tz = TimeZone(identifier: t.timezone) {
             return tz
         }
-        return home
+        return TimeZone(identifier: timezone) ?? TimeZone(identifier: "UTC")!
     }
 }
 

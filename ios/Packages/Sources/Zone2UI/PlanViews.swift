@@ -6,6 +6,7 @@ import Zone2Kit
 struct WorkoutCard: View {
     let item: PlannedItem
     var expanded = true
+    var onWatch = false
 
     var body: some View {
         let w = item.workout
@@ -40,14 +41,34 @@ struct WorkoutCard: View {
             if let a = item.activity {
                 Divider()
                 ActivityHeadline(activity: a)
-            } else if expanded, let exec = executionLabel(w.execution), item.status == .planned {
-                Label(exec, systemImage: w.execution == "mywhoosh" ? "laptopcomputer" : "applewatch")
-                    .font(.caption).foregroundStyle(.secondary)
+            } else if expanded, item.status == .planned {
+                DeliveryLabel(execution: w.execution, onWatch: onWatch)
             }
         }
         .padding(14)
         .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
         .opacity(item.status == .skipped ? 0.55 : 1)
+    }
+}
+
+/// Where the workout will be done, and for the watch whether it is already there (principle 2).
+struct DeliveryLabel: View {
+    let execution: String
+    let onWatch: Bool
+
+    var body: some View {
+        if execution == "workoutkit" {
+            if onWatch {
+                Label(L("On watch"), systemImage: "applewatch.radiowaves.left.and.right")
+                    .font(.caption.weight(.medium)).foregroundStyle(.green)
+            } else {
+                Label(L("Not on watch yet"), systemImage: "applewatch.slash")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        } else if let exec = executionLabel(execution) {
+            Label(exec, systemImage: execution == "mywhoosh" ? "laptopcomputer" : "applewatch")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 }
 
@@ -66,8 +87,12 @@ struct StatusBadge: View {
 /// Planned workout: structure with absolute targets, then the result if done.
 public struct PlannedWorkoutView: View {
     let item: PlannedItem
+    let onWatch: Bool
 
-    public init(item: PlannedItem) { self.item = item }
+    public init(item: PlannedItem, onWatch: Bool = false) {
+        self.item = item
+        self.onWatch = onWatch
+    }
 
     public var body: some View {
         let w = item.workout
@@ -83,9 +108,8 @@ public struct PlannedWorkoutView: View {
                     }
                     if let goal = w.goal { Text(goal).font(.body) }
                     if let s = w.resolved { StructureBar(structure: s, sport: w.sport, height: 40) }
-                    if let exec = executionLabel(w.execution) {
-                        Label(exec, systemImage: w.execution == "mywhoosh" ? "laptopcomputer" : "applewatch")
-                            .font(.caption).foregroundStyle(.secondary)
+                    if item.status == .planned {
+                        DeliveryLabel(execution: w.execution, onWatch: onWatch)
                     }
                 }
                 .padding(.vertical, 4)
@@ -136,12 +160,25 @@ struct SyncStatusLine: View {
                         .foregroundStyle(.orange)
                 }
                 Text("Updated \(at.formatted(Self.style(for: at)))", bundle: .module)
+                if let err = status.watchError {
+                    Text("· ", bundle: .module) + Text(Image(systemName: "applewatch.slash")) + Text(" " + Self.watchError(err))
+                } else if !status.onWatch.isEmpty {
+                    Text("· ", bundle: .module) + Text(Image(systemName: "applewatch")) + Text(" \(status.onWatch.count)")
+                }
             } else {
                 Text("Not synced yet", bundle: .module)
             }
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+    }
+
+    static func watchError(_ err: String) -> String {
+        switch err {
+        case "not authorized": L("no access to Workout")
+        case "no watch": L("no watch")
+        default: err
+        }
     }
 
     static func style(for date: Date) -> Date.FormatStyle {

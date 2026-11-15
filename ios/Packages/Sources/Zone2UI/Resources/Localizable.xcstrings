@@ -254,6 +254,16 @@
         }
       }
     },
+    "Not on watch yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ещё не на часах"
+          }
+        }
+      }
+    },
     "Not synced yet": {
       "localizations": {
         "ru": {
@@ -270,6 +280,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Заметки"
+          }
+        }
+      }
+    },
+    "On watch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На часах"
           }
         }
       }
@@ -594,6 +614,26 @@
         }
       }
     },
+    "no access to Workout": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет доступа к «Тренировке»"
+          }
+        }
+      }
+    },
+    "no watch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "нет часов"
+          }
+        }
+      }
+    },
     "per side": {
       "localizations": {
         "ru": {
@@ -633,6 +673,9 @@
           }
         }
       }
+    },
+    "· ": {
+      "shouldTranslate": false
     }
   },
   "version": "1.0"

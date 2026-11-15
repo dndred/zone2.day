@@ -89,9 +89,10 @@ public struct TodayView: View {
                 }
                 ForEach(day.planned) { item in
                     NavigationLink {
-                        PlannedWorkoutView(item: item)
+                        PlannedWorkoutView(item: item, onWatch: snap.status.onWatch.contains(item.id))
                     } label: {
-                        WorkoutCard(item: item, expanded: item.id == firstOpen || item.status == .done || firstOpen == nil)
+                        WorkoutCard(item: item, expanded: item.id == firstOpen || item.status == .done || firstOpen == nil,
+                                    onWatch: snap.status.onWatch.contains(item.id))
                     }
                     .buttonStyle(.plain)
                 }
@@ -117,7 +118,7 @@ public struct TodayView: View {
                 Text("Next days", bundle: .module).font(.headline).padding(.top, 4)
                 VStack(spacing: 0) {
                     ForEach(upcoming) { day in
-                        DayRows(day: day, today: today)
+                        DayRows(day: day, today: today, onWatch: snap.status.onWatch)
                             .padding(.horizontal, 14)
                             .padding(.vertical, 10)
                         if day.id != upcoming.last?.id { Divider().padding(.leading, 14) }
@@ -154,6 +155,7 @@ struct EventCountdown: View {
 struct DayRows: View {
     let day: Day
     let today: LocalDate
+    var onWatch: Set<String> = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -164,7 +166,7 @@ struct DayRows: View {
                 Label(e.name, systemImage: "flag.checkered").font(.subheadline.weight(.medium))
             }
             ForEach(day.planned) { item in
-                NavigationLink { PlannedWorkoutView(item: item) } label: {
+                NavigationLink { PlannedWorkoutView(item: item, onWatch: onWatch.contains(item.id)) } label: {
                     HStack(spacing: 8) {
                         Image(systemName: Sport.symbol(item.workout.sport, subSport: item.workout.subSport))
                             .foregroundStyle(item.workout.sport.color)
@@ -174,6 +176,9 @@ struct DayRows: View {
                         Spacer()
                         if let a = item.activity, let d = a.summary.distanceM {
                             Text(Formats.distance(d)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                        if item.status == .planned && onWatch.contains(item.id) {
+                            Image(systemName: "applewatch").font(.caption).foregroundStyle(.green)
                         }
                         StatusBadge(status: item.status)
                     }
@@ -230,7 +235,8 @@ public struct CalendarView: View {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             SyncStatusLine(status: snap.status, syncing: syncing)
                             ForEach(weeks(snap), id: \.start) { week in
-                                WeekSection(start: week.start, days: week.days, info: snap.weeks[week.start], today: snap.today)
+                                WeekSection(start: week.start, days: week.days, info: snap.weeks[week.start], today: snap.today,
+                                            onWatch: snap.status.onWatch)
                                     .id(week.start)
                             }
                         }
@@ -264,6 +270,7 @@ struct WeekSection: View {
     let days: [Day]
     let info: Week?
     let today: LocalDate
+    var onWatch: Set<String> = []
     @State private var showHeader = false
 
     var body: some View {
@@ -302,7 +309,7 @@ struct WeekSection: View {
                         }
                         .padding(.horizontal, 14).padding(.vertical, 6)
                     } else {
-                        DayRows(day: day, today: today)
+                        DayRows(day: day, today: today, onWatch: onWatch)
                             .padding(.horizontal, 14).padding(.vertical, 10)
                             .background(day.date == today ? Color.accentColor.opacity(0.08) : .clear)
                     }

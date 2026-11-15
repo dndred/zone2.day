@@ -52,9 +52,13 @@ final class AppModel: ObservableObject {
         syncing = true
         defer { syncing = false }
         await syncEngine.pull()
+        await WatchSync.run(store: store, interactive: budget > 60)
         let before = health.state.uploaded
         await health.sync(budget: budget)
-        if health.state.uploaded != before { await syncEngine.pull() }
+        if health.state.uploaded != before {
+            await syncEngine.pull()
+            await WatchSync.run(store: store, interactive: false) // done workouts leave the watch
+        }
     }
 
     /// Pull only (pull-to-refresh, background wake): quick, no HealthKit export.
@@ -63,6 +67,7 @@ final class AppModel: ObservableObject {
         syncing = true
         defer { syncing = false }
         await syncEngine.pull()
+        await WatchSync.run(store: store, interactive: true)
     }
 
     func signIn() async {
