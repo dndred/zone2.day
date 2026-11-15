@@ -11,6 +11,24 @@ import { CursorGoneError, syncPage } from "./feed.ts";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
+const DeliveryBody = z.object({
+  deviceId: z.string().min(8).max(64),
+  deviceName: z.string().max(80).optional(),
+  model: z.string().max(40).optional(),
+  appVersion: z.string().max(20).optional(),
+  lastPullAt: z.iso.datetime({ offset: true }).optional(),
+  cursor: z.string().max(20).optional(),
+  watch: z.object({
+    error: z.string().max(200).nullable().optional(),
+    items: z.array(z.object({
+      plannedWorkoutId: z.string().min(1).max(64),
+      version: z.number().int().positive(),
+      date: z.iso.date(),
+      warnings: z.array(z.string().max(300)).max(20).optional(),
+    })).max(100),
+  }),
+});
+
 export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
@@ -74,6 +92,22 @@ export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
       }
       throw err;
     }
+  });
+
+  /**
+   * Watch delivery report from a device (docs/05-sync.md §5): a snapshot of planned workouts
+   * scheduled on the watch right now, plus the device's sync state. Idempotent.
+   */
+  app.post("/v1/deliveries", async (c) => {
+    const auth = c.get("auth")!;
+    const parsed = DeliveryBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) {
+      return c.json({
+        error: "invalid_body",
+        issues: parsed.error.issues.slice(0, 5).map((i) => i.message),
+      }, 400);
+    }
+    return c.json(await deps.deliveries.report(auth.userId, parsed.data, deps.now()));
   });
 
   /** Workouts deleted in Apple Health (anchored query deletedObjects). */

@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     /// Offline store: every screen reads from here; only `sync` writes (via SyncEngine).
     let store: LocalStore
     let syncEngine: SyncEngine
+    let outbox: OutboxSender
     let storeInMemory: Bool
 
     @Published private(set) var me: APIClient.Me?
@@ -36,6 +37,12 @@ final class AppModel: ObservableObject {
             storeInMemory = true
         }
         syncEngine = SyncEngine(store: store, source: APISyncSource(api: api, auth: auth))
+        outbox = OutboxSender(store: store) { [api, auth] item in
+            switch item.kind {
+            case "delivery": try await api.postJSON("v1/deliveries", body: item.payload, auth: auth)
+            default: break // unknown kinds from a newer build: drop
+            }
+        }
         health.startObserving()
         Task { await refreshAccount() }
     }
@@ -64,11 +71,13 @@ final class AppModel: ObservableObject {
         defer { syncing = false }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: budget > 60)
+        await outbox.flush()
         let before = health.state.uploaded
         await health.sync(budget: budget)
         if health.state.uploaded != before {
             await syncEngine.pull()
             await WatchSync.run(store: store, interactive: false) // done workouts leave the watch
+            await outbox.flush()
         }
     }
 
@@ -79,6 +88,7 @@ final class AppModel: ObservableObject {
         defer { syncing = false }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: true)
+        await outbox.flush()
     }
 
     func signIn() async {

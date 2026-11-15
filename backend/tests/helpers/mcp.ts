@@ -5,6 +5,7 @@ import { AuthStore } from "../../src/auth/store.ts";
 import type { Config } from "../../src/config.ts";
 import { DocumentStore } from "../../src/db/documents.ts";
 import { ActivityStore } from "../../src/db/activities.ts";
+import { DeliveryStore } from "../../src/db/deliveries.ts";
 import { MemoryBlobStore } from "../../src/ports/blob.ts";
 import type { AppDeps } from "../../src/deps.ts";
 import { createTestDb, type TestDb } from "./db.ts";
@@ -46,6 +47,7 @@ export async function mcpHarness(
     store: new AuthStore(db.sql),
     docs: new DocumentStore(db.sql),
     activities: new ActivityStore(db.sql),
+    deliveries: new DeliveryStore(db.sql),
     blobs: new MemoryBlobStore(),
     passkeys: fakePasskeys(),
     now: () => clock.now,

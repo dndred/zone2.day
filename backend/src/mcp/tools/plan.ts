@@ -11,6 +11,8 @@ import {
   Week,
 } from "../../domain/entities.ts";
 import { estimate, resolveStructure, unresolvedTargets, workoutStatus } from "../../domain/plan.ts";
+import { deliveryOf } from "../../domain/delivery.ts";
+import type { DeliveryRow, DeviceRow } from "../../db/deliveries.ts";
 import type { ActivityRow } from "../../db/activities.ts";
 import { brief } from "./activities.ts";
 import { addDays, daysBetween, mondayOf } from "../../domain/time.ts";
@@ -54,8 +56,10 @@ function summary(
   today: string,
   activity: ActivityRow | undefined,
   lastChange?: { at: Date; why: string | null },
+  delivery?: { rows: DeliveryRow[]; devices: DeviceRow[] },
 ) {
   const w = doc.data;
+  const status = workoutStatus(w, Boolean(activity), today);
   const est = w.sport === "strength" || !w.structure
     ? null
     : estimate(w.structure, w.sport, profile);
@@ -70,8 +74,11 @@ function summary(
     key: w.key,
     tags: w.tags,
     execution: w.execution,
-    status: workoutStatus(w, Boolean(activity), today),
+    status,
     skipped: w.skipped ?? undefined,
+    delivery: delivery
+      ? deliveryOf(w, doc.version, status, today, delivery.rows, delivery.devices)
+      : undefined,
     activity: activity
       ? {
         id: activity.id,
@@ -94,7 +101,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_plan", {
     title: "Get plan",
     description:
-      "Weeks (title/header/review) → days → planned workouts (id, order, status, estimate, last change with why) for a date range, plus events in range. Max 62 days. Use include_structure only when you need step details.",
+      "Weeks (title/header/review) → days → planned workouts (id, order, status, estimate, delivery to the watch, last change with why) for a date range, plus events in range. Max 62 days. Use include_structure only when you need step details.",
     input: {
       from: IsoDate,
       to: IsoDate,
@@ -109,12 +116,16 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     const last = await ctx.docs.lastChanges(env.userId, "planned_workout", docs.map((d) => d.id));
     const done = await ctx.activities.byPlanned(env.userId, docs.map((d) => d.id));
     const today = (await env.now()).date;
+    const delivery = {
+      rows: await ctx.deliveries.forWorkouts(env.userId, docs.map((d) => d.id)),
+      devices: await ctx.deliveries.devices(env.userId),
+    };
     const weekIds: string[] = [];
     for (let m = mondayOf(from); m <= to; m = addDays(m, 7)) weekIds.push(m);
     const weeks = await ctx.docs.getMany<Week>(env.userId, "week", weekIds);
     const days = new Map<string, unknown[]>();
     for (const d of docs) {
-      const s = summary(d, profile, today, done.get(d.id), last.get(d.id));
+      const s = summary(d, profile, today, done.get(d.id), last.get(d.id), delivery);
       const item = include_structure
         ? { ...s, structure: d.data.structure, notes: d.data.notes }
         : s;
@@ -142,7 +153,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "get_planned_workout", {
     title: "Get planned workout",
     description:
-      "Full planned workout: status, structure, targets resolved to absolute values (what the watch gets; unresolved ones are flagged), estimate, notes, change history. Deleted workouts are returned with deleted:true and their history so they can be restored with revert_change. Read this before editing a workout.",
+      "Full planned workout: status, structure, targets resolved to absolute values (what the watch gets; unresolved ones are flagged), estimate, notes, delivery to the watch, change history. Deleted workouts are returned with deleted:true and their history so they can be restored with revert_change. Read this before editing a workout.",
     input: { id: z.uuid() },
     readOnly: true,
   }, async ({ id }, env) => {
@@ -155,9 +166,16 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
     const profile = await env.profile();
     const w = doc.data;
     const activity = (await ctx.activities.byPlanned(env.userId, [id])).get(id);
-    const status = doc.deletedAt
-      ? "deleted"
-      : workoutStatus(w, Boolean(activity), (await env.now()).date);
+    const today = (await env.now()).date;
+    const status = doc.deletedAt ? "deleted" : workoutStatus(w, Boolean(activity), today);
+    const delivery = deliveryOf(
+      w,
+      doc.version,
+      status,
+      today,
+      await ctx.deliveries.forWorkouts(env.userId, [id]),
+      await ctx.deliveries.devices(env.userId),
+    );
     const history = await ctx.docs.changes(env.userId, {
       entity: "planned_workout",
       entityId: id,
@@ -168,6 +186,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
       status,
       ...(activity ? { activityId: activity.id } : {}),
       ...(doc.deletedAt ? { deleted: true, deletedAt: doc.deletedAt } : {}),
+      delivery,
       resolved: w.structure && w.sport !== "strength"
         ? resolveStructure(w.structure, w.sport, profile)
         : undefined,

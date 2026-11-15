@@ -36,6 +36,9 @@ public struct SyncStatus: Sendable, Equatable {
     public var onWatch: Set<String> = []
     public var watchAt: Date?
     public var watchError: String?
+    /// Messages waiting to be sent, and the last send error among them.
+    public var outboxPending: Int = 0
+    public var outboxError: String?
 }
 
 /// Last watch delivery, stored in sync_state as JSON.
@@ -103,7 +106,78 @@ public final class LocalStore: Sendable {
                 t.column("value", .text)
             }
         }
+        m.registerMigration("v2-outbox") { db in
+            // Everything the phone sends up goes through here (docs/05-sync.md §3): survives
+            // restarts and offline, retried with backoff. `id` is the idempotency key.
+            try db.create(table: "outbox") { t in
+                t.primaryKey("id", .text)
+                t.column("kind", .text).notNull()
+                t.column("payload", .blob).notNull()
+                t.column("attempts", .integer).notNull().defaults(to: 0)
+                t.column("nextAttemptAt", .double).notNull()
+                t.column("lastError", .text)
+                t.column("createdAt", .double).notNull()
+            }
+        }
         return m
+    }
+
+    // MARK: Outbox
+
+    public struct OutboxItem: Sendable, Equatable {
+        public let id: String
+        public let kind: String
+        public let payload: Data
+        public let attempts: Int
+        public let lastError: String?
+    }
+
+    /// Adds or replaces (same id = same logical message, e.g. the latest delivery report).
+    public func enqueue(id: String, kind: String, payload: Data, now: Date = Date()) throws {
+        try db.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO outbox (id, kind, payload, attempts, nextAttemptAt, lastError, createdAt) VALUES (?, ?, ?, 0, ?, NULL, ?)
+                ON CONFLICT (id) DO UPDATE SET payload = excluded.payload, attempts = 0, nextAttemptAt = excluded.nextAttemptAt, lastError = NULL
+                """,
+                arguments: [id, kind, payload, now.timeIntervalSince1970, now.timeIntervalSince1970]
+            )
+        }
+    }
+
+    public func dueOutbox(now: Date = Date()) throws -> [OutboxItem] {
+        try db.read { db in
+            try Row.fetchAll(db, sql: "SELECT * FROM outbox WHERE nextAttemptAt <= ? ORDER BY createdAt", arguments: [now.timeIntervalSince1970])
+                .map { OutboxItem(id: $0["id"], kind: $0["kind"], payload: $0["payload"], attempts: $0["attempts"], lastError: $0["lastError"]) }
+        }
+    }
+
+    public func outboxAll() throws -> [OutboxItem] {
+        try db.read { db in
+            try Row.fetchAll(db, sql: "SELECT * FROM outbox ORDER BY createdAt")
+                .map { OutboxItem(id: $0["id"], kind: $0["kind"], payload: $0["payload"], attempts: $0["attempts"], lastError: $0["lastError"]) }
+        }
+    }
+
+    public func outboxSent(_ id: String) throws {
+        try db.write { db in try db.execute(sql: "DELETE FROM outbox WHERE id = ?", arguments: [id]) }
+    }
+
+    public func outboxFailed(_ id: String, error: String, retryAt: Date) throws {
+        try db.write { db in
+            try db.execute(sql: "UPDATE outbox SET attempts = attempts + 1, lastError = ?, nextAttemptAt = ? WHERE id = ?",
+                           arguments: [error, retryAt.timeIntervalSince1970, id])
+        }
+    }
+
+    /// Stable id of this app install (kept across resyncs).
+    public func deviceId() throws -> String {
+        try db.write { db in
+            if let id = try String.fetchOne(db, sql: "SELECT value FROM sync_state WHERE key = 'deviceId'") { return id }
+            let id = UUID().uuidString.lowercased()
+            try Self.set(db, "deviceId", id)
+            return id
+        }
     }
 
     // MARK: Write
@@ -155,12 +229,12 @@ public final class LocalStore: Sendable {
             let done = Set(try Self.decode(Activity.self, db, sql: "SELECT data FROM record WHERE entity = 'activity' AND date BETWEEN ? AND ?", [from.iso, to.iso])
                 .compactMap(\.plannedWorkoutId))
             let decoder = JSONDecoder()
-            let rows = try Row.fetchAll(db, sql: "SELECT data FROM record WHERE entity = 'planned_workout' AND date BETWEEN ? AND ?", arguments: [from.iso, to.iso])
+            let rows = try Row.fetchAll(db, sql: "SELECT data, version FROM record WHERE entity = 'planned_workout' AND date BETWEEN ? AND ?", arguments: [from.iso, to.iso])
             let candidates = rows.compactMap { row -> DeliveryCandidate? in
                 let data: Data = row["data"]
                 guard let w = try? decoder.decode(PlannedWorkout.self, from: data) else { return nil }
                 let digest = SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
-                return DeliveryCandidate(workout: w, digest: digest, done: done.contains(w.id))
+                return DeliveryCandidate(workout: w, digest: digest, done: done.contains(w.id), version: row["version"])
             }
             return (profile, today, candidates)
         }
@@ -199,6 +273,10 @@ public final class LocalStore: Sendable {
         try db.read { db in try String.fetchOne(db, sql: "SELECT value FROM sync_state WHERE key = 'cursor'") }
     }
 
+    public func status() throws -> SyncStatus {
+        try db.read { db in try Self.status(db) }
+    }
+
     static func status(_ db: Database) throws -> SyncStatus {
         let rows = try Row.fetchAll(db, sql: "SELECT key, value FROM sync_state")
         var s = SyncStatus()
@@ -219,6 +297,8 @@ public final class LocalStore: Sendable {
             }
         }
         s.records = try Int.fetchOne(db, sql: "SELECT count(*) FROM record") ?? 0
+        s.outboxPending = try Int.fetchOne(db, sql: "SELECT count(*) FROM outbox") ?? 0
+        s.outboxError = try String.fetchOne(db, sql: "SELECT lastError FROM outbox WHERE lastError IS NOT NULL ORDER BY nextAttemptAt DESC LIMIT 1")
         return s
     }
 

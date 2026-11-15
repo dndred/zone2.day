@@ -187,8 +187,11 @@
 ### 2.11 Лента синхронизации — `sync_feed`
 Источник для `GET /v1/sync`: `seq bigserial`, `user_id`, `entity`, `entity_id`, `version`, `op` (`upsert|delete`), `at`. Пишется в той же транзакции, что и изменение. Курсор клиента — последний `seq`.
 
-### 2.12 Доставка — `deliveries`
-`planned_workout_id`, `version`, `device_id`, `stage` (`synced` \| `scheduled_watch` \| `failed`), `at`, `detail?`. Отчёты присылает iOS; используется в `get_delivery_status` и в debug.
+### 2.12 Доставка — `devices`, `deliveries`
+Реализовано в `supabase/migrations/20261115020000_deliveries.sql`.
+- **devices**: `id` (генерирует приложение, стабилен для установки), `name`, `model`, `app_version`, `last_seen_at`, `last_pull_at`, `sync_cursor`, `watch_error` (`not authorized` / `no watch`).
+- **deliveries**: `planned_workout_id`, `device_id`, `version` (какая версия на часах), `stage` (`scheduled_watch` \| `removed`), `date`, `warnings[]` (что не перенеслось в WorkoutKit), `at`.
+- Телефон после каждой сверки часов присылает **снимок** (`POST /v1/deliveries`): перечисленные — на часах, остальные его — `removed`. Состояние для тренера (`domain/delivery.ts`): `on_watch` (текущая версия), `outdated` (на часах старая — телефон ещё не синкался после правки), `not_on_watch` (+ `problem` с устройства). Показывается в `get_plan`, `get_planned_workout`, `get_delivery_status`.
 
 ### 2.13 Интеграции — `integrations`
 `kind` (`intervals_icu`; позже `strava`), `status`, `credentials` (зашифрованы ключом из секретов), `cursor` (до какого момента импортировано), `last_run_at`, `last_error?`.

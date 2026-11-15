@@ -101,6 +101,9 @@
         }
       }
     },
+    "Outbox": {
+      "shouldTranslate": false
+    },
     "Plan sync": {
       "localizations": {
         "ru": {
@@ -233,6 +236,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ждут выгрузки"
+          }
+        }
+      }
+    },
+    "Watch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Часы"
           }
         }
       }

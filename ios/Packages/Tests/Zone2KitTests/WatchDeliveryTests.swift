@@ -115,6 +115,8 @@ private actor FakeScheduler: WatchScheduling {
 
     var r = await WatchReconciler.reconcile(desired: v1, scheduler: scheduler)
     #expect(r.onWatch == ["w-tempo"] && r.added == 1 && r.removed == 0)
+    #expect(r.report == [DeliveryReportItem(plannedWorkoutId: "w-tempo", version: 1, date: "2026-11-16",
+                                            warnings: ["step x: no alert (no threshold for hr/run)"])])
 
     r = await WatchReconciler.reconcile(desired: v1, scheduler: scheduler) // idempotent
     #expect(r.added == 0 && r.removed == 0)

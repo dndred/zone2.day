@@ -5,10 +5,12 @@ import type { AuthContext } from "../auth/bearer.ts";
 import type { AuthStore } from "../auth/store.ts";
 import type { Config } from "../config.ts";
 import type { ActivityStore } from "../db/activities.ts";
+import type { DeliveryStore } from "../db/deliveries.ts";
 import type { DocumentStore } from "../db/documents.ts";
 import type { BlobStore } from "../ports/blob.ts";
 import { registerActivityTools } from "./tools/activities.ts";
 import { registerContextTool } from "./tools/context.ts";
+import { registerDeliveryTools } from "./tools/delivery.ts";
 import { registerPing } from "./tools/ping.ts";
 import { registerPlanTools } from "./tools/plan.ts";
 import { registerRecordTools } from "./tools/records.ts";
@@ -19,6 +21,7 @@ export interface McpContext {
   store: AuthStore;
   docs: DocumentStore;
   activities: ActivityStore;
+  deliveries: DeliveryStore;
   blobs: BlobStore;
   now: () => Date;
 }
@@ -38,6 +41,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
   registerPlanTools(server, ctx);
   registerRecordTools(server, ctx);
   registerActivityTools(server, ctx);
+  registerDeliveryTools(server, ctx);
   registerPing(server, ctx);
   return server;
 }

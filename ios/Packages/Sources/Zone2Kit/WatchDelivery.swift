@@ -130,16 +130,21 @@ public struct DeliveryCandidate: Sendable, Equatable {
     /// Hash of the stored record (plan + resolved targets): changes when anything changes.
     public let digest: String
     public let done: Bool
+    /// Server version of the planned workout (reported back so the coach sees which one is on the watch).
+    public let version: Int
 
-    public init(workout: PlannedWorkout, digest: String, done: Bool) {
+    public init(workout: PlannedWorkout, digest: String, done: Bool, version: Int = 1) {
         self.workout = workout
         self.digest = digest
         self.done = done
+        self.version = version
     }
 }
 
 public struct DesiredWorkout: Sendable {
     public let plannedWorkoutId: String
+    public let version: Int
+    public let localDate: LocalDate
     public let date: DateComponents
     public let plan: WorkoutPlan
     public let warnings: [String]
@@ -164,6 +169,8 @@ public enum WatchDelivery {
                 let id = planId(c.workout.id, c.workout.date, c.digest)
                 return DesiredWorkout(
                     plannedWorkoutId: c.workout.id,
+                    version: c.version,
+                    localDate: c.workout.date,
                     date: dateComponents(c.workout.date, timeZone: profile.timeZone(on: c.workout.date)),
                     plan: WorkoutPlan(.custom(built.workout), id: id),
                     warnings: built.warnings
@@ -203,6 +210,8 @@ public protocol WatchScheduling: Sendable {
 public struct WatchReconcileResult: Sendable, Equatable {
     /// Planned workout ids that are on the watch after reconciling.
     public var onWatch: [String]
+    /// The same, with what the server needs for POST /v1/deliveries.
+    public var report: [DeliveryReportItem]
     public var added: Int
     public var removed: Int
     public var warnings: [String]
@@ -225,8 +234,13 @@ public enum WatchReconciler {
             added += 1
         }
         let after = Set(await scheduler.scheduled().map(\.plan.id))
+        let delivered = desired.filter { after.contains($0.plan.id) }
         return WatchReconcileResult(
-            onWatch: desired.filter { after.contains($0.plan.id) }.map(\.plannedWorkoutId),
+            onWatch: delivered.map(\.plannedWorkoutId),
+            report: delivered.map {
+                DeliveryReportItem(plannedWorkoutId: $0.plannedWorkoutId, version: $0.version, date: $0.localDate.iso,
+                                   warnings: $0.warnings.isEmpty ? nil : $0.warnings)
+            },
             added: added,
             removed: removed,
             warnings: desired.flatMap { d in d.warnings.map { "\(d.plannedWorkoutId): \($0)" } }
@@ -242,5 +256,41 @@ public struct SystemWatchScheduler: WatchScheduling {
     }
     public func remove(_ plan: WorkoutPlan, at date: DateComponents) async {
         await WorkoutScheduler.shared.remove(plan, at: date)
+    }
+}
+
+// MARK: - Report to the server
+
+public struct DeliveryReportItem: Codable, Sendable, Equatable {
+    public let plannedWorkoutId: String
+    public let version: Int
+    public let date: String
+    public let warnings: [String]?
+}
+
+/// Body of POST /v1/deliveries: a snapshot of what is on the watch + the device's sync state.
+public struct DeliveryReport: Codable, Sendable, Equatable {
+    public struct Watch: Codable, Sendable, Equatable {
+        public let error: String?
+        public let items: [DeliveryReportItem]
+    }
+
+    public let deviceId: String
+    public let deviceName: String?
+    public let model: String?
+    public let appVersion: String?
+    public let lastPullAt: String?
+    public let cursor: String?
+    public let watch: Watch
+
+    public init(deviceId: String, deviceName: String?, model: String?, appVersion: String?, lastPullAt: Date?,
+                cursor: String?, error: String?, items: [DeliveryReportItem]) {
+        self.deviceId = deviceId
+        self.deviceName = deviceName
+        self.model = model
+        self.appVersion = appVersion
+        self.lastPullAt = lastPullAt.map { ISO8601DateFormatter().string(from: $0) }
+        self.cursor = cursor
+        self.watch = Watch(error: error, items: items)
     }
 }

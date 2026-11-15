@@ -278,9 +278,40 @@
       }
     },
     {
+      "name": "get_delivery_status",
+      "title": "Get delivery status",
+      "description": "Reference tool: are planned workouts on the athlete's Apple Watch, and when did their phone last sync. Delivery is automatic (the app schedules today…+7 days after every sync), so call this only when the athlete asks or something looks wrong — not after each plan change. States: on_watch (current version), outdated (an older version is on the watch; the phone has not synced the change yet), not_on_watch. Default range: today … +7 days.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "ids": {
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+            }
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    {
       "name": "get_plan",
       "title": "Get plan",
-      "description": "Weeks (title/header/review) → days → planned workouts (id, order, status, estimate, last change with why) for a date range, plus events in range. Max 62 days. Use include_structure only when you need step details.",
+      "description": "Weeks (title/header/review) → days → planned workouts (id, order, status, estimate, delivery to the watch, last change with why) for a date range, plus events in range. Max 62 days. Use include_structure only when you need step details.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -309,7 +340,7 @@
     {
       "name": "get_planned_workout",
       "title": "Get planned workout",
-      "description": "Full planned workout: status, structure, targets resolved to absolute values (what the watch gets; unresolved ones are flagged), estimate, notes, change history. Deleted workouts are returned with deleted:true and their history so they can be restored with revert_change. Read this before editing a workout.",
+      "description": "Full planned workout: status, structure, targets resolved to absolute values (what the watch gets; unresolved ones are flagged), estimate, notes, delivery to the watch, change history. Deleted workouts are returned with deleted:true and their history so they can be restored with revert_change. Read this before editing a workout.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

@@ -41,7 +41,7 @@ GET /v1/sync?cursor=<seq>&limit=500
 | `activity_upload` | `POST /v1/activities` (gzip-дамп; если больше 6 МБ — `POST /v1/uploads` → подписанная ссылка на прямую загрузку в Storage → `POST /v1/activities/commit`) | по `HKWorkout.uuid` |
 | `daily_metrics` | `POST /v1/daily-metrics` (батч) | upsert по дате |
 | `strength_sets` | `POST /v1/strength-logs` (батч) | по `set.id` (клиентский UUID) |
-| `delivery_ack` | `POST /v1/deliveries` | по `(workout, version, device, stage)` |
+| `delivery` (✅) | `POST /v1/deliveries` — снимок «что на часах» + состояние синка устройства | один логический id `delivery-report`: новый отчёт заменяет неотправленный старый |
 | `client_logs` | `POST /v1/client-logs` | по `batch.id` |
 | `health_written` | `POST /v1/activities/{id}/health-export` | по `activity id` |
 | `health_deleted` | `POST /v1/health-deletions` (батч UUID) | по `HKObject.uuid` |
@@ -79,7 +79,7 @@ GET /v1/sync?cursor=<seq>&limit=500
 2. Строит желаемое состояние: `WorkoutPlan` с **id, выведенным из содержимого** — UUID от `sha256(plannedWorkoutId | дата | sha256 записи)`. Запись включает `resolved`, поэтому любая правка плана или порогов даёт новый id. Отдельная таблица соответствий не нужна.
 3. Читает фактическое: `WorkoutScheduler.shared.scheduledWorkouts` (только наши).
 4. Удаляет наши незавершённые, которых нет в желаемом (удалённые, перенесённые, изменённые, выполненные, пропущенные, ушедшие в прошлое), добавляет недостающие (`schedule(_:at:)`). Завершённые не трогает.
-5. Пишет результат в `sync_state.watch` (какие тренировки на часах, ошибка, предупреждения маппинга) — экраны показывают «На часах» / «Ещё не на часах». `delivery_ack` на сервер — вместе с outbox (позже).
+5. Пишет результат в `sync_state.watch` (какие тренировки на часах, ошибка, предупреждения маппинга) — экраны показывают «На часах» / «Ещё не на часах» — и кладёт в outbox отчёт для сервера (`POST /v1/deliveries`), откуда его видит тренер.
 
 Код: `Zone2Kit/WatchDelivery.swift` (маппинг, отбор, сверка — тесты на macOS через `swift test` с фейковым планировщиком), `App/Services/WatchSync.swift` (авторизация WorkoutKit и запуск после каждого pull).
 

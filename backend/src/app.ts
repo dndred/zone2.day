@@ -113,6 +113,7 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
         store: deps.store,
         docs: deps.docs,
         activities: deps.activities,
+        deliveries: deps.deliveries,
         blobs: deps.blobs,
         now: deps.now,
       });

@@ -50,7 +50,8 @@ S6 можно провести в начале фазы 2, остальные �
 ### 1.2 MCP 🛠
 - [x] Сервер, регистрация инструментов, общие хелперы (`now`, ошибки, `howToRead`), снапшот-тест (`schema/mcp-tools.json`).
 - [x] `get_context`; профиль; недели (`upsert_week`); план (`plan_workouts`, `update_planned_workout` с `skipped`, `delete`, `copy`, `get_changes`, `revert_change`); старты; блокнот (лимит закреплённого); журнал — **22 инструмента на staging**.
-- [ ] `get_delivery_status`, `update_planned_workouts` (массовая правка), снаряжение.
+- [x] `get_delivery_status`.
+- [ ] `update_planned_workouts` (массовая правка), снаряжение.
 - [x] Активности: `list_activities`, `get_activity` (сводка, круги, погода, план), `get_activity_streams`; статусы плана done/skipped/missed/planned.
 - [x] Круги с темпом/каденсом по времени в движении, мощностью, пульсом; план рядом с таргетами в абсолютных единицах (без автосопоставления, D41).
 - [ ] Активности: GAP, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), `create_activity`, `import_activity_file` (FIT/GPX).
@@ -75,7 +76,8 @@ S6 можно провести в начале фазы 2, остальные �
 - [x] Вход (`ASWebAuthenticationSession`, passkey, Keychain, refresh). Регистрация устройства — позже.
 - [x] GRDB (`record` = JSON сущностей ленты + `sync_state`), SyncEngine (pull страницами, 410 → ресинк), триггеры: foreground, pull-to-refresh, BGAppRefresh, после выгрузки тренировок.
 - [x] Доставка на часы: `WorkoutBridge` (план → `CustomWorkout`), отбор «сегодня…+7», сверка `WorkoutScheduler` по id из содержимого, статус «На часах» в UI.
-- [ ] Outbox (`delivery_ack` и др.), BGProcessing, HK observers → pull.
+- [x] Outbox (GRDB, backoff 30 с…6 ч, 4xx — пауза на сутки) и отчёт о доставке → `devices`/`deliveries` на сервере, `get_delivery_status`, `delivery` в `get_plan`.
+- [ ] BGProcessing, HK observers → pull.
 - [x] Экспорт тренировок: разрешения, anchored query (новые + удалённые), дамп, очередь, **бэкфилл всей истории** (≈700 тренировок, ~255 КБ/шт в gzip).
 - [ ] Суточные метрики, запись внешних активностей в Health.
 - [x] Фоновая отправка: экспорт дампов в gzip-файлы → **фоновая URLSession** (досылает при свёрнутом/выгруженном приложении), `beginBackgroundTask` при уходе с экрана. Экспорт требует разблокированного телефона (HealthKit зашифрован при блокировке), поэтому `BGProcessingTask` для бэкфилла не используется.

@@ -70,6 +70,12 @@ struct HomeView: View {
                             Text(err).font(.caption).foregroundStyle(.orange)
                         }
                         LabeledContent("Cursor", value: status.cursor ?? "—").font(.caption)
+                        LabeledContent("Outbox", value: "\(status.outboxPending)" + (status.outboxError.map { " · \($0)" } ?? ""))
+                            .font(.caption)
+                        if let at = status.watchAt {
+                            LabeledContent("Watch", value: status.watchError ?? "\(status.onWatch.count) · " + at.formatted(date: .omitted, time: .shortened))
+                                .font(.caption)
+                        }
                     }
                     Button("Full resync", role: .destructive) {
                         Task {
