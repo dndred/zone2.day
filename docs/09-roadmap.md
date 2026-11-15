@@ -67,7 +67,8 @@ S6 можно провести в начале фазы 2, остальные �
 - [ ] intervals.icu: хранение ключа (шифрование), job `intervals-poll` (pg_cron), дедупликация, `health_export`.
 
 ### 1.4 Sync API 🛠
-- [ ] `GET /v1/sync` (снимок + инкремент, 410), `GET /v1/activities/{id}/streams`, `POST` activities/uploads/commit, daily-metrics, strength-logs, deliveries, client-logs, devices.
+- [x] `GET /v1/sync` (снимок −90…+60 дней + инкремент, 410, `resolved` у тренировок, переразрешение после смены профиля).
+- [ ] `GET /v1/activities/{id}/streams`, `POST` activities/uploads/commit, daily-metrics, strength-logs, deliveries, client-logs, devices.
 - [ ] OpenAPI → Swift-клиент (`just gen`).
 
 ### 1.5 iOS: данные 🛠

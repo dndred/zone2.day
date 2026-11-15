@@ -105,6 +105,39 @@ export class DocumentStore {
     return rows.map((r) => toDoc<T>(r));
   }
 
+  /** Several (entity, id) pairs at once, including deleted ones. */
+  async getPairs(userId: string, pairs: { entity: string; id: string }[]) {
+    if (pairs.length === 0) return [];
+    const rows = await this.sql`
+      select entity, id, data, version, deleted_at, updated_at from zone2.documents
+      where user_id = ${userId}
+        and (entity, id) in (select * from unnest(${pairs.map((p) => p.entity)}::text[], ${
+      pairs.map((p) => p.id)
+    }::text[]))`;
+    return rows.map((r) => ({ entity: r.entity as Entity, ...toDoc(r) }));
+  }
+
+  /** Live documents for a new device: undated entities whole, dated ones within [from, to]. */
+  async snapshot(userId: string, from: string, to: string) {
+    const rows = await this.sql`
+      select entity, id, data, version, deleted_at, updated_at from zone2.documents
+      where user_id = ${userId} and deleted_at is null
+        and (entity in ('profile', 'event', 'notebook_page')
+          or (entity = 'week' and id between ${from} and ${to})
+          or (entity in ('planned_workout', 'journal') and data ->> 'date' between ${from} and ${to}))
+      order by entity, id`;
+    return rows.map((r) => ({ entity: r.entity as Entity, ...toDoc(r) }));
+  }
+
+  /** Live planned workouts from a date on (re-sent when the profile changes targets). */
+  async plannedFrom(userId: string, from: string) {
+    const rows = await this.sql`
+      select 'planned_workout' as entity, id, data, version, deleted_at, updated_at from zone2.documents
+      where user_id = ${userId} and entity = 'planned_workout' and deleted_at is null
+        and data ->> 'date' >= ${from}`;
+    return rows.map((r) => ({ entity: r.entity as Entity, ...toDoc(r) }));
+  }
+
   async list<T>(userId: string, entity: Entity) {
     const rows = await this.sql`
       select id, data, version, deleted_at, updated_at from zone2.documents

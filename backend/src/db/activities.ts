@@ -139,6 +139,16 @@ export class ActivityStore {
     return r ? toRow(r) : null;
   }
 
+  /** By ids, including deleted ones (the sync feed needs to tell the app about deletions). */
+  async getMany(userId: string, ids: string[]): Promise<ActivityRow[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.sql.unsafe(
+      `select ${COLS} from zone2.activities where user_id = $1 and id = any($2::uuid[])`,
+      [userId, ids],
+    );
+    return rows.map(toRow);
+  }
+
   async list(
     userId: string,
     opts: {

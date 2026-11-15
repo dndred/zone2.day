@@ -7,6 +7,7 @@ import type { AppDeps } from "../deps.ts";
 import type { AppEnv } from "../http.ts";
 import { ingestHealthKit } from "../ingest/healthkit.ts";
 import { log } from "../log.ts";
+import { CursorGoneError, syncPage } from "./feed.ts";
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
@@ -30,6 +31,28 @@ export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
   app.get("/v1/me", async (c) => {
     const auth = c.get("auth")!;
     return c.json({ userId: auth.userId, name: await deps.store.getUserName(auth.userId) });
+  });
+
+  /**
+   * Pull: no cursor → snapshot (−90…+60 days around today, profile, events, notebook);
+   * with cursor → changes after it. Call again while hasMore. 410 → drop local data and resync.
+   */
+  app.get("/v1/sync", async (c) => {
+    const auth = c.get("auth")!;
+    const raw = c.req.query("cursor");
+    if (raw !== undefined && !/^\d{1,18}$/.test(raw)) return c.json({ error: "bad_cursor" }, 400);
+    const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 500) || 500, 1), 1000);
+    try {
+      return c.json(
+        await syncPage(deps, auth.userId, {
+          cursor: raw === undefined ? null : Number(raw),
+          limit,
+        }),
+      );
+    } catch (err) {
+      if (err instanceof CursorGoneError) return c.json({ error: "cursor_gone" }, 410);
+      throw err;
+    }
   });
 
   /** One HealthKit workout dump (JSON, optionally gzip). Idempotent by HKWorkout.uuid. */
