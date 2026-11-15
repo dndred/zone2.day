@@ -5,6 +5,7 @@ import { authRoutes, mcpResource } from "./auth/oauth.ts";
 import type { Config } from "./config.ts";
 import type { AppDeps } from "./deps.ts";
 import type { AppEnv, McpLogInfo } from "./http.ts";
+import { iconPng } from "./icon.ts";
 import { log } from "./log.ts";
 import { handleMcpRequest } from "./mcp/server.ts";
 import { syncRoutes } from "./sync/routes.ts";
@@ -74,6 +75,16 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
       version: config.version,
       time: new Date().toISOString(),
     }));
+
+  // The zone2.day mark (MCP serverInfo.icons points here; browsers ask for /favicon.ico).
+  const icon = iconPng(config.env);
+  for (const path of ["/icon.png", "/favicon.ico"]) {
+    app.get(path, (c) => {
+      c.header("content-type", "image/png");
+      c.header("cache-control", "public, max-age=86400");
+      return c.body(icon.slice().buffer);
+    });
+  }
 
   if (deps) {
     app.get("/health/db", async (c) => {

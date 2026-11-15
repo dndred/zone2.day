@@ -98,3 +98,20 @@ Deno.test("MCP 2026-07-28: server/discover and tools/list with the per-request e
     await h.drop();
   }
 });
+
+Deno.test("initialize: serverInfo carries title and icons", async () => {
+  const h = await mcpHarness();
+  try {
+    const r = await h.rpc("initialize", {
+      protocolVersion: "2025-06-18",
+      capabilities: {},
+      clientInfo: { name: "test", version: "1" },
+    });
+    const info = r.result.serverInfo;
+    assertEquals(info.name, "zone2.day");
+    assert(String(info.icons[0].src).endsWith("/icon.png"), info.icons[0].src);
+    assertEquals(info.icons[0].mimeType, "image/png");
+  } finally {
+    await h.drop();
+  }
+});

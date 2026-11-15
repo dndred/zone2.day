@@ -17,6 +17,7 @@ import type { UploadStore } from "../db/uploads.ts";
 import type { DailyMetricsStore } from "../db/daily_metrics.ts";
 import type { DocumentStore } from "../db/documents.ts";
 import type { BlobStore } from "../ports/blob.ts";
+import { mcpIcons } from "../icon.ts";
 import { registerActivityTools } from "./tools/activities.ts";
 import { registerActivityInputTools } from "./tools/activity_input.ts";
 import { registerAnalyticsTools } from "./tools/analytics.ts";
@@ -51,7 +52,14 @@ Gym: the athlete logs sets in the app; read get_strength_log, and get_exercise_h
 
 export function buildMcpServer(ctx: McpContext): McpServer {
   const server = new McpServer(
-    { name: "zone2.day", version: ctx.config.version },
+    {
+      name: "zone2.day",
+      title: ctx.config.env === "prod" ? "zone2.day" : `zone2.day (${ctx.config.env})`,
+      version: ctx.config.version,
+      description:
+        "Personal training system with an AI coach: plan, Apple Watch delivery, workouts, recovery.",
+      icons: mcpIcons(ctx.config.publicBaseUrl),
+    },
     { instructions: INSTRUCTIONS },
   );
   registerContextTool(server, ctx);

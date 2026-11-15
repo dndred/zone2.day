@@ -68,3 +68,17 @@ Deno.test("loadConfig rejects unknown env", () => {
   }
   assert(threw);
 });
+
+Deno.test("GET /icon.png and /favicon.ico serve the mark of the environment", async () => {
+  const png = [0x89, 0x50, 0x4e, 0x47];
+  const staging = await createApp(testConfig).request("/icon.png");
+  assertEquals(staging.status, 200);
+  assertEquals(staging.headers.get("content-type"), "image/png");
+  const stagingBytes = new Uint8Array(await staging.arrayBuffer());
+  assertEquals([...stagingBytes.slice(0, 4)], png);
+  assert(stagingBytes.length <= 10_240); // ChatGPT's limit for connector icons
+  const prod = await createApp({ ...testConfig, env: "prod" }).request("/favicon.ico");
+  const prodBytes = new Uint8Array(await prod.arrayBuffer());
+  assertEquals([...prodBytes.slice(0, 4)], png);
+  assert(prodBytes.length !== stagingBytes.length, "prod and staging icons differ");
+});
