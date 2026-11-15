@@ -155,3 +155,12 @@ private actor FakeSource: SyncSource {
     let url = APIClient.url(URL(string: "https://api-staging.zone2.day")!, "v1/sync?limit=500&cursor=42")
     #expect(url.absoluteString == "https://api-staging.zone2.day/v1/sync?limit=500&cursor=42")
 }
+
+@Test func fileStoreWorksInFolderWithSpaces() throws {
+    let dir = FileManager.default.temporaryDirectory.appending(path: "zone2 test \(UUID().uuidString)/Application Support")
+    try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+    defer { try? FileManager.default.removeItem(at: dir.deletingLastPathComponent()) }
+    try LocalStore(directory: dir).apply(try page(snapshotJSON), at: now)
+    #expect(FileManager.default.fileExists(atPath: dir.appending(path: "zone2.sqlite").path(percentEncoded: false)))
+    #expect(try LocalStore(directory: dir).cursor() == "42") // survives reopening
+}

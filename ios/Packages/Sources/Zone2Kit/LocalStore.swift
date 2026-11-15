@@ -77,7 +77,13 @@ public final class LocalStore: Sendable {
 
     public static func appDefault() throws -> LocalStore {
         let dir = try FileManager.default.url(for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
-        return try LocalStore(path: dir.appending(path: "zone2.sqlite").path())
+        return try LocalStore(directory: dir)
+    }
+
+    /// `zone2.sqlite` in a directory. Note: `URL.path()` percent-encodes ("Application%20Support"),
+    /// which silently pointed SQLite at a non-existent folder — always use percentEncoded: false.
+    public convenience init(directory: URL) throws {
+        try self.init(path: directory.appending(path: "zone2.sqlite").path(percentEncoded: false))
     }
 
     static var migrator: DatabaseMigrator {

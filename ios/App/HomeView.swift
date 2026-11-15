@@ -62,7 +62,7 @@ struct HomeView: View {
 
                 Section("Plan sync") {
                     if let status {
-                        LabeledContent("Records on this iPhone", value: "\(status.records)")
+                        LabeledContent("Records on this iPhone", value: "\(status.records)" + (model.storeInMemory ? " (in memory)" : ""))
                         if let at = status.lastSyncAt {
                             LabeledContent("Last pull", value: at.formatted(date: .abbreviated, time: .shortened))
                         }

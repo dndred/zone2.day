@@ -11,6 +11,7 @@ final class AppModel: ObservableObject {
     /// Offline store: every screen reads from here; only `sync` writes (via SyncEngine).
     let store: LocalStore
     let syncEngine: SyncEngine
+    let storeInMemory: Bool
 
     @Published private(set) var me: APIClient.Me?
     @Published private(set) var syncing = false
@@ -23,7 +24,17 @@ final class AppModel: ObservableObject {
         auth = AuthSession(client: oauth, store: KeychainTokenStore(account: baseURL.host() ?? "default"))
         health = HealthSync(api: api, auth: auth)
         // A broken database file must not brick the app: fall back to memory, resync from server.
-        store = Self.demoStore() ?? (try? LocalStore.appDefault()) ?? (try! LocalStore())
+        // The fallback is visible: Profile → Plan sync shows "in memory".
+        if let demo = Self.demoStore() {
+            store = demo
+            storeInMemory = true
+        } else if let file = try? LocalStore.appDefault() {
+            store = file
+            storeInMemory = false
+        } else {
+            store = try! LocalStore()
+            storeInMemory = true
+        }
         syncEngine = SyncEngine(store: store, source: APISyncSource(api: api, auth: auth))
         health.startObserving()
         Task { await refreshAccount() }
