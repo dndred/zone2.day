@@ -63,5 +63,38 @@ Deno.test("/mcp request log: body still reaches the transport; 400 carries the e
   const err = reqs.find((l) => l.status === 400);
   assertEquals(err?.rpc, "tools/list");
   assertEquals(err?.protocol, "2099-01-01");
-  assert(String(err?.error).includes("Unsupported protocol version"), err?.error);
+  // SDK wording differs by version; the log must carry the transport's reason.
+  assert(/protocol/i.test(String(err?.error)), err?.error);
+});
+
+Deno.test("MCP 2026-07-28: server/discover and tools/list with the per-request envelope", async () => {
+  const h = await mcpHarness();
+  const meta = {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+    "io.modelcontextprotocol/clientInfo": { name: "codex", version: "1" },
+    "io.modelcontextprotocol/clientCapabilities": {},
+  };
+  const post = (id: number, method: string) =>
+    h.app.request("/mcp", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${h.token}`,
+        "content-type": "application/json",
+        accept: "application/json, text/event-stream",
+        "mcp-protocol-version": "2026-07-28",
+        "mcp-method": method,
+      },
+      body: JSON.stringify({ jsonrpc: "2.0", id, method, params: { _meta: meta } }),
+    });
+  try {
+    const disc = await post(1, "server/discover");
+    const d = await disc.json();
+    assertEquals(disc.status, 200, JSON.stringify(d));
+    assert(JSON.stringify(d.result).includes("2026-07-28"), JSON.stringify(d));
+    const list = await (await post(2, "tools/list")).json();
+    const names = list.result.tools.map((t: { name: string }) => t.name);
+    assert(names.includes("import_activity_file") && names.includes("link_activities"), names);
+  } finally {
+    await h.drop();
+  }
 });

@@ -1,6 +1,6 @@
 # 04. MCP-сервер
 
-Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 2.1 (scope `mcp`), см. [02-architecture §6](02-architecture.md#6-аутентификация).
+Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless; протоколы 2026-07-28 — `server/discover` и `_meta`-конверт на каждом запросе — и 2025-era через `initialize`; SDK `@modelcontextprotocol/server` v2). Auth: OAuth 2.1 (scope `mcp`), см. [02-architecture §6](02-architecture.md#6-аутентификация).
 
 ## 1. Принципы
 

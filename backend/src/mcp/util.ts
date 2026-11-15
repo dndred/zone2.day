@@ -1,5 +1,5 @@
 // Shared plumbing for MCP tools: uniform success/error envelopes, athlete time, change metadata.
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { type ChangeMeta, ConflictError, NotFoundError } from "../db/documents.ts";
 import { DEFAULT_PROFILE, Profile } from "../domain/entities.ts";
@@ -74,7 +74,7 @@ export function defineTool<S extends z.ZodRawShape>(
     {
       title: spec.title,
       description: spec.description,
-      inputSchema: spec.input,
+      inputSchema: z.object(spec.input),
       annotations: {
         readOnlyHint: spec.readOnly ?? false,
         destructiveHint: spec.destructive ?? false,

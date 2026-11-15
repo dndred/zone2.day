@@ -10,8 +10,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "ids": {
             "maxItems": 40,
@@ -56,8 +56,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "sport": {
             "type": "string",
@@ -175,8 +175,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {}
       }
     },
@@ -190,8 +190,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "id": {
             "type": "string",
@@ -221,8 +221,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "slug": {
             "type": "string"
@@ -250,8 +250,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "ids": {
             "minItems": 1,
@@ -286,8 +286,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "id": {
             "type": "string",
@@ -310,8 +310,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "id": {
             "type": "string",
@@ -359,8 +359,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "since": {
             "type": "string",
@@ -399,8 +399,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "days": {
             "description": "Plan horizon ahead, default 7",
@@ -421,8 +421,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "ids": {
             "maxItems": 40,
@@ -452,8 +452,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "exercise": {
             "type": "string",
@@ -481,8 +481,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "from": {
             "type": "string"
@@ -510,8 +510,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "id": {
             "type": "string",
@@ -534,8 +534,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {}
       }
     },
@@ -549,8 +549,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "from": {
             "type": "string"
@@ -580,8 +580,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "uploadId": {
             "type": "string",
@@ -642,8 +642,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "links": {
             "minItems": 1,
@@ -703,8 +703,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "from": {
             "type": "string"
@@ -747,8 +747,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "status": {
             "type": "array",
@@ -780,8 +780,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "from": {
             "type": "string"
@@ -811,8 +811,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {}
       }
     },
@@ -826,8 +826,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "date": {
             "type": "string"
@@ -913,8 +913,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "names": {
             "minItems": 1,
@@ -969,8 +969,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "items": {
             "minItems": 1,
@@ -1089,8 +1089,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "slug": {
             "type": "string"
@@ -1111,8 +1111,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "changeId": {
             "type": "string",
@@ -1142,8 +1142,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "id": {
             "type": "string",
@@ -1275,8 +1275,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "patch": {
             "type": "object",
@@ -1309,8 +1309,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "sessionId": {
             "type": "string",
@@ -1393,8 +1393,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "id": {
             "type": "string",
@@ -1431,8 +1431,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "weekStart": {
             "type": "string"
@@ -1478,8 +1478,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "id": {
             "type": "string",
@@ -1535,8 +1535,8 @@
         "openWorldHint": false
       },
       "inputSchema": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
         "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
         "properties": {
           "slug": {
             "type": "string"

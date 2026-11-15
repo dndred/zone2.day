@@ -1,4 +1,4 @@
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { ForeignIdError, type SetInput } from "../../db/strength.ts";
 import { IsoDate } from "../../domain/entities.ts";

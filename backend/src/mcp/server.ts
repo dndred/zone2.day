@@ -1,6 +1,12 @@
-// MCP endpoint: Streamable HTTP, stateless (a fresh server + transport per request).
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
+// MCP endpoint, stateless: a fresh server per request. createMcpHandler serves the 2026-07-28
+// revision (server/discover, per-request envelope) and falls back to 2025-era stateless
+// Streamable HTTP for older clients — one tool set behind both.
+import {
+  createMcpHandler,
+  isLegacyRequest,
+  McpServer,
+  WebStandardStreamableHTTPServerTransport,
+} from "@modelcontextprotocol/server";
 import type { AuthContext } from "../auth/bearer.ts";
 import type { AuthStore } from "../auth/store.ts";
 import type { Config } from "../config.ts";
@@ -55,20 +61,33 @@ export function buildMcpServer(ctx: McpContext): McpServer {
   return server;
 }
 
+/** Base64 FIT uploads (import_activity_file) go through MCP: allow ~25 MB files. */
+const MAX_MCP_BODY_BYTES = 40 * 1024 * 1024;
+
 export async function handleMcpRequest(req: Request, ctx: McpContext): Promise<Response> {
-  const server = buildMcpServer(ctx);
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true,
+  const authInfo = {
+    token: ctx.auth.token,
+    clientId: ctx.auth.clientId,
+    scopes: ctx.auth.scopes,
+    expiresAt: Math.floor(ctx.auth.expiresAt.getTime() / 1000),
+    extra: { userId: ctx.auth.userId },
+  };
+  const opts = { maxRequestBodySize: MAX_MCP_BODY_BYTES };
+  // 2025-era clients: stateless Streamable HTTP with plain JSON responses (no SSE), as before.
+  if (await isLegacyRequest(req.clone(), undefined, opts)) {
+    const server = buildMcpServer(ctx);
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      sessionIdGenerator: undefined,
+      enableJsonResponse: true,
+    });
+    await server.connect(transport);
+    return await transport.handleRequest(req, { authInfo });
+  }
+  // 2026-07-28: server/discover + per-request envelope.
+  const handler = createMcpHandler(() => buildMcpServer(ctx), {
+    legacy: "reject",
+    responseMode: "auto",
+    ...opts,
   });
-  await server.connect(transport);
-  return await transport.handleRequest(req, {
-    authInfo: {
-      token: ctx.auth.token,
-      clientId: ctx.auth.clientId,
-      scopes: ctx.auth.scopes,
-      expiresAt: Math.floor(ctx.auth.expiresAt.getTime() / 1000),
-      extra: { userId: ctx.auth.userId },
-    },
-  });
+  return await handler.fetch(req, { authInfo });
 }

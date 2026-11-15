@@ -1,5 +1,5 @@
 // Adding activities by hand through MCP: a FIT file (upload link or base64) or a manual entry.
-import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { randomToken, sha256 } from "../../auth/crypto.ts";
 import type { ActivityRow } from "../../db/activities.ts";

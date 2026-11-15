@@ -47,7 +47,7 @@
 |---|---|---|
 | Язык бэкенда | **TypeScript на Deno 2** | Один рантайм локально, в тестах и в Supabase Edge Functions; веб-стандартные API; npm-пакеты через `npm:` |
 | HTTP | **Hono** | Работает в Deno/Node/Workers/Bun без изменений (переносимость) |
-| MCP | **`@modelcontextprotocol/sdk`** (официальный), Streamable HTTP, stateless | Самая зрелая реализация удалённого MCP |
+| MCP | **`@modelcontextprotocol/server` v2** (официальный SDK), Streamable HTTP, stateless; протоколы 2026-07-28 и 2025-era | Самая зрелая реализация удалённого MCP |
 | Валидация/схемы | **Zod** → JSON Schema (MCP tools) и OpenAPI (Sync API) | Один источник правды для MCP, API и Swift-моделей |
 | SQL/миграции | **`postgres` (postgres-js 3.4)** + SQL-миграции `supabase/migrations/*.sql` (`just db-push`) | Обычный Postgres; без ORM — SQL явный и переносимый; v4 драйвера пока несовместима с Deno |
 | БД | **Postgres** (Supabase) | Стандартный, переносимый |
