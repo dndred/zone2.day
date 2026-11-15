@@ -26,12 +26,13 @@
 | `just mcp <tool> '<json>'` | Вызвать MCP-инструмент на staging от служебного пользователя `smoke` (его данные изолированы от реальных) |
 | `just smoke-token` | Один раз: создать пользователя `smoke` и долгоживущий токен (кэш в `.env.staging.local`) |
 | `just mcp-snapshot-update` | Принять изменение контракта MCP в `schema/mcp-tools.json` (смотреть diff!) |
-| `just ios-device` / `just ios-pull <path>` | Собрать/подписать/поставить/запустить на подключённом iPhone; забрать файл из контейнера приложения |
+| `just ios-device [prod\|stg]` / `just ios-pull <path> [dest] [prod\|stg]` | Собрать/подписать/поставить/запустить на подключённом iPhone; забрать файл из контейнера приложения. Две копии рядом: **zone2** (`day.zone2.app` → prod) и **zone2 stg** (`day.zone2.app.stg` → staging) — свой вход, своя база, своё разрешение Health; на часы план ставит только prod (в stg включается в Профиле) |
 | `just mcp-inspect` | MCP Inspector против локального сервера |
 | `just api method=… path=… env=…` | Вызов Sync API от имени тестового устройства |
 | `just logs [staging\|prod] [30m\|2h\|1d] [подстрока] [fn\|edge\|all]` | Логи Edge Function через Management API (только чтение; лимит API — 10 запросов/мин) |
 | `just client-logs env=… device=…` | Логи с устройства (через debug API) |
-| `just deploy-staging` / `just deploy-prod` | Миграции → деплой функции → деплой прокси → смоук |
+| `just deploy [staging\|prod]` | Деплой функции → прокси → смоук. Staging деплоит CI на пуш в main. **Prod — только вручную** и только из чистого дерева (`git worktree add … origin/main`): `ZONE2_ALLOW_PROD=1 just db-push prod && ZONE2_ALLOW_PROD=1 just deploy prod`. Секреты prod — только 1Password (`zone2-prod Supabase DB`, `zone2-prod app secrets`) |
+| `just backup [prod\|staging] [min_days]` / `just backup-install` | Бэкап в `~/Backups/zone2/<env>`: схема + данные `zone2` (gzip, хранятся 12 последних) и зеркало бакета Storage (оригиналы тренировок, инкрементально). `backup-install` ставит launchd-задачу: ежедневно в 12:00, бэкап — если последнему ≥ 7 дней; при ошибке — уведомление, повтор на следующий день |
 | `just smoke env=…` | Смоук: OAuth-метаданные, `get_context`, синк тестового устройства |
 | `just ios-build` / `just ios-run` | Сборка; запуск в симуляторе с аргументами (`-ServerURL`, `-SeedFixture`) |
 | `just ios-device` | Сборка и установка на телефон (`xcrun devicectl`, по кабелю или Wi-Fi) |
