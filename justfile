@@ -297,16 +297,19 @@ backup-install:
     set -euo pipefail
     plist=$HOME/Library/LaunchAgents/day.zone2.backup.plist
     mkdir -p $HOME/Backups/zone2 $HOME/Library/LaunchAgents
-    cmd="cd '{{justfile_directory()}}' && just backup prod 7 >> \$HOME/Backups/zone2/backup.log 2>&1 || osascript -e 'display notification \"Backup failed — see ~/Backups/zone2/backup.log\" with title \"zone2.day\"'"
-    cat > $plist <<PLIST
-    <?xml version="1.0" encoding="UTF-8"?>
-    <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-    <plist version="1.0"><dict>
-      <key>Label</key><string>day.zone2.backup</string>
-      <key>ProgramArguments</key><array><string>/bin/zsh</string><string>-lc</string><string>$cmd</string></array>
-      <key>StartCalendarInterval</key><dict><key>Hour</key><integer>12</integer><key>Minute</key><integer>0</integer></dict>
-    </dict></plist>
-    PLIST
+    # plistlib escapes the shell command (&&, >, quotes) for XML.
+    python3 -I - "$plist" '{{justfile_directory()}}' <<'PY'
+    import plistlib, sys
+    plist, repo = sys.argv[1:3]
+    cmd = (f"cd '{repo}' && just backup prod 7 >> $HOME/Backups/zone2/backup.log 2>&1"
+           " || osascript -e 'display notification \"Backup failed: see ~/Backups/zone2/backup.log\" with title \"zone2.day\"'")
+    with open(plist, "wb") as f:
+        plistlib.dump({
+            "Label": "day.zone2.backup",
+            "ProgramArguments": ["/bin/zsh", "-lc", cmd],
+            "StartCalendarInterval": {"Hour": 12, "Minute": 0},
+        }, f)
+    PY
     launchctl bootout gui/$UID $plist 2>/dev/null || true
     launchctl bootstrap gui/$UID $plist
     echo "installed $plist (daily 12:00, backs up when the last one is ≥ 7 days old)"
