@@ -30,7 +30,9 @@ public struct GymView: View {
                     Text("\(s.doneCount) / \(s.sets.count)").font(.headline.monospacedDigit())
                         .foregroundStyle(s.doneCount == s.sets.count && !s.sets.isEmpty ? .green : .secondary)
                 }
-                if let goal = workout.goal { Text(goal).font(.subheadline).foregroundStyle(.secondary) }
+                if let goal = workout.goal {
+                    MarkdownText(goal, style: .compact).font(.subheadline).foregroundStyle(.secondary)
+                }
             }
             ForEach(s.exercises, id: \.name) { ex in
                 Section {

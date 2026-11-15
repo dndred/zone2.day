@@ -30,7 +30,7 @@ weightKg null = by feel. Never invent weights: take them from history or leave n
 const GOAL_HELP =
   "The quality this session trains (e.g. 'threshold: 3×10 min at LT pace'), not logistics. Set it for key and interval sessions; leave it empty for easy days.";
 const NOTES_HELP =
-  "How to execute this one session: cues, pacing, fueling, what to do if it goes badly. Not week-wide rules (→ upsert_week header) and not sources (→ why). The athlete reads it before the session.";
+  "How to execute this one session: cues, pacing, fueling, what to do if it goes badly. Not week-wide rules (→ upsert_week header) and not sources (→ why). The athlete reads it before the session. Markdown: short lines or a bullet list, **bold** for the numbers that matter.";
 
 const PlanItem = z.object({
   date: IsoDate,

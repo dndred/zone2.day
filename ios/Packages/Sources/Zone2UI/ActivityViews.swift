@@ -124,10 +124,10 @@ public struct ActivityView: View {
             }
 
             if let notes = activity.athleteNotes {
-                Section(L("Athlete notes")) { Text(notes) }
+                Section(L("Athlete notes")) { MarkdownText(notes) }
             }
             if let notes = activity.coachNotes {
-                Section(L("Coach notes")) { Text(LocalizedStringKey(notes)) }
+                Section(L("Coach notes")) { MarkdownText(notes) }
             }
             if let planned {
                 Section(L("Plan")) {

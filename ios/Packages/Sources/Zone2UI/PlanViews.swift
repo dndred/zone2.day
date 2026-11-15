@@ -20,7 +20,7 @@ struct WorkoutCard: View {
                 StatusBadge(status: item.status)
             }
             if let goal = w.goal, expanded {
-                Text(goal).font(.subheadline).foregroundStyle(.secondary)
+                MarkdownText(goal, style: .compact).font(.subheadline).foregroundStyle(.secondary)
             }
             if let s = w.resolved {
                 StructureBar(structure: s, sport: w.sport, height: expanded ? 28 : 16)
@@ -144,7 +144,7 @@ public struct PlannedWorkoutView: View {
                         Spacer()
                         if item.status != .planned { Chip(text: item.status.title, color: item.status.color) }
                     }
-                    if let goal = w.goal { Text(goal).font(.body) }
+                    if let goal = w.goal { MarkdownText(goal, style: .compact) }
                     if let change = w.lastChange { LastChangeLine(change: change, lineLimit: nil) }
                     if let s = w.resolved { StructureBar(structure: s, sport: w.sport, height: 40) }
                     if item.status == .planned {
@@ -174,7 +174,7 @@ public struct PlannedWorkoutView: View {
                 Section(L("Exercises")) { StrengthList(structure: s) }
             }
             if let notes = w.notes {
-                Section(L("Notes")) { Text(LocalizedStringKey(notes)) }
+                Section(L("Notes")) { MarkdownText(notes) }
             }
             if !item.activities.isEmpty {
                 Section(L("Result")) {

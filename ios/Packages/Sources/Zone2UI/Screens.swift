@@ -77,8 +77,7 @@ public struct TodayView: View {
                             }
                         }
                         if showWeekHeader, let header = week.header {
-                            Text(LocalizedStringKey(header)).font(.subheadline).foregroundStyle(.secondary)
-                                .multilineTextAlignment(.leading)
+                            MarkdownText(header, style: .compact).font(.subheadline).foregroundStyle(.secondary)
                         }
                     }
                     .padding(14)
@@ -117,7 +116,8 @@ public struct TodayView: View {
                     .buttonStyle(.plain)
                 }
                 ForEach(day.journal) { j in
-                    Label(j.text, systemImage: "note.text").font(.footnote).foregroundStyle(.secondary)
+                    Label { MarkdownText(j.text, style: .compact) } icon: { Image(systemName: "note.text") }
+                        .font(.footnote).foregroundStyle(.secondary)
                 }
             }
 
@@ -218,7 +218,8 @@ struct DayRows: View {
                 .buttonStyle(.plain)
             }
             ForEach(day.journal) { j in
-                Label(j.text, systemImage: "note.text").font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                Label { Text(MarkdownText.preview(j.text)) } icon: { Image(systemName: "note.text") }
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
         }
     }
@@ -301,8 +302,7 @@ struct WeekSection: View {
                     }
                     if showHeader {
                         ForEach([info?.header, info?.review].compactMap { $0 }, id: \.self) { text in
-                            Text(LocalizedStringKey(text)).font(.footnote).foregroundStyle(.secondary)
-                                .multilineTextAlignment(.leading)
+                            MarkdownText(text, style: .compact).font(.footnote).foregroundStyle(.secondary)
                                 .padding(.top, 4)
                         }
                     }

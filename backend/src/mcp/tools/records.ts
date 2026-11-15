@@ -185,7 +185,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
     input: {
       id: z.uuid().optional(),
       date: IsoDate.optional(),
-      text: z.string().min(1).max(4000).optional(),
+      text: z.string().min(1).max(4000).optional().describe("Markdown, the athlete's language"),
       tags: z.array(z.string().max(30)).max(10).optional(),
       activityId: z.string().optional(),
       eventId: z.uuid().optional(),
