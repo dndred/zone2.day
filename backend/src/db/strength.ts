@@ -203,6 +203,23 @@ export class StrengthStore {
     return await this.load(this.sql, userId, ids.map((r) => r.id), false);
   }
 
+  /** Soft-delete (deleted=true) or restore a whole session; false if it is already in that state. */
+  async setDeleted(userId: string, id: string, deleted: boolean, now: Date): Promise<boolean> {
+    return await this.sql.begin(async (tx) => {
+      const [r] = await tx`update zone2.strength_sessions
+        set deleted_at = ${deleted ? now : null}, updated_at = ${now}, version = version + 1
+        where user_id = ${userId} and id = ${id}
+          and ${deleted ? tx`deleted_at is null` : tx`deleted_at is not null`}
+        returning version`;
+      if (!r) return false;
+      await tx`insert into zone2.sync_feed (user_id, entity, entity_id, version, op)
+        values (${userId}, 'strength_session', ${id}, ${r.version}, ${
+        deleted ? "delete" : "upsert"
+      })`;
+      return true;
+    });
+  }
+
   /** Canonical name and aliases of an exercise (or just the given name if unknown). */
   async names(userId: string, exercise: string): Promise<string[]> {
     const [row] = await this.sql`

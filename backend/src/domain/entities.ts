@@ -31,6 +31,34 @@ export const Travel = z.object({
 
 const Zones = z.array(z.number().nonnegative()).max(8);
 
+const RunProfile = z.looseObject({
+  thresholdPaceSecPerKm: Threshold.nullable().optional(),
+  lthr: Threshold.nullable().optional(),
+  maxHr: z.number().positive().optional(),
+  restingHr: z.number().positive().optional(),
+  hrZones: Zones.optional(),
+  paceZones: Zones.optional(),
+});
+const BikeProfile = z.looseObject({
+  ftp: Threshold.nullable().optional(),
+  mywhooshFtp: z.number().positive().optional(),
+  lthr: Threshold.nullable().optional(),
+  maxHr: z.number().positive().optional(),
+  powerZones: Zones.optional(),
+  hrZones: Zones.optional(),
+});
+const SwimProfile = z.looseObject({
+  cssSecPer100m: Threshold.nullable().optional(),
+  poolLengthDefaultM: z.number().positive().optional(),
+});
+const ZoneModel = z.looseObject({
+  hr: z.string().optional(),
+  pace: z.string().optional(),
+  power: z.string().optional(),
+});
+
+// Loose: profiles written before a key was renamed still load. New writes are checked with
+// unknownProfileKeys, so a misspelled key cannot be saved and silently ignored.
 export const Profile = z.looseObject({
   timezone: TimeZone.default("UTC"),
   travel: z.array(Travel).max(50).default([]),
@@ -39,31 +67,10 @@ export const Profile = z.looseObject({
   sex: z.enum(["m", "f"]).optional(),
   heightCm: z.number().positive().optional(),
   weightKg: z.number().positive().optional(),
-  run: z.looseObject({
-    thresholdPaceSecPerKm: Threshold.nullable().optional(),
-    lthr: Threshold.nullable().optional(),
-    maxHr: z.number().positive().optional(),
-    restingHr: z.number().positive().optional(),
-    hrZones: Zones.optional(),
-    paceZones: Zones.optional(),
-  }).default({}),
-  bike: z.looseObject({
-    ftp: Threshold.nullable().optional(),
-    mywhooshFtp: z.number().positive().optional(),
-    lthr: Threshold.nullable().optional(),
-    maxHr: z.number().positive().optional(),
-    powerZones: Zones.optional(),
-    hrZones: Zones.optional(),
-  }).default({}),
-  swim: z.looseObject({
-    cssSecPer100m: Threshold.nullable().optional(),
-    poolLengthDefaultM: z.number().positive().optional(),
-  }).default({}),
-  zoneModel: z.looseObject({
-    hr: z.string().optional(),
-    pace: z.string().optional(),
-    power: z.string().optional(),
-  }).default({}),
+  run: RunProfile.default({}),
+  bike: BikeProfile.default({}),
+  swim: SwimProfile.default({}),
+  zoneModel: ZoneModel.default({}),
   equipment: z.record(z.string(), z.unknown()).default({}),
   notes: z.string().max(4000).optional(),
   hrGuard: z.record(z.string(), z.unknown()).optional(),
@@ -71,6 +78,63 @@ export const Profile = z.looseObject({
 export type Profile = z.infer<typeof Profile>;
 
 export const DEFAULT_PROFILE: Profile = Profile.parse({});
+
+const PROFILE_SECTIONS: Record<string, string[]> = {
+  run: Object.keys(RunProfile.shape),
+  bike: Object.keys(BikeProfile.shape),
+  swim: Object.keys(SwimProfile.shape),
+  zoneModel: Object.keys(ZoneModel.shape),
+};
+const PROFILE_KEYS = Object.keys(Profile.shape);
+
+/**
+ * Keys of an update_profile patch that the profile does not know (e.g. run.thresholdPace),
+ * with the closest known key as a suggestion. `null` values are allowed anywhere: they remove
+ * a key, including stray ones saved earlier.
+ */
+export function unknownProfileKeys(
+  patch: Record<string, unknown>,
+): { path: string; suggestion?: string }[] {
+  const out: { path: string; suggestion?: string }[] = [];
+  const check = (prefix: string, key: string, known: string[], value: unknown) => {
+    if (known.includes(key) || value === null) return;
+    out.push({ path: prefix + key, suggestion: closest(key, known) });
+  };
+  for (const [k, v] of Object.entries(patch)) {
+    check("", k, PROFILE_KEYS, v);
+    const section = PROFILE_SECTIONS[k];
+    if (section && v && typeof v === "object" && !Array.isArray(v)) {
+      for (const [kk, vv] of Object.entries(v)) check(`${k}.`, kk, section, vv);
+    }
+  }
+  return out;
+}
+
+function closest(key: string, known: string[]): string | undefined {
+  const k = key.toLowerCase();
+  const prefixed = known.find((x) =>
+    x.toLowerCase().startsWith(k) || k.startsWith(x.toLowerCase())
+  );
+  if (prefixed) return prefixed;
+  let best: { key: string; d: number } | undefined;
+  for (const x of known) {
+    const d = editDistance(k, x.toLowerCase());
+    if (!best || d < best.d) best = { key: x, d };
+  }
+  return best && best.d <= Math.max(2, Math.floor(k.length / 3)) ? best.key : undefined;
+}
+
+function editDistance(a: string, b: string): number {
+  let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const cur = [i];
+    for (let j = 1; j <= b.length; j++) {
+      cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    prev = cur;
+  }
+  return prev[b.length];
+}
 
 // ---------------- week ----------------
 

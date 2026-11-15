@@ -769,7 +769,7 @@
     {
       "name": "link_activities",
       "title": "Link activities to planned workouts",
-      "description": "Set or clear which planned workout a recorded activity fulfils — the only way to fix plan↔fact links. New uploads are matched automatically (same date and sport), but workouts planned or imported after the activity arrived stay 'missed' until linked here; also use it to undo a wrong auto-match (plannedWorkoutId: null) or to move a link. Take ids from get_plan (days[].workouts and days[].activities). One activity per planned workout: relinking the current holder in the same call is fine, otherwise unlink it first. Batch is atomic; dryRun previews. Writes apply immediately and are logged in get_changes (filter by entityId = the activity id); revert = call again with the previous value from the response. Sport or date mismatch is allowed and comes back as a warning.",
+      "description": "Set or clear which planned workout a recorded activity fulfils — the only way to fix plan↔fact links. New uploads are matched automatically (same date and sport), but workouts planned or imported after the activity arrived stay 'missed' until linked here; also use it to undo a wrong auto-match (plannedWorkoutId: null) or to move a link. Take ids from get_plan (days[].workouts and days[].activities). One activity per planned workout: relinking the current holder in the same call is fine, otherwise unlink it first. Batch is atomic; dryRun previews. Writes apply immediately and are logged in get_changes (filter by entityId = the activity id); revert_change(changeId) restores the previous link. Sport or date mismatch is allowed and comes back as a warning.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -953,7 +953,7 @@
     {
       "name": "log_strength_session",
       "title": "Log strength session",
-      "description": "Record a gym session after the fact: weights moved over from notes, or what the athlete told you in chat. Each set is one item (repeat an exercise for several sets, in order). Link plannedWorkoutId to mark that planned workout done.",
+      "description": "Record a gym session after the fact (date today or earlier, athlete's time zone): weights moved over from notes, or what the athlete told you in chat. Each set is one item (repeat an exercise for several sets, in order). Link plannedWorkoutId (a strength workout from get_plan) to mark that planned workout done. Undo with revert_change.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1238,7 +1238,7 @@
     {
       "name": "revert_change",
       "title": "Revert a change",
-      "description": "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Later edits of the same item are overwritten — the result says how many.",
+      "description": "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Works for plan, profile, events, journal, notebook, activities (a created activity is deleted, a link_activities change restores the previous link) and strength sessions (a logged session is deleted). Not revertable: edits of logged sets (fix with update_strength_log), merge_exercises, re-imports of a file. Later edits of the same item are overwritten — the result says how many.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1402,7 +1402,7 @@
     {
       "name": "update_profile",
       "title": "Update athlete profile",
-      "description": "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
+      "description": "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list; null removes a field. Only known fields are accepted (see get_profile; e.g. run.thresholdPaceSecPerKm, run.lthr, bike.ftp, swim.cssSecPer100m) — an unknown one fails with a suggestion. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,

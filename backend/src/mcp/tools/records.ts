@@ -1,7 +1,7 @@
 // Profile, events, journal, notebook, change log.
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import type { Entity } from "../../db/documents.ts";
+import { DOCUMENT_ENTITIES, type Entity } from "../../db/documents.ts";
 import {
   DEFAULT_PROFILE,
   Event,
@@ -10,9 +10,11 @@ import {
   NotebookPage,
   PINNED_NOTEBOOK_LIMIT,
   Profile,
+  unknownProfileKeys,
 } from "../../domain/entities.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError, Why } from "../util.ts";
+import { revertExternal } from "./revert.ts";
 
 const ENTITIES = [
   "profile",
@@ -22,6 +24,9 @@ const ENTITIES = [
   "journal",
   "notebook_page",
 ] as const;
+
+/** Thresholds where null is a stored value ("unknown"), not a removal. */
+const NULLABLE_KEYS = new Set(["thresholdPaceSecPerKm", "lthr", "ftp", "cssSecPer100m"]);
 
 export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   // ---------------- profile ----------------
@@ -36,7 +41,7 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "update_profile", {
     title: "Update athlete profile",
     description:
-      "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
+      "Partial update. Nested objects (run/bike/swim/zoneModel/equipment) are merged key by key; `travel` is replaced as a whole list; null removes a field. Only known fields are accepted (see get_profile; e.g. run.thresholdPaceSecPerKm, run.lthr, bike.ftp, swim.cssSecPer100m) — an unknown one fails with a suggestion. Thresholds: number or {low, high, basis}. Zones (run.hrZones, bike.hrZones, bike.powerZones): lower bounds of zones 2…n, e.g. hrZones [130,145,160,172] = Z1 <130 … Z5 ≥172; without them zones come from LTHR (Friel), max HR or FTP (Coggan). Change thresholds only after the athlete agrees. Travel periods set the effective time zone for plan dates on those days.",
     input: {
       patch: z.record(z.string(), z.unknown()).describe(
         "Fields to change, e.g. {timezone:'Asia/Barnaul'} or {run:{lthr:{low:156,high:162,basis:'…'}}} or {travel:[{from,to,timezone,note}]}",
@@ -44,15 +49,37 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
       why: Why,
     },
   }, async ({ patch, why }, env) => {
+    const unknown = unknownProfileKeys(patch);
+    if (unknown.length) {
+      throw new ToolError(
+        "unknown_field",
+        `unknown profile field${unknown.length > 1 ? "s" : ""}: ${
+          unknown.map((u) => u.path).join(", ")
+        }; nothing was saved`,
+        unknown.map((u) =>
+          u.suggestion
+            ? `${u.path} → ${u.path.replace(/[^.]+$/, u.suggestion)}`
+            : `${u.path}: not a profile field`
+        ).join("; ") + ". Free-form facts go to notes or equipment.",
+      );
+    }
     const cur = await env.profile();
     const merged: Record<string, unknown> = { ...cur };
+    // null removes a key (also inside run/bike/swim/zoneModel).
+    const apply = (target: Record<string, unknown>, k: string, v: unknown) => {
+      if (v === null && !NULLABLE_KEYS.has(k)) delete target[k];
+      else target[k] = v;
+    };
     for (const [k, v] of Object.entries(patch)) {
       const old = merged[k];
-      merged[k] =
+      if (
         v && typeof v === "object" && !Array.isArray(v) && old && typeof old === "object" &&
-          !Array.isArray(old)
-          ? { ...old, ...v }
-          : v;
+        !Array.isArray(old)
+      ) {
+        const next: Record<string, unknown> = { ...old };
+        for (const [kk, vv] of Object.entries(v)) apply(next, kk, vv);
+        merged[k] = next;
+      } else apply(merged, k, v);
     }
     const profile = Profile.parse(merged);
     const meta = await env.meta("update_profile", why);
@@ -329,10 +356,35 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "revert_change", {
     title: "Revert a change",
     description:
-      "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Later edits of the same item are overwritten — the result says how many.",
+      "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Works for plan, profile, events, journal, notebook, activities (a created activity is deleted, a link_activities change restores the previous link) and strength sessions (a logged session is deleted). Not revertable: edits of logged sets (fix with update_strength_log), merge_exercises, re-imports of a file. Later edits of the same item are overwritten — the result says how many.",
     input: { changeId: z.uuid(), why: Why },
   }, async ({ changeId, why }, env) => {
     const meta = await env.meta("revert_change", why);
+    const entry = await ctx.docs.getChange(env.userId, changeId);
+    if (!entry) throw new ToolError("not_found", `change ${changeId} not found`);
+    if (!DOCUMENT_ENTITIES.includes(entry.entity)) {
+      if (entry.revertedBy) {
+        throw new ToolError("conflict", `change already reverted by ${entry.revertedBy}`);
+      }
+      const r = await revertExternal(ctx, env.userId, entry, {
+        ...meta,
+        why: meta.why ?? `revert ${changeId}`,
+      });
+      const overriddenLaterChanges = await ctx.docs.markReverted(
+        env.userId,
+        changeId,
+        r.newChangeId,
+      );
+      return {
+        reverted: changeId,
+        newChangeId: r.newChangeId,
+        entity: entry.entity,
+        id: entry.entityId,
+        op: r.op,
+        overriddenLaterChanges,
+        ...(r.warnings.length ? { warnings: r.warnings } : {}),
+      };
+    }
     const { result, overriddenLaterChanges } = await ctx.docs.revert(env.userId, changeId, meta);
     return {
       reverted: changeId,

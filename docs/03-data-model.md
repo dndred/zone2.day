@@ -133,7 +133,7 @@
 ```
 
 ### 2.6 Силовые — `strength_sessions`, `strength_sets`, `exercises`
-Реализовано в `supabase/migrations/20261115030000_strength.sql`; телефон шлёт снимок сессии `POST /v1/strength-sessions` (через outbox, идемпотентно по клиентским id), сессии идут в ленту синка (`strength_session`). Силовая из плана считается выполненной, когда в привязанной сессии есть хотя бы один сделанный подход. Правки через MCP пишутся в `change_log` (видны в `get_changes`), но откатываются не `revert_change`, а `update_strength_log`.
+Реализовано в `supabase/migrations/20261115030000_strength.sql`; телефон шлёт снимок сессии `POST /v1/strength-sessions` (через outbox, идемпотентно по клиентским id), сессии идут в ленту синка (`strength_session`). Силовая из плана считается выполненной, когда в привязанной сессии есть хотя бы один сделанный подход. Правки через MCP пишутся в `change_log` (видны в `get_changes`); `revert_change` удаляет/восстанавливает сессию целиком (`log_strength_session`), правки подходов исправляются `update_strength_log`.
 - **exercises**: `id`, `user_id`, `name`, `aliases[]`, `pattern?` (hinge/squat/push/pull/carry/core), `equipment?`. AI может склеивать дубли (`merge_exercises`).
 - **strength_sessions**: `id`, `planned_workout_id?`, `date`, `hk_workout_uuid?` (если на часах писалась силовая — оттуда время и пульс), `notes?`.
 - **strength_sets**: `id` (генерирует клиент), `session_id`, `exercise_id`, `order`, `set_index`, `planned` (`{reps, weightKg, rpe, holdSec?, distanceM?}`), `actual` (`{reps, weightKg, holdSec?, distanceM?}`), `rpe?`, `note?`, `logged_at`, `source` (`app` \| `ai`).
