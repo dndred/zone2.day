@@ -57,6 +57,9 @@ targetTemplates:
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1"
+        # Brand orange (#FF5A1F, Apple Watch Ultra's International Orange) — App/Assets.xcassets.
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        ASSETCATALOG_COMPILER_APPICON_NAME: $(ZONE2_APP_ICON)
 
 # Two copies side by side on the phone (own sign-in, database and Health permission each):
 # zone2 → prod, zone2 stg → staging. `just ios-device` / `just ios-device stg`.
@@ -69,6 +72,7 @@ targets:
         ZONE2_DISPLAY_NAME: zone2
         ZONE2_SERVER_URL: https:/$()/api.zone2.day
         ZONE2_WATCH_DELIVERY: YES
+        ZONE2_APP_ICON: AppIcon
   Zone2Stg:
     templates: [App]
     settings:
@@ -77,3 +81,5 @@ targets:
         ZONE2_DISPLAY_NAME: zone2 stg
         ZONE2_SERVER_URL: https:/$()/api-staging.zone2.day
         ZONE2_WATCH_DELIVERY: NO
+        # Dark icon so the two copies are told apart on the home screen.
+        ZONE2_APP_ICON: AppIconStg

@@ -69,6 +69,8 @@ TabView: **Today · Calendar · Activities · Profile**. Debug — скрыты�
 
 ## 4. Дизайн-система (пакет Zone2UI)
 
+- **Фирменный цвет** — оранжевый `#FF5A1F` (International Orange, как на Apple Watch Ultra), `AccentColor` в `ios/App/Assets.xcassets` → `Color.accentColor`. Не совпадает ни с одним цветом шкалы зон (Z4 — в сторону янтарного), чтобы акцент не читался как «ты в пороговой зоне».
+- **Иконки** — `AppIcon` (оранжевый фон, белый глиф) у prod-копии `zone2`, `AppIconStg` (графит, оранжевый глиф) у `zone2 stg`; выбираются через `ZONE2_APP_ICON` в `ios/project.yml`. Пока одна картинка 1024 на все размеры; слои для Icon Composer — позже.
 - **Цвета зон** — единая шкала Z1–Z5 (плюс спринт/анаэробная), согласованная для графиков, полосок и чипов; проверка контраста в светлой и тёмной теме.
 - **Цвета видов спорта** — бег, вело, плавание, силовая, другое.
 - Компоненты: `WorkoutProfileBar`, `StepRow`, `RepeatGroup`, `TargetChip`, `PlanVsActualChart`, `IntervalTable`, `DeliveryStatus`, `MetricTile`, `SetRow`.
