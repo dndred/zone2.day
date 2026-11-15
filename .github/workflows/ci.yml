@@ -5,6 +5,11 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+    inputs:
+      data_migrations:
+        description: "Run data migrations after the deploy (rebuild derived data, D40)"
+        type: boolean
+        default: false
 
 concurrency:
   group: ci-${{ github.ref }}
@@ -74,8 +79,9 @@ jobs:
         run: |
           echo "export const BUILD_VERSION = \"${GITHUB_SHA::7}\";" > supabase/functions/api/build.ts
           supabase functions deploy api --yes --remote="$STAGING_REF"
+      # Off on push for now: only on a manual run with data_migrations=true, or `just job data-migrations`.
       - name: Data migrations (rebuild derived data until nothing is left)
-        if: steps.check.outputs.ready == 'true'
+        if: steps.check.outputs.ready == 'true' && github.event_name == 'workflow_dispatch' && inputs.data_migrations
         env:
           JOB_SECRET: ${{ secrets.STAGING_JOB_SECRET }}
         run: |
@@ -88,7 +94,7 @@ jobs:
             if [[ "$remaining" == "0" ]]; then exit 0; fi
             if [[ "$processed" == "0" ]]; then echo "::error::data migrations stuck: $out"; exit 1; fi
           done
-          echo "::warning::data migrations not finished in this run; the next deploy continues"
+          echo "::warning::data migrations not finished in this run; run again to continue"
       - name: Smoke
         if: steps.check.outputs.ready == 'true'
         run: |

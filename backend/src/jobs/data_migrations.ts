@@ -1,5 +1,5 @@
 // Data migrations (D40): derived data that must be rebuilt when code changes, run like schema
-// migrations — CI calls /jobs/data-migrations after every deploy until nothing is left.
+// migrations — run on demand (`just job data-migrations` or a manual CI dispatch) until nothing is left.
 // Each migration is idempotent, works in small batches and knows what is outdated by itself
 // (e.g. summary.v < SUMMARY_VERSION), so it is safe to call any number of times.
 import type { AppDeps } from "../deps.ts";

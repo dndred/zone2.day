@@ -155,7 +155,7 @@ cache-secrets:
     chmod 600 .env.staging.local
     echo "cached → .env.staging.local"
 
-# Run a maintenance job until done (CI runs data-migrations after each deploy), e.g. just job data-migrations
+# Run a maintenance job until done, e.g. just job data-migrations (CI runs it only on a manual dispatch)
 job name target="staging": (_guard target)
     #!/usr/bin/env zsh
     set -euo pipefail
