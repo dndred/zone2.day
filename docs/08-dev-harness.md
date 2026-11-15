@@ -28,7 +28,7 @@
 | `just ios-device` / `just ios-pull <path>` | Собрать/подписать/поставить/запустить на подключённом iPhone; забрать файл из контейнера приложения |
 | `just mcp-inspect` | MCP Inspector против локального сервера |
 | `just api method=… path=… env=…` | Вызов Sync API от имени тестового устройства |
-| `just logs env=… since=…` | Логи Edge Function (Supabase) |
+| `just logs [staging\|prod] [30m\|2h\|1d] [подстрока] [fn\|edge\|all]` | Логи Edge Function через Management API (только чтение; лимит API — 10 запросов/мин) |
 | `just client-logs env=… device=…` | Логи с устройства (через debug API) |
 | `just deploy-staging` / `just deploy-prod` | Миграции → деплой функции → деплой прокси → смоук |
 | `just smoke env=…` | Смоук: OAuth-метаданные, `get_context`, синк тестового устройства |
@@ -54,7 +54,7 @@
 
 ## 3. Наблюдаемость
 
-- **Бэкенд:** структурированные JSON-логи (`requestId`, `userId`-хэш, `tool`, длительность, ошибка). Таблица `request_log` (7 дней) для `debug_request_log`.
+- **Бэкенд:** структурированные JSON-логи (`requestId`, `userId`-хэш, `tool`, длительность, ошибка). Строка `request` для `/mcp` дополнительно несёт `rpc` (JSON-RPC-метод), `tool`, `protocol` (заголовок `mcp-protocol-version`, для initialize — `заголовок→запрошенная`) и `error` — текст ошибки транспорта при 4xx; аргументы не логируются. Таблица `request_log` (7 дней) для `debug_request_log`.
 - **Устройство:** `Logger` (OSLog) + кольцевой буфер в GRDB → батчи в `POST /v1/client-logs` при каждом синке. Категории: `sync`, `outbox`, `health`, `workoutkit`, `bg`, `ui`. Агент читает через `just client-logs` или MCP `debug_client_logs`.
 - **Отчёты состояния устройства** при каждом синке: версия, разрешения, курсор, размер outbox, запланированное на часах, последние фоновые пробуждения → `devices` → `debug_devices`.
 - **Спайк S4** использует этот же канал для измерения частоты фоновых пробуждений.

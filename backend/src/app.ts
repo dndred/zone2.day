@@ -4,7 +4,7 @@ import { verifyBearer } from "./auth/bearer.ts";
 import { authRoutes, mcpResource } from "./auth/oauth.ts";
 import type { Config } from "./config.ts";
 import type { AppDeps } from "./deps.ts";
-import type { AppEnv } from "./http.ts";
+import type { AppEnv, McpLogInfo } from "./http.ts";
 import { log } from "./log.ts";
 import { handleMcpRequest } from "./mcp/server.ts";
 import { syncRoutes } from "./sync/routes.ts";
@@ -42,6 +42,7 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
       status: c.res.status,
       ms: Math.round(performance.now() - started),
       clientId: c.get("auth")?.clientId,
+      ...c.get("mcp"),
     });
   });
 
@@ -107,7 +108,18 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
         );
       }
       c.set("auth", result.auth);
-      return await handleMcpRequest(c.req.raw, {
+      // Read the body once: the log needs the JSON-RPC method, the transport needs the body.
+      const raw = c.req.raw;
+      const text = raw.method === "POST" ? await raw.text() : null;
+      const info = mcpLogInfo(raw.headers, text);
+      c.set("mcp", info);
+      const req = text === null ? raw : new Request(raw.url, {
+        method: raw.method,
+        headers: raw.headers,
+        body: text,
+        signal: raw.signal,
+      });
+      const res = await handleMcpRequest(req, {
         config,
         auth: result.auth,
         store: deps.store,
@@ -118,6 +130,16 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
         blobs: deps.blobs,
         now: deps.now,
       });
+      if (res.status >= 400) {
+        // SDK transport errors (unsupported protocol version, bad JSON…) are small JSON bodies.
+        const body = await res.clone().text();
+        try {
+          info.error = String(JSON.parse(body)?.error?.message ?? body).slice(0, 200);
+        } catch {
+          info.error = body.slice(0, 200);
+        }
+      }
+      return res;
     });
   }
 
@@ -134,4 +156,30 @@ export function createApp(config: Config, deps?: AppDeps): Hono<AppEnv> {
   });
 
   return app;
+}
+
+/** Method, tool name and protocol of an /mcp request; never arguments (may carry personal data). */
+export function mcpLogInfo(headers: Headers, body: string | null): McpLogInfo {
+  const info: McpLogInfo = {};
+  const protocol = headers.get("mcp-protocol-version");
+  if (protocol) info.protocol = protocol;
+  if (headers.has("mcp-session-id")) info.session = true;
+  if (!body) return info;
+  try {
+    const parsed = JSON.parse(body);
+    const msgs = (Array.isArray(parsed) ? parsed : [parsed]) as Array<
+      { method?: unknown; params?: { name?: unknown; protocolVersion?: unknown } }
+    >;
+    const methods = msgs.map((m) => typeof m?.method === "string" ? m.method : "response");
+    info.rpc = methods.join(",");
+    const call = msgs.find((m) => m?.method === "tools/call");
+    if (typeof call?.params?.name === "string") info.tool = call.params.name.slice(0, 64);
+    const init = msgs.find((m) => m?.method === "initialize");
+    if (typeof init?.params?.protocolVersion === "string") {
+      info.protocol = `${info.protocol ?? "-"}→${init.params.protocolVersion}`;
+    }
+  } catch {
+    info.rpc = "invalid-json";
+  }
+  return info;
 }

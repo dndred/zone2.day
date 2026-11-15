@@ -241,6 +241,19 @@ smoke target="staging":
     echo "$body" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['ok'] and d['env']=='{{target}}', d; print('✓ health ok:', d['env'], d['version'])"
     if [[ "{{target}}" != local && "$body" != *"$want"* ]]; then echo "✗ live version is not HEAD ($want) — deploy did not go out"; exit 1; fi
 
+# Edge Function logs (Supabase Management API, read-only), newest last.
+#   just logs                       — staging, last 30 min
+#   just logs staging 2h mcp        — window: 30m / 2h / 1d; filter: substring of the line
+#   just logs prod 1h error         — prod is read-only here, no guard
+# Sources: our JSON lines (function_logs); add src=edge for Supabase's request log.
+# The logs endpoint allows 10 requests/min per account.
+logs target="staging" since="30m" grep="" src="fn" limit="300":
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    export ZONE2_SUPABASE_ACCESS_TOKEN=${ZONE2_SUPABASE_ACCESS_TOKEN:-$(grep '^ZONE2_SUPABASE_ACCESS_TOKEN=' .env.staging.local 2>/dev/null | cut -d= -f2- || true)}
+    [[ -n $ZONE2_SUPABASE_ACCESS_TOKEN ]] || { echo "no ZONE2_SUPABASE_ACCESS_TOKEN (env or .env.staging.local)"; exit 1; }
+    python3 -I scripts/logs.py {{ if target == "prod" { prod_ref } else { staging_ref } }} "{{since}}" "{{grep}}" "{{src}}" "{{limit}}"
+
 # Live logs of the edge proxy
 proxy-logs target="staging":
     cd edge-proxy && wrangler tail --env {{target}} --format pretty
