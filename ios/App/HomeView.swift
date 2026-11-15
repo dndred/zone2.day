@@ -33,6 +33,7 @@ struct HomeView: View {
                         Button {
                             Task {
                                 await health.requestAuthorization()
+                                model.metrics.startObserving()
                                 await model.sync()
                             }
                         } label: {

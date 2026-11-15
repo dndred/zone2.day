@@ -8,6 +8,7 @@ final class AppModel: ObservableObject {
     let auth: AuthSession
     let oauth: OAuthClient
     let health: HealthSync
+    let metrics: DailyMetricsSync
     /// Offline store: every screen reads from here; only `sync` writes (via SyncEngine).
     let store: LocalStore
     let syncEngine: SyncEngine
@@ -41,10 +42,14 @@ final class AppModel: ObservableObject {
             switch item.kind {
             case "delivery": try await api.postJSON("v1/deliveries", body: item.payload, auth: auth)
             case "strength": try await api.postJSON("v1/strength-sessions", body: item.payload, auth: auth)
+            case "daily_metrics": try await api.postJSON("v1/daily-metrics", body: item.payload, auth: auth)
             default: break // unknown kinds from a newer build: drop
             }
         }
+        metrics = DailyMetricsSync(local: store)
         health.startObserving()
+        metrics.onChange = { [weak self] in await self?.sendMetrics() }
+        metrics.startObserving()
         Task { await refreshAccount() }
     }
 
@@ -72,6 +77,8 @@ final class AppModel: ObservableObject {
         defer { syncing = false }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: budget > 60)
+        if budget > 60 { await metrics.requestMissingAuthorization() }
+        await metrics.collect()
         await outbox.flush()
         let before = health.state.uploaded
         await health.sync(budget: budget)
@@ -106,6 +113,13 @@ final class AppModel: ObservableObject {
         return ActivityStreams(bucketSec: dur / Double(n), columns: ["t": t, "heartRate": hr, "speed": speed, "runningPower": power])
     }
 
+    /// Health metrics changed (sleep observer, background): aggregate the recent days and send.
+    func sendMetrics() async {
+        guard !isDemo, await auth.isSignedIn else { return }
+        await metrics.collect()
+        await outbox.flush()
+    }
+
     /// Sends queued local changes (gym log) right away; no-op offline or signed out.
     func sendQueued() async {
         guard !isDemo, await auth.isSignedIn else { return }
@@ -119,6 +133,7 @@ final class AppModel: ObservableObject {
         defer { syncing = false }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: true)
+        await metrics.collect()
         await outbox.flush()
     }
 

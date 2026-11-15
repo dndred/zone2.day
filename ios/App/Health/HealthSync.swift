@@ -62,7 +62,7 @@ final class HealthSync: ObservableObject {
 
     func requestAuthorization() async {
         do {
-            try await store.requestAuthorization(toShare: [], read: HealthExporter.readTypes)
+            try await store.requestAuthorization(toShare: [], read: HealthExporter.readTypes.union(DailyMetricsSync.readTypes))
             try await store.enableBackgroundDelivery(for: .workoutType(), frequency: .immediate)
             authorized = true
             UserDefaults.standard.set(true, forKey: "health.authorized")
