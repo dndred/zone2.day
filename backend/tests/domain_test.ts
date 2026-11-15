@@ -175,3 +175,19 @@ Deno.test("week must start on Monday; event date window rules", () => {
   assert(Event.safeParse(ev).success);
   assert(!Event.safeParse({ ...ev, datePrecision: "day" }).success);
 });
+
+Deno.test("zonedToUtc: wall clock in a zone → instant", async () => {
+  const { zonedToUtc } = await import("../src/domain/time.ts");
+  assertEquals(
+    zonedToUtc("2026-11-15T08:00", "Asia/Barnaul").toISOString(),
+    "2026-11-15T01:00:00.000Z",
+  );
+  assertEquals(
+    zonedToUtc("2026-07-01T10:30:15", "Europe/Berlin").toISOString(),
+    "2026-07-01T08:30:15.000Z",
+  );
+  assertEquals(
+    zonedToUtc("2026-03-29T03:30", "Europe/Berlin").toISOString(),
+    "2026-03-29T01:30:00.000Z",
+  );
+});

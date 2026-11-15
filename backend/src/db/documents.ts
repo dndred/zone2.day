@@ -287,7 +287,7 @@ export class DocumentStore {
       const entry = toChange(row);
       if (!DOCUMENT_ENTITIES.includes(entry.entity)) {
         throw new ConflictError(
-          `${entry.entity} changes cannot be reverted here; fix them with their own tool (e.g. update_strength_log)`,
+          `${entry.entity} changes cannot be reverted here; fix them with their own tool (e.g. update_strength_log, link_activities)`,
         );
       }
       if (entry.revertedBy) {

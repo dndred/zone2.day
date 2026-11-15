@@ -2,6 +2,7 @@
 import { assert, assertEquals } from "@std/assert";
 import { randomToken, sha256 } from "../src/auth/crypto.ts";
 import { gzip } from "../src/ingest/healthkit.ts";
+import { SUMMARY_VERSION } from "../src/domain/healthkit.ts";
 import { makeDump } from "./helpers/dump.ts";
 import { mcpHarness } from "./helpers/mcp.ts";
 
@@ -88,7 +89,7 @@ Deno.test("sync feed: snapshot, increments, deletes, profile re-resolves upcomin
 
     const act = find(changes, "activity", activityId)[0];
     assertEquals(act.data.date, "2026-11-13");
-    assertEquals(act.data.summary.v, 7);
+    assertEquals(act.data.summary.v, SUMMARY_VERSION);
     assert(Array.isArray(act.data.laps));
     const cursor = snap.body.cursor;
 

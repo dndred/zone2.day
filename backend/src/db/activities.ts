@@ -197,6 +197,20 @@ export class ActivityStore {
     if (r) await this.feed(userId, id, r.version, "upsert");
   }
 
+  /** Set planned links for several activities in one transaction (all or nothing). */
+  async relink(userId: string, links: { id: string; plannedId: string | null }[]) {
+    await this.sql.begin(async (tx) => {
+      for (const l of links) {
+        const [r] = await tx`update zone2.activities set planned_workout_id = ${l.plannedId},
+          version = version + 1, updated_at = now()
+          where user_id = ${userId} and id = ${l.id} and deleted_at is null returning version`;
+        if (!r) throw new Error(`activity ${l.id} vanished during relink`);
+        await tx`insert into zone2.sync_feed (user_id, entity, entity_id, version, op)
+          values (${userId}, 'activity', ${l.id}, ${r.version}, 'upsert')`;
+      }
+    });
+  }
+
   async setDuplicate(userId: string, id: string, of: string | null) {
     const [r] = await this
       .sql`update zone2.activities set duplicate_of = ${of}, planned_workout_id = case when ${of}::uuid is null then planned_workout_id else null end,
@@ -230,25 +244,42 @@ export class ActivityStore {
     return rows.map((r) => r.id as string);
   }
 
-  /** HealthKit activities whose summary was computed by an older summarize() (any user). */
+  /** Activities with a stored original whose summary was computed by an older summarize() (any user). */
   async outdatedSummaries(version: number, limit: number) {
     const rows = await this.sql`
-      select a.id, a.user_id, f.storage_key from zone2.activities a
-      join zone2.activity_files f on f.activity_id = a.id and f.kind = 'healthkit_dump'
+      select a.id, a.user_id, a.planned_workout_id, f.storage_key, f.kind from zone2.activities a
+      join zone2.activity_files f on f.activity_id = a.id and f.kind in ('healthkit_dump', 'fit_original')
       where a.deleted_at is null and coalesce((a.summary ->> 'v')::int, 1) < ${version}
       order by a.start_at desc limit ${limit}`;
     const [{ n }] = await this.sql`
       select count(*)::int as n from zone2.activities a
-      join zone2.activity_files f on f.activity_id = a.id and f.kind = 'healthkit_dump'
+      join zone2.activity_files f on f.activity_id = a.id and f.kind in ('healthkit_dump', 'fit_original')
       where a.deleted_at is null and coalesce((a.summary ->> 'v')::int, 1) < ${version}`;
     return {
       items: rows.map((r) => ({
         id: r.id as string,
         userId: r.user_id as string,
         key: r.storage_key as string,
+        kind: r.kind as "healthkit_dump" | "fit_original",
       })),
       remaining: n as number,
     };
+  }
+
+  /** Set the fields the athlete or coach wrote; omitted fields stay as they are. */
+  async annotate(
+    userId: string,
+    id: string,
+    a: { title?: string; tags?: string[]; athleteNotes?: string; rpe?: number },
+  ) {
+    const [r] = await this.sql`update zone2.activities set
+        title = coalesce(${a.title ?? null}, title),
+        tags = coalesce(${a.tags ?? null}::text[], tags),
+        athlete_notes = coalesce(${a.athleteNotes ?? null}, athlete_notes),
+        rpe = coalesce(${a.rpe ?? null}::smallint, rpe),
+        version = version + 1, updated_at = now()
+      where user_id = ${userId} and id = ${id} returning version`;
+    if (r) await this.feed(userId, id, r.version, "upsert");
   }
 
   async addFile(

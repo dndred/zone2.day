@@ -1,5 +1,11 @@
 import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
-import { HealthKitDump, lapsOf, streams, summarize } from "../src/domain/healthkit.ts";
+import {
+  HealthKitDump,
+  lapsOf,
+  streams,
+  summarize,
+  SUMMARY_VERSION,
+} from "../src/domain/healthkit.ts";
 import { gzip } from "../src/ingest/healthkit.ts";
 import { makeDump } from "./helpers/dump.ts";
 import { mcpHarness } from "./helpers/mcp.ts";
@@ -319,7 +325,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     const out = await run.json();
     assertEquals(out.processed, 1);
     assertEquals(out.remaining, 0);
-    assertEquals(out.migrations[0].name, "activity-summaries-v7");
+    assertEquals(out.migrations[0].name, `activity-summaries-v${SUMMARY_VERSION}`);
     // Idempotent: a second call has nothing to do.
     const again = await (await h.app.request("/jobs/data-migrations", {
       method: "POST",
@@ -327,7 +333,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     })).json();
     assertEquals(again.processed, 0);
     const [row] = await h.db.sql`select summary from zone2.activities where id = ${res.activityId}`;
-    assertEquals(row.summary.v, 7);
+    assertEquals(row.summary.v, SUMMARY_VERSION);
     assertEquals(row.summary.legacy, undefined);
   } finally {
     await h.drop();

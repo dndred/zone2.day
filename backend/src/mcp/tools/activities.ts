@@ -7,7 +7,7 @@ import { defaultTitle, streams, type Summary } from "../../domain/healthkit.ts";
 import { loadDump, NoStreamsError } from "../../sync/streams.ts";
 import { resolveStructure } from "../../domain/plan.ts";
 import type { McpContext } from "../server.ts";
-import { defineTool, ToolError } from "../util.ts";
+import { defineTool, ToolError, Why } from "../util.ts";
 
 export function brief(a: ActivityRow) {
   const s = a.summary as Record<string, unknown>;
@@ -156,5 +156,114 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
       missing: channels.filter((ch) => !(ch in data)),
       available,
     };
+  });
+  defineTool(server, ctx, "link_activities", {
+    title: "Link activities to planned workouts",
+    description:
+      "Set or clear which planned workout a recorded activity fulfils — the only way to fix plan↔fact links. New uploads are matched automatically (same date and sport), but workouts planned or imported after the activity arrived stay 'missed' until linked here; also use it to undo a wrong auto-match (plannedWorkoutId: null) or to move a link. Take ids from get_plan (days[].workouts and days[].activities). One activity per planned workout: relinking the current holder in the same call is fine, otherwise unlink it first. Batch is atomic; dryRun previews. Writes apply immediately and are logged in get_changes (filter by entityId = the activity id); revert = call again with the previous value from the response. Sport or date mismatch is allowed and comes back as a warning.",
+    input: {
+      links: z.array(z.object({
+        activityId: z.uuid(),
+        plannedWorkoutId: z.uuid().nullable().describe("null = unlink"),
+      })).min(1).max(40),
+      why: Why,
+      dryRun: z.boolean().optional(),
+    },
+  }, async ({ links, why, dryRun }, env) => {
+    const ids = links.map((l) => l.activityId);
+    const dupId = ids.find((id, i) => ids.indexOf(id) !== i);
+    if (dupId) throw new ToolError("bad_input", `activity ${dupId} appears twice in links`);
+    const targets = links.flatMap((l) => (l.plannedWorkoutId ? [l.plannedWorkoutId] : []));
+    const dupTarget = targets.find((id, i) => targets.indexOf(id) !== i);
+    if (dupTarget) {
+      throw new ToolError(
+        "conflict",
+        `planned workout ${dupTarget} is linked to two activities in this call`,
+        "One activity per planned workout; drop one of the links",
+      );
+    }
+
+    const acts = new Map(
+      (await ctx.activities.getMany(env.userId, ids)).filter((a) => !a.deletedAt).map((a) => [
+        a.id,
+        a,
+      ]),
+    );
+    const planned = new Map(
+      (await ctx.docs.getMany<PlannedWorkout>(env.userId, "planned_workout", targets)).map((d) => [
+        d.id,
+        d.data,
+      ]),
+    );
+    const holders = await ctx.activities.byPlanned(env.userId, targets);
+    const inBatch = new Set(ids);
+
+    const warnings: string[] = [];
+    const changes: {
+      activityId: string;
+      previous: string | null;
+      plannedWorkoutId: string | null;
+    }[] = [];
+    for (const l of links) {
+      const a = acts.get(l.activityId);
+      if (!a) throw new ToolError("not_found", `activity ${l.activityId} not found`);
+      if (a.duplicateOf && l.plannedWorkoutId) {
+        throw new ToolError(
+          "conflict",
+          `activity ${a.id} is a duplicate copy of ${a.duplicateOf}`,
+          `Link the primary record ${a.duplicateOf} instead`,
+        );
+      }
+      if (l.plannedWorkoutId) {
+        const w = planned.get(l.plannedWorkoutId);
+        if (!w) throw new ToolError("not_found", `planned workout ${l.plannedWorkoutId} not found`);
+        const holder = holders.get(w.id);
+        if (holder && holder.id !== a.id && !inBatch.has(holder.id)) {
+          throw new ToolError(
+            "conflict",
+            `planned workout ${w.id} is already linked to activity ${holder.id} (${holder.localDate})`,
+            `Add {activityId: "${holder.id}", plannedWorkoutId: null} to this call to move the link`,
+          );
+        }
+        if (w.sport !== a.sport) {
+          warnings.push(`${a.id}: sport ${a.sport} ≠ planned ${w.sport} (${w.title})`);
+        }
+        if (w.date !== a.localDate) {
+          warnings.push(`${a.id}: done ${a.localDate}, planned ${w.date} (${w.title})`);
+        }
+        if (w.skipped) warnings.push(`${w.id}: was marked skipped; status becomes done`);
+      }
+      if (a.plannedWorkoutId !== l.plannedWorkoutId) {
+        changes.push({
+          activityId: a.id,
+          previous: a.plannedWorkoutId,
+          plannedWorkoutId: l.plannedWorkoutId,
+        });
+      }
+    }
+    const unchanged = links.length - changes.length;
+    if (dryRun || changes.length === 0) {
+      return { dryRun: Boolean(dryRun), changes, unchanged, warnings };
+    }
+
+    await ctx.activities.relink(
+      env.userId,
+      changes.map((c) => ({ id: c.activityId, plannedId: c.plannedWorkoutId })),
+    );
+    const meta = await env.meta("link_activities", why);
+    const out = [];
+    for (const c of changes) {
+      const changeId = await ctx.docs.logExternal(
+        env.userId,
+        meta,
+        "activity",
+        c.activityId,
+        "update",
+        { plannedWorkoutId: c.previous },
+        { plannedWorkoutId: c.plannedWorkoutId },
+      );
+      out.push({ ...c, changeId });
+    }
+    return { changes: out, unchanged, warnings };
   });
 }

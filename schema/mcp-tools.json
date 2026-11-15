@@ -47,6 +47,140 @@
       }
     },
     {
+      "name": "create_activity",
+      "title": "Create activity by hand",
+      "description": "Record a workout that has no file: from the athlete's words, a paper log, a gym/treadmill display, a race result. Only totals (no laps, streams or zones) — prefer import_activity_file when a FIT exists. Never invent numbers: leave unknown fields out. start = local wall clock 'YYYY-MM-DDTHH:MM' in the athlete's zone that day (or ISO with offset). Matched to the plan automatically (same date and sport) unless plannedWorkoutId is given. A same-sport activity overlapping in time comes back as a warning (it may already be recorded). Writes immediately; logged in get_changes.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "sport": {
+            "type": "string",
+            "enum": [
+              "run",
+              "bike",
+              "swim",
+              "strength",
+              "other"
+            ]
+          },
+          "subSport": {
+            "description": "e.g. indoor_bike, treadmill, trail, track, pool, open_water, walk, hike",
+            "type": "string",
+            "maxLength": 30
+          },
+          "start": {
+            "type": "string",
+            "description": "'2026-11-15T08:30' (athlete local) or ISO with offset"
+          },
+          "durationSec": {
+            "type": "integer",
+            "minimum": 60,
+            "maximum": 172800,
+            "description": "Elapsed time"
+          },
+          "movingSec": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 172800
+          },
+          "distanceM": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1000000
+          },
+          "hrAvg": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 240
+          },
+          "hrMax": {
+            "type": "integer",
+            "minimum": 30,
+            "maximum": 240
+          },
+          "powerAvg": {
+            "description": "W",
+            "type": "number",
+            "minimum": 1,
+            "maximum": 2000
+          },
+          "elevationGainM": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "energyKcal": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 20000
+          },
+          "title": {
+            "description": "In the athlete's language",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "athleteNotes": {
+            "description": "The athlete's own words about it",
+            "type": "string",
+            "maxLength": 4000
+          },
+          "rpe": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "tags": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 30
+            }
+          },
+          "plannedWorkoutId": {
+            "description": "Planned workout this fulfils. Omit to match automatically (same date and sport).",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        },
+        "required": [
+          "sport",
+          "start",
+          "durationSec",
+          "why"
+        ]
+      }
+    },
+    {
+      "name": "create_upload_link",
+      "title": "Create upload link",
+      "description": "One-time link (valid 1 h) where the athlete picks a .fit file in the browser — the way to get a file from a chat client, which cannot pass binary files to tools. Give the athlete the url; when they say it is uploaded, call import_activity_file({uploadId}). Clients that can read local files (Claude Code, scripts) can skip this and pass fileBase64 directly.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {}
+      }
+    },
+    {
       "name": "delete_event",
       "title": "Delete event",
       "description": "Delete an event (soft, undo with revert_change). Prefer status 'cancelled' to keep history.",
@@ -434,6 +568,129 @@
             "maximum": 60
           }
         }
+      }
+    },
+    {
+      "name": "import_activity_file",
+      "title": "Import activity file",
+      "description": "Create an activity from a FIT file — e.g. a MyWhoosh ride export with power, cadence and HR inside, or any watch/bike computer file. Pass uploadId (from create_upload_link, after the athlete uploaded) or fileBase64 (clients that read files themselves). Summary, laps and streams are computed like for Apple Health workouts; the original FIT is kept byte for byte. Re-importing the same file returns the same activity. A copy of the same session from a worse source (e.g. Strava's copy in Apple Health) is marked as its duplicate, and the plan link moves to the FIT. Matched to the plan automatically unless plannedWorkoutId is given. Writes immediately; logged in get_changes.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "uploadId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "fileBase64": {
+            "type": "string",
+            "minLength": 16,
+            "maxLength": 34952538
+          },
+          "title": {
+            "description": "In the athlete's language",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "athleteNotes": {
+            "description": "The athlete's own words about it",
+            "type": "string",
+            "maxLength": 4000
+          },
+          "rpe": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "tags": {
+            "maxItems": 10,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "maxLength": 30
+            }
+          },
+          "plannedWorkoutId": {
+            "description": "Planned workout this fulfils. Omit to match automatically (same date and sport).",
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          }
+        }
+      }
+    },
+    {
+      "name": "link_activities",
+      "title": "Link activities to planned workouts",
+      "description": "Set or clear which planned workout a recorded activity fulfils — the only way to fix plan↔fact links. New uploads are matched automatically (same date and sport), but workouts planned or imported after the activity arrived stay 'missed' until linked here; also use it to undo a wrong auto-match (plannedWorkoutId: null) or to move a link. Take ids from get_plan (days[].workouts and days[].activities). One activity per planned workout: relinking the current holder in the same call is fine, otherwise unlink it first. Batch is atomic; dryRun previews. Writes apply immediately and are logged in get_changes (filter by entityId = the activity id); revert = call again with the previous value from the response. Sport or date mismatch is allowed and comes back as a warning.",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "type": "object",
+        "properties": {
+          "links": {
+            "minItems": 1,
+            "maxItems": 40,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "activityId": {
+                  "type": "string",
+                  "format": "uuid",
+                  "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                },
+                "plannedWorkoutId": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "uuid",
+                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ],
+                  "description": "null = unlink"
+                }
+              },
+              "required": [
+                "activityId",
+                "plannedWorkoutId"
+              ]
+            }
+          },
+          "why": {
+            "type": "string",
+            "minLength": 3,
+            "maxLength": 200,
+            "description": "Why this change, in the athlete's language, as you'd say it aloud (≤200). Shown on the workout card."
+          },
+          "dryRun": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "links",
+          "why"
+        ]
       }
     },
     {

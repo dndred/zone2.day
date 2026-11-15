@@ -1,7 +1,7 @@
 // Server-rendered sign-in page for /oauth/authorize. No external scripts: WebAuthn JSON
 // conversion is done inline so the page works without a CDN.
 
-type Lang = "en" | "ru";
+export type Lang = "en" | "ru";
 
 const STRINGS = {
   en: {
@@ -34,7 +34,7 @@ export function pickLang(acceptLanguage: string | undefined): Lang {
   return /^\s*ru\b/i.test(acceptLanguage ?? "") ? "ru" : "en";
 }
 
-function esc(s: string): string {
+export function esc(s: string): string {
   return s.replace(
     /[&<>"']/g,
     (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]!,
@@ -116,7 +116,7 @@ document.getElementById("register").onclick = guard(register);
   return shell(input.lang, t.title, body);
 }
 
-function shell(lang: Lang, title: string, body: string): string {
+export function shell(lang: Lang, title: string, body: string): string {
   return `<!doctype html>
 <html lang="${lang}">
 <head>

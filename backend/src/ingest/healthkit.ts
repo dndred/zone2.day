@@ -1,4 +1,5 @@
 // HealthKit dump → activity (docs/05-sync.md §6): store the original, summarize, dedupe, match plan.
+// FIT files go through the same saveDump after conversion (ingest/fit.ts).
 import type { ActivityStore } from "../db/activities.ts";
 import type { DocumentStore } from "../db/documents.ts";
 import { sha256Bytes } from "../auth/crypto.ts";
@@ -37,10 +38,39 @@ export async function ingestHealthKit(
   raw: Uint8Array,
   opts: { storeOriginal?: boolean } = {},
 ): Promise<IngestResult> {
-  const storeOriginal = opts.storeOriginal ?? true;
   const json = isGzip(raw) ? await gunzip(raw) : raw;
   const gz = isGzip(raw) ? raw : await gzip(raw);
   const dump = HealthKitDump.parse(JSON.parse(new TextDecoder().decode(json)));
+  return await saveDump(deps, userId, dump, {
+    source: "healthkit",
+    sourceId: dump.workout.uuid,
+    file: (opts.storeOriginal ?? true)
+      ? {
+        kind: "healthkit_dump",
+        key: `${userId}/healthkit/${dump.workout.uuid}.json.gz`,
+        body: gz,
+        contentType: "application/gzip",
+      }
+      : undefined,
+  });
+}
+
+export interface DumpSource {
+  source: string;
+  sourceId: string;
+  /** Original to store (skipped when recomputing a summary from a stored original). */
+  file?: { kind: string; key: string; body: Uint8Array; contentType: string };
+  /** Link to this planned workout instead of matching automatically (validated by the caller). */
+  plannedWorkoutId?: string;
+}
+
+/** Dump (from HealthKit or converted from FIT) → activity row: summary, laps, dedupe, plan. */
+export async function saveDump(
+  deps: IngestDeps,
+  userId: string,
+  dump: HealthKitDump,
+  src: DumpSource,
+): Promise<IngestResult> {
   const summary = summarize(dump);
   const laps = lapsOf(dump);
 
@@ -53,16 +83,15 @@ export async function ingestHealthKit(
     : effectiveTimezone(profile, homeDate);
   const local = localParts(start, tz);
   const localDate = local.date;
-  // Sources without HKTimeZone (e.g. Strava copies): start time in the athlete's zone that day.
+  // Sources without HKTimeZone (Strava copies, FIT files): start time in the athlete's zone that day.
   if (!summary.startLocal) summary.startLocal = local.time;
 
-  // Original first (idempotent key by HealthKit uuid), then the row.
-  const key = `${userId}/healthkit/${dump.workout.uuid}.json.gz`;
-  if (storeOriginal) await deps.blobs.put(key, gz, "application/gzip");
+  // Original first (idempotent key), then the row.
+  if (src.file) await deps.blobs.put(src.file.key, src.file.body, src.file.contentType);
 
   const { row, created } = await deps.activities.upsert(userId, {
-    source: "healthkit",
-    sourceId: dump.workout.uuid,
+    source: src.source,
+    sourceId: src.sourceId,
     sourceApp: dump.workout.source.name,
     sport: summary.sport,
     subSport: summary.subSport,
@@ -76,12 +105,12 @@ export async function ingestHealthKit(
     summary,
     laps,
   });
-  if (storeOriginal) {
+  if (src.file) {
     await deps.activities.addFile(row.id, {
-      kind: "healthkit_dump",
-      key,
-      bytes: gz.length,
-      sha256: await sha256Bytes(gz),
+      kind: src.file.kind,
+      key: src.file.key,
+      bytes: src.file.body.length,
+      sha256: await sha256Bytes(src.file.body),
     });
   }
 
@@ -111,22 +140,13 @@ export async function ingestHealthKit(
     }
   }
 
-  // Match to the plan: same local date and sport, not skipped, not taken; lowest order first.
   let plannedWorkoutId = row.plannedWorkoutId;
-  if (!duplicateOf && !plannedWorkoutId && row.sport !== "other") {
-    const day = await deps.docs.listByDate<PlannedWorkout>(
-      userId,
-      "planned_workout",
-      localDate,
-      localDate,
-    );
-    const candidates = day.map((d) => d.data).filter((w) => w.sport === row.sport && !w.skipped);
-    const taken = await deps.activities.byPlanned(userId, candidates.map((w) => w.id));
-    const pick = candidates.sort((a, b) => a.order - b.order).find((w) => !taken.has(w.id));
-    if (pick) {
-      await deps.activities.setPlanned(userId, row.id, pick.id);
-      plannedWorkoutId = pick.id;
-    }
+  if (!duplicateOf && src.plannedWorkoutId && src.plannedWorkoutId !== plannedWorkoutId) {
+    await deps.activities.setPlanned(userId, row.id, src.plannedWorkoutId);
+    plannedWorkoutId = src.plannedWorkoutId;
+  }
+  if (!duplicateOf && !plannedWorkoutId) {
+    plannedWorkoutId = await matchPlan(deps, userId, row.id, row.sport, localDate);
   }
 
   return {
@@ -137,4 +157,27 @@ export async function ingestHealthKit(
     plannedWorkoutId: duplicateOf ? null : plannedWorkoutId,
     duplicateOf,
   };
+}
+
+/** Match to the plan: same local date and sport, not skipped, not taken; lowest order first. */
+export async function matchPlan(
+  deps: IngestDeps,
+  userId: string,
+  activityId: string,
+  sport: string,
+  localDate: string,
+): Promise<string | null> {
+  if (sport === "other") return null;
+  const day = await deps.docs.listByDate<PlannedWorkout>(
+    userId,
+    "planned_workout",
+    localDate,
+    localDate,
+  );
+  const candidates = day.map((d) => d.data).filter((w) => w.sport === sport && !w.skipped);
+  const taken = await deps.activities.byPlanned(userId, candidates.map((w) => w.id));
+  const pick = candidates.sort((a, b) => a.order - b.order).find((w) => !taken.has(w.id));
+  if (!pick) return null;
+  await deps.activities.setPlanned(userId, activityId, pick.id);
+  return pick.id;
 }

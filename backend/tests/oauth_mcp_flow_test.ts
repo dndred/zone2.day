@@ -7,6 +7,7 @@ import { DocumentStore } from "../src/db/documents.ts";
 import { ActivityStore } from "../src/db/activities.ts";
 import { DeliveryStore } from "../src/db/deliveries.ts";
 import { StrengthStore } from "../src/db/strength.ts";
+import { UploadStore } from "../src/db/uploads.ts";
 import { MemoryBlobStore } from "../src/ports/blob.ts";
 import type { Config } from "../src/config.ts";
 import type { AppDeps } from "../src/deps.ts";
@@ -34,6 +35,7 @@ async function setup() {
     activities: new ActivityStore(db.sql),
     deliveries: new DeliveryStore(db.sql),
     strength: new StrengthStore(db.sql),
+    uploads: new UploadStore(db.sql),
     blobs: new MemoryBlobStore(),
     passkeys: fakePasskeys(),
     now: () => new Date(),

@@ -55,7 +55,7 @@ export const HealthKitDump = z.object({
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
 /** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
-export const SUMMARY_VERSION = 7;
+export const SUMMARY_VERSION = 8;
 
 type Sport = "run" | "bike" | "swim" | "strength" | "other";
 type Kind = "training" | "recovery";
@@ -83,6 +83,7 @@ const TYPES: Record<number, { sport: Sport; sub?: string; kind?: Kind; name: str
   33: { sport: "other", sub: "recovery", kind: "recovery", name: "Preparation & recovery" },
   80: { sport: "other", sub: "cooldown", kind: "recovery", name: "Cooldown" },
   72: { sport: "other", sub: "tai_chi", kind: "recovery", name: "Tai chi" },
+  3000: { sport: "other", sub: "other", name: "Workout" },
 };
 
 export function sportOf(dump: HealthKitDump): {
@@ -252,9 +253,10 @@ function movingTime(dump: HealthKitDump, sport: string, subSport: string | null)
       spans,
     };
   }
-  const virtual = subSport === "indoor_bike" || subSport === "treadmill";
+  // Treadmill distance is a footpod guess. Indoor bike: only a trainer app's FIT (e.g. MyWhoosh)
+  // has a speed series — standing before the start or between steps is then not moving.
   const series = dump.samples[distanceKey(sport)]?.values ?? [];
-  if (virtual || series.length < 10 || sport === "strength") return fallback;
+  if (subSport === "treadmill" || series.length < 10 || sport === "strength") return fallback;
   const min = MOVING_MIN_SPEED[sport] ?? 0.5;
   const spans = merge(
     series.filter(([s, e, v]) => e > s && v / (e - s) >= min).map(([s, e]) => [s, e] as Span),
@@ -508,6 +510,7 @@ export function defaultTitle(s: Summary): string {
 
 /** Lower = preferred source when two records describe the same session. */
 export function sourcePriority(bundleId: string): number {
+  if (bundleId.startsWith("fit.")) return -1; // original FIT (e.g. MyWhoosh): power + HR inside (D33)
   if (bundleId.startsWith("com.apple.health")) return 0; // Apple Watch / Workout app
   if (bundleId.includes("strava")) return 9; // Strava copies lose detail (D33)
   return 5;

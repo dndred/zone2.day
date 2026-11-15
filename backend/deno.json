@@ -3,6 +3,7 @@
   "version": "0.0.0",
   "exports": "./src/app.ts",
   "imports": {
+    "@garmin/fitsdk": "npm:@garmin/fitsdk@21.178.0",
     "@hono/hono": "jsr:@hono/hono@^4.13.18",
     "@modelcontextprotocol/sdk/": "npm:/@modelcontextprotocol/sdk@1.32.2/",
     "@simplewebauthn/server": "npm:@simplewebauthn/server@^14.1.0",

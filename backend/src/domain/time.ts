@@ -93,3 +93,19 @@ export function daysBetween(from: string, to: string): number {
     (new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / 86_400_000,
   );
 }
+
+/** Wall-clock "YYYY-MM-DDTHH:MM[:SS]" in `timeZone` → instant (minute precision for the offset). */
+export function zonedToUtc(local: string, timeZone: string): Date {
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::(\d{2}))?$/.exec(local);
+  if (!m) throw new Error(`expected local time YYYY-MM-DDTHH:MM, got ${local}`);
+  const [y, mo, d, h, mi, s] = m.slice(1).map((x) => Number(x ?? 0));
+  const want = Date.UTC(y, mo - 1, d, h, mi);
+  let guess = want;
+  // Two passes settle the offset, also next to a DST switch.
+  for (let i = 0; i < 2; i++) {
+    const p = localParts(new Date(guess), timeZone);
+    const seen = Date.parse(`${p.date}T${p.time}:00Z`);
+    guess += want - seen;
+  }
+  return new Date(guess + s * 1000);
+}

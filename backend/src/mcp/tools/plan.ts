@@ -157,7 +157,7 @@ export function registerPlanTools(server: McpServer, ctx: McpContext): void {
         activities: actual.get(date) ?? [],
       })),
       howToRead:
-        "workouts = plan; activities = what was actually recorded that day (start order; plannedWorkoutId shows the match). status: done (activity matched) / skipped (with reason) / missed (date passed, nothing matched) / planned. estimate is partial when steps are open or lack pace targets.",
+        "workouts = plan; activities = what was actually recorded that day (start order; plannedWorkoutId shows the match). status: done (activity matched) / skipped (with reason) / missed (date passed, nothing matched) / planned. A missed workout with a fitting activity that day (no plannedWorkoutId) = link it with link_activities. estimate is partial when steps are open or lack pace targets.",
     };
   });
 

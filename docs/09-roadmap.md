@@ -54,7 +54,7 @@ S6 можно провести в начале фазы 2, остальные �
 - [ ] `update_planned_workouts` (массовая правка), снаряжение.
 - [x] Активности: `list_activities`, `get_activity` (сводка, круги, погода, план), `get_activity_streams`; статусы плана done/skipped/missed/planned.
 - [x] Круги с темпом/каденсом по времени в движении, мощностью, пульсом; план рядом с таргетами в абсолютных единицах (без автосопоставления, D41).
-- [ ] Активности: GAP, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), `create_activity`, `import_activity_file` (FIT/GPX).
+- [ ] Активности: GAP, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), ~~`create_activity`~~ ✓, `import_activity_file` (FIT ✓ через `create_upload_link`/base64; GPX, `url` — позже).
 - [x] Силовые: `get_strength_log`, `get_exercise_history` (e1RM, план vs факт, перерывы), `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion); `POST /v1/strength-sessions`; сессии в ленте синка.
 - [ ] Здоровье и аналитика: `get_daily_metrics`, `get_load` (объём + sRPE×мин), `get_zone_distribution`, `get_efficiency_trend`, Pw:HR / декаплинг по ровным участкам.
 - [ ] Экспорт `.zwo`, интеграции, debug-инструменты.

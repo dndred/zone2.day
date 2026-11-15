@@ -5,6 +5,7 @@
 import type { AppDeps } from "../deps.ts";
 import { SUMMARY_VERSION } from "../domain/healthkit.ts";
 import { ingestHealthKit } from "../ingest/healthkit.ts";
+import { ingestFit } from "../ingest/fit.ts";
 import { log } from "../log.ts";
 
 export interface DataMigrationResult {
@@ -30,7 +31,11 @@ const activitySummaries: DataMigration = {
       try {
         const raw = await deps.blobs.get(item.key);
         if (!raw) throw new Error("original missing");
-        await ingestHealthKit(deps, item.userId, raw, { storeOriginal: false });
+        if (item.kind === "fit_original") {
+          await ingestFit(deps, item.userId, raw, { storeOriginal: false });
+        } else {
+          await ingestHealthKit(deps, item.userId, raw, { storeOriginal: false });
+        }
         processed++;
       } catch (err) {
         failed.push(item.id);

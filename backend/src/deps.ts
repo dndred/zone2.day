@@ -5,6 +5,7 @@ import { DocumentStore } from "./db/documents.ts";
 import { ActivityStore } from "./db/activities.ts";
 import { DeliveryStore } from "./db/deliveries.ts";
 import { StrengthStore } from "./db/strength.ts";
+import { UploadStore } from "./db/uploads.ts";
 import { type BlobStore, MemoryBlobStore } from "./ports/blob.ts";
 import { SupabaseStorage } from "./adapters/supabase_storage.ts";
 import { createWebAuthnPasskeys, type PasskeyService } from "./auth/passkeys.ts";
@@ -17,6 +18,7 @@ export interface AppDeps {
   activities: ActivityStore;
   deliveries: DeliveryStore;
   strength: StrengthStore;
+  uploads: UploadStore;
   blobs: BlobStore;
   passkeys: PasskeyService;
   now: () => Date;
@@ -32,6 +34,7 @@ export function createDeps(config: Config): AppDeps | undefined {
     activities: new ActivityStore(sql),
     deliveries: new DeliveryStore(sql),
     strength: new StrengthStore(sql),
+    uploads: new UploadStore(sql),
     blobs: config.supabaseUrl && config.supabaseServiceKey
       ? new SupabaseStorage(config.supabaseUrl, config.supabaseServiceKey, "activity-files")
       : new MemoryBlobStore(),

@@ -174,7 +174,7 @@ export function registerContextTool(server: McpServer, ctx: McpContext): void {
       howToRead: [
         "Dates are the athlete's local calendar dates in the effective time zone (home or travel).",
         timezoneUnset_hint(profile.timezone),
-        "Workout status: done (activity matched) / skipped / missed (date passed) / planned. recentActivities = last 14 days from Apple Health.",
+        "Workout status: done (activity matched) / skipped / missed (date passed; if an activity fits, link it with link_activities) / planned. recentActivities = last 14 days from Apple Health.",
         "Health metrics (HRV, sleep) and interval-level analysis are not connected yet.",
       ].filter(Boolean),
     };

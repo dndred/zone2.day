@@ -1,6 +1,7 @@
 // Raw HealthKit dump of an activity → resampled curves (shared by MCP and the Sync API).
 import type { ActivityStore } from "../db/activities.ts";
 import { HealthKitDump, streams } from "../domain/healthkit.ts";
+import { fitToDump } from "../domain/fit.ts";
 import { gunzip } from "../ingest/healthkit.ts";
 import type { BlobStore } from "../ports/blob.ts";
 
@@ -14,10 +15,13 @@ export async function loadDump(
 ): Promise<HealthKitDump | null> {
   const a = await activities.get(userId, id);
   if (!a) return null;
-  const file = (await activities.files(a.id)).find((f) => f.kind === "healthkit_dump");
-  if (!file) throw new NoStreamsError("this activity has no raw data");
+  const files = await activities.files(a.id);
+  const file = files.find((f) => f.kind === "healthkit_dump") ??
+    files.find((f) => f.kind === "fit_original");
+  if (!file) throw new NoStreamsError("this activity has no raw data (entered manually?)");
   const raw = await blobs.get(file.key);
   if (!raw) throw new NoStreamsError("raw file is missing in storage");
+  if (file.kind === "fit_original") return fitToDump(raw, a.sourceId, a.startAt);
   return HealthKitDump.parse(JSON.parse(new TextDecoder().decode(await gunzip(raw))));
 }
 
