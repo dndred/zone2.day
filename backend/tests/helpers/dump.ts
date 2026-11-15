@@ -15,6 +15,8 @@ export interface DumpOpts {
   segments?: number; // equal segments as workout events
   pauseSec?: number; // one pause in the middle
   standStartSec?: number; // standing still at the start (e.g. waiting for a parkrun start)
+  markers?: number[]; // manual interval markers (Action button), seconds from start
+  autoSplits?: boolean; // Apple's parallel km and mile split segments
 }
 
 export function makeDump(o: DumpOpts = {}): HealthKitDump {
@@ -83,6 +85,19 @@ export function makeDump(o: DumpOpts = {}): HealthKitDump {
       end: iso(((i + 1) * duration) / segs),
       metadata: {},
     });
+  }
+  for (const t of o.markers ?? []) {
+    events.push({ type: "marker", start: iso(t), end: iso(t), metadata: {} });
+  }
+  if (o.autoSplits && distance) {
+    // Even pace: time of a split = its distance share of the whole duration.
+    for (const unit of [1000, 1609.344]) {
+      for (let d = 0; d < distance; d += unit) {
+        const a = (d / distance) * duration;
+        const b = (Math.min(d + unit, distance) / distance) * duration;
+        events.push({ type: "segment", start: iso(a), end: iso(b), metadata: {} });
+      }
+    }
   }
   if (o.pauseSec) {
     events.push({ type: "pause", start: iso(duration / 2), end: iso(duration / 2), metadata: {} });

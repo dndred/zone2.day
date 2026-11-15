@@ -55,7 +55,7 @@ export const HealthKitDump = z.object({
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
 /** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
-export const SUMMARY_VERSION = 5;
+export const SUMMARY_VERSION = 6;
 
 type Sport = "run" | "bike" | "swim" | "strength" | "other";
 type Kind = "training" | "recovery";
@@ -305,8 +305,29 @@ function clip(spans: Span[], from: number, to: number): Span[] {
     .filter(([s, e]) => e > s);
 }
 
+type RawLap = { kind: string; s: number; e: number };
+
 /**
- * Laps/segments as the watch recorded them, with the same per-lap numbers as the summary.
+ * Watch segments come as parallel chains: Apple writes auto-splits per km AND per mile, both as
+ * `segment` events; custom-workout steps are one more chain. Chains are linked end-to-start.
+ */
+function segmentChains(xs: RawLap[]): RawLap[][] {
+  const chains: RawLap[][] = [];
+  for (const x of [...xs].sort((a, b) => a.s - b.s)) {
+    const chain = chains.find((c) => Math.abs(c[c.length - 1].e - x.s) < 2);
+    if (chain) chain.push(x);
+    else chains.push([x]);
+  }
+  return chains;
+}
+
+/**
+ * Laps as the watch recorded them, with the same per-lap numbers as the summary. Kinds:
+ * - `manual` — between markers the athlete set (Action button / double tap during the workout):
+ *   [start, m1], [m1, m2], …, [mN, end]. Usually the most meaningful split (e.g. a parkrun
+ *   inside a long session with warm-up and cool-down).
+ * - `split_km` — automatic km splits (mile splits are dropped as a duplicate when km exist).
+ * - `segment` — other segment chains (custom workout steps), `lap` — lap events (e.g. pool).
  * No matching to the plan: the coach compares these with the planned structure side by side.
  */
 export function lapsOf(dump: HealthKitDump): Lap[] {
@@ -315,15 +336,46 @@ export function lapsOf(dump: HealthKitDump): Lap[] {
   const moving = movingTime(dump, sport, subSport);
   const footSport = sport === "run" || subSport === "walk" || subSport === "hike";
   const powerKey = sport === "bike" ? "cyclingPower" : "runningPower";
-  return dump.workout.events
-    .filter((e) => e.type === "segment" || e.type === "lap")
-    .map((e) => ({ kind: e.type, s: offset(dump, e.start), e: offset(dump, e.end) }))
+  const elapsed = dump.workout.durationSec;
+  const distIn = (x: RawLap) => (dump.samples[dk] ? sumIn(dump, dk, x.s, x.e) : null);
+
+  const evs = dump.workout.events
+    .map((e) => ({ kind: e.type, s: offset(dump, e.start), e: offset(dump, e.end) }));
+  const markers = [
+    ...new Set(
+      evs.filter((x) => x.kind === "marker" && x.s > 1 && x.s < elapsed - 1).map((x) => x.s),
+    ),
+  ].sort((a, b) => a - b);
+  const manual: RawLap[] = markers.length
+    ? [0, ...markers].map((t, i) => ({ kind: "manual", s: t, e: markers[i] ?? elapsed }))
+    : [];
+
+  const segments = evs.filter((x) => x.kind === "segment" && x.e > x.s);
+  const typed = segmentChains(segments).map((chain) => {
+    const full = chain.slice(0, -1).map(distIn).filter((d): d is number => d !== null)
+      .sort((a, b) => a - b);
+    const median = full.length ? full[Math.floor(full.length / 2)] : null;
+    const kind = median === null
+      ? "segment"
+      : Math.abs(median - 1000) < 15
+      ? "split_km"
+      : Math.abs(median - 1609.34) < 20
+      ? "split_mile"
+      : "segment";
+    return chain.map((x) => ({ ...x, kind }));
+  });
+  const hasKm = typed.some((c) => c[0].kind === "split_km");
+  const auto = typed.flat().filter((x) => !(hasKm && x.kind === "split_mile"));
+  const laps = evs.filter((x) => x.kind === "lap" && x.e > x.s);
+  const order = ["manual", "segment", "lap", "split_km", "split_mile"];
+
+  return [...manual, ...auto, ...laps]
     .filter((x) => x.e > x.s)
-    .sort((a, b) => a.s - b.s)
+    .sort((a, b) => order.indexOf(a.kind) - order.indexOf(b.kind) || a.s - b.s)
     .map((x, index) => {
       const spans = clip(moving.spans, x.s, x.e);
       const mv = spanSec(spans);
-      const distance = dump.samples[dk] ? sumIn(dump, dk, x.s, x.e) : null;
+      const distance = distIn(x);
       const km = distance ? distance / 1000 : null;
       const hr = (dump.samples.heartRate?.values ?? [])
         .filter(([s, e]) => (s + e) / 2 >= x.s && (s + e) / 2 < x.e)

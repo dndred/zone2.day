@@ -101,7 +101,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
         "Swim: paceSecPer100m uses the sum of swim lengths (rests excluded, confidence medium); paceWithRestsSecPer100m uses elapsed.",
         "detail 'summary_only' = the source (e.g. Strava's copy) wrote totals without HR/power/route. Indoor bike/treadmill distance is 'virtual' (from the trainer app) — compare power, not speed.",
         "hr avg/max come from HR samples (~every 5 s). startLocal is in the workout's own time zone.",
-        "Laps are segments/laps as the watch recorded them (a custom workout's steps appear as segments; manual laps too). Pace and cadence in laps use moving time inside the lap. Nothing is matched to the plan automatically: the athlete may have run it differently, so compare plan.structure (targets resolved to absolute units) with laps and streams yourself.",
+        "Laps by kind: manual = intervals between markers the athlete set during the workout (often the real effort, e.g. a parkrun inside warm-up and cool-down) — listed first; segment = custom workout steps; lap = lap events; split_km = automatic km splits (mile splits dropped as duplicates). Pace and cadence in laps use moving time inside the lap. Nothing is matched to the plan automatically: the athlete may have run it differently, so compare plan.structure (targets resolved to absolute units) with laps and streams yourself.",
       ],
     };
   });
