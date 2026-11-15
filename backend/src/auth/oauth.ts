@@ -210,6 +210,8 @@ export function authRoutes(config: Config, deps: AuthDeps): Hono<AppEnv> {
       "Content-Security-Policy",
       `default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src ${
         new URL(base).origin
+      }; img-src ${
+        new URL(base).origin
       }; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`,
     );
     return c.html(

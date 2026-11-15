@@ -514,16 +514,6 @@
         }
       }
     },
-    "Show recovery": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Показывать восстановление"
-          }
-        }
-      }
-    },
     "Skipped": {
       "localizations": {
         "ru": {

@@ -124,26 +124,45 @@ export function shell(lang: Lang, title: string, body: string): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>${esc(title)}</title>
+<link rel="icon" type="image/png" href="/icon.png">
+<link rel="apple-touch-icon" href="/icon.png">
+<meta name="theme-color" content="#ff5a1f">
 <style>
-:root { color-scheme: light dark; --bg: #f6f7f9; --card: #fff; --fg: #111; --muted: #667; --accent: #1f7a5a; --err: #b42318; }
-@media (prefers-color-scheme: dark) { :root { --bg: #0f1113; --card: #191c1f; --fg: #eee; --muted: #9aa; --accent: #3ccf91; --err: #ff8a7a; } }
+/* Brand: International Orange (Apple Watch Ultra), see docs/07-ios-app.md. Dark text on orange
+   buttons (white on #FF5A1F is ~3:1); a deeper orange for orange text on white. */
+:root { color-scheme: light dark; --brand: #ff5a1f; --on-brand: #1a0d06; --bg: #f6f4f1; --card: #fff;
+  --fg: #16130f; --muted: #6b645c; --accent-text: #c2410c; --line: #e6e1da; --err: #b42318; }
+@media (prefers-color-scheme: dark) { :root { --bg: #0e0e0f; --card: #1a1a1c; --fg: #f2efea; --muted: #a39b91;
+  --accent-text: #ff7a45; --line: #2c2b2a; --err: #ff8a7a; } }
 * { box-sizing: border-box; }
 body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--fg);
   font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; padding: 16px; }
-main { width: 100%; max-width: 380px; background: var(--card); border-radius: 16px; padding: 28px 24px; box-shadow: 0 1px 3px #0002; }
+main { width: 100%; max-width: 380px; background: var(--card); border-radius: 18px; padding: 24px 24px 28px;
+  box-shadow: 0 1px 3px #0002; border-top: 4px solid var(--brand); }
+.brand { display: flex; align-items: center; gap: 10px; margin: 0 0 20px; font-weight: 700; font-size: 17px;
+  letter-spacing: -0.01em; }
+.brand img { width: 36px; height: 36px; border-radius: 9px; display: block; }
 h1 { font-size: 22px; margin: 0 0 8px; }
 p { color: var(--muted); margin: 0 0 20px; }
-button { width: 100%; font: inherit; font-weight: 600; padding: 12px; border-radius: 10px; border: 1px solid var(--accent);
-  background: transparent; color: var(--accent); cursor: pointer; margin-top: 12px; }
-button.primary { background: var(--accent); color: #fff; }
+a { color: var(--accent-text); }
+button { width: 100%; font: inherit; font-weight: 600; padding: 12px; border-radius: 12px; border: 1.5px solid var(--brand);
+  background: transparent; color: var(--accent-text); cursor: pointer; margin-top: 12px; }
+button.primary { background: var(--brand); color: var(--on-brand); }
+button:hover { filter: brightness(1.05); }
+button:focus-visible, input:focus-visible, summary:focus-visible { outline: 3px solid color-mix(in srgb, var(--brand) 45%, transparent); outline-offset: 2px; }
+button:disabled { opacity: .55; cursor: default; }
 details { margin-top: 20px; } summary { cursor: pointer; color: var(--muted); }
 label { display: block; margin-top: 12px; font-size: 14px; color: var(--muted); }
-input { display: block; width: 100%; margin-top: 4px; font: inherit; padding: 10px; border-radius: 8px; border: 1px solid #8884;
+input { display: block; width: 100%; margin-top: 4px; font: inherit; padding: 10px; border-radius: 10px; border: 1px solid var(--line);
   background: transparent; color: var(--fg); }
+input:focus { border-color: var(--brand); }
+input[type=file] { padding: 8px; }
+input[type=file]::file-selector-button { font: inherit; font-weight: 600; border: 0; border-radius: 8px; padding: 6px 12px;
+  margin-right: 10px; background: var(--brand); color: var(--on-brand); cursor: pointer; }
 .err { color: var(--err); }
 #status { margin: 16px 0 0; min-height: 1.5em; }
 </style>
 </head>
-<body><main>${body}</main></body>
+<body><main><div class="brand"><img src="/icon.png" alt="" width="36" height="36">zone2.day</div>${body}</main></body>
 </html>`;
 }

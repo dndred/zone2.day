@@ -350,14 +350,13 @@ struct WeekSection: View {
 public struct ActivitiesView: View {
     let context: PlanContext
     @State private var activities: [Activity] = []
-    @AppStorage("activities.showRecovery") private var showRecovery = false
 
     public init(context: PlanContext) { self.context = context }
 
     public var body: some View {
         NavigationStack {
             List {
-                ForEach(activities.filter { showRecovery || !$0.isRecovery }) { a in
+                ForEach(activities) { a in
                     NavigationLink { ActivityView(activity: a) } label: { ActivityRow(activity: a, showDate: true) }
                 }
             }
@@ -367,11 +366,6 @@ public struct ActivitiesView: View {
                 }
             }
             .navigationTitle(L("Activities"))
-            .toolbar {
-                Toggle(isOn: $showRecovery) {
-                    Label(L("Show recovery"), systemImage: "figure.mind.and.body")
-                }
-            }
             .refreshable { await context.refresh() }
             .task {
                 do {
