@@ -273,34 +273,6 @@ export class DocumentStore {
     return rows.map(toChange);
   }
 
-  async getChange(userId: string, changeId: string): Promise<ChangeEntry | null> {
-    const [row] = await this.sql`
-      select id, at, actor, tool, entity, entity_id, op, before, after, why, reverted_by
-      from zone2.change_log where id = ${changeId} and user_id = ${userId}`;
-    return row ? toChange(row) : null;
-  }
-
-  /**
-   * Revert bookkeeping for changes stored outside documents: the caller has already undone the
-   * effect and logged it as `newChangeId`. Returns how many later changes of the item it overrode;
-   * throws ConflictError if someone reverted it meanwhile.
-   */
-  async markReverted(userId: string, changeId: string, newChangeId: string): Promise<number> {
-    return await this.transaction(async (tx) => {
-      const [row] = await tx`
-        update zone2.change_log set reverted_by = ${newChangeId}
-        where id = ${changeId} and user_id = ${userId} and reverted_by is null
-        returning entity, entity_id`;
-      if (!row) throw new ConflictError(`change ${changeId} was already reverted`);
-      const [later] = await tx`
-        select count(*)::int as n from zone2.change_log c
-        where c.user_id = ${userId} and c.entity = ${row.entity} and c.entity_id = ${row.entity_id}
-          and c.id not in (${changeId}, ${newChangeId})
-          and c.at >= (select at from zone2.change_log where id = ${changeId})`;
-      return later.n;
-    });
-  }
-
   /** Writes the change's `before` back. Returns the new change and how many later edits it overrode. */
   async revert(
     userId: string,

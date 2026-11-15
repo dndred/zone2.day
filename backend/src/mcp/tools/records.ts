@@ -1,7 +1,7 @@
 // Profile, events, journal, notebook, change log.
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { DOCUMENT_ENTITIES, type Entity } from "../../db/documents.ts";
+import type { Entity } from "../../db/documents.ts";
 import {
   DEFAULT_PROFILE,
   Event,
@@ -13,7 +13,6 @@ import {
 } from "../../domain/entities.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError, Why } from "../util.ts";
-import { revertExternal } from "./revert.ts";
 
 const ENTITIES = [
   "profile",
@@ -330,35 +329,10 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "revert_change", {
     title: "Revert a change",
     description:
-      "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Works for plan, profile, events, journal, notebook, activities (a created activity is deleted, a link_activities change restores the previous link) and strength sessions (a logged session is deleted). Not revertable: edits of logged sets (fix with update_strength_log), merge_exercises, re-imports of a file. Later edits of the same item are overwritten — the result says how many.",
+      "Undo one change by writing back the state before it (a create becomes a delete, a delete is restored). Later edits of the same item are overwritten — the result says how many.",
     input: { changeId: z.uuid(), why: Why },
   }, async ({ changeId, why }, env) => {
     const meta = await env.meta("revert_change", why);
-    const entry = await ctx.docs.getChange(env.userId, changeId);
-    if (!entry) throw new ToolError("not_found", `change ${changeId} not found`);
-    if (!DOCUMENT_ENTITIES.includes(entry.entity)) {
-      if (entry.revertedBy) {
-        throw new ToolError("conflict", `change already reverted by ${entry.revertedBy}`);
-      }
-      const r = await revertExternal(ctx, env.userId, entry, {
-        ...meta,
-        why: meta.why ?? `revert ${changeId}`,
-      });
-      const overriddenLaterChanges = await ctx.docs.markReverted(
-        env.userId,
-        changeId,
-        r.newChangeId,
-      );
-      return {
-        reverted: changeId,
-        newChangeId: r.newChangeId,
-        entity: entry.entity,
-        id: entry.entityId,
-        op: r.op,
-        overriddenLaterChanges,
-        ...(r.warnings.length ? { warnings: r.warnings } : {}),
-      };
-    }
     const { result, overriddenLaterChanges } = await ctx.docs.revert(env.userId, changeId, meta);
     return {
       reverted: changeId,
