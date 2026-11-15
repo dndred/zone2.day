@@ -91,7 +91,7 @@ ios-pull path dest="build/device":
     xcrun devicectl list devices --json-output "$tmp" >/dev/null
     udid=$(python3 -c "import json; d=json.load(open('$tmp'))['result']['devices']; p=[x['hardwareProperties']['udid'] for x in d if x['hardwareProperties'].get('reality')=='physical']; print(p[0] if p else '')")
     rm -f "$tmp"
-    xcrun devicectl device copy from --device "$udid" --domain-type appDataContainer --domain-identifier day.zone2.app --source {{path}} --destination {{dest}}/$(basename {{path}}) >/dev/null && echo "→ {{dest}}/$(basename {{path}})"
+    xcrun devicectl device copy from --device "$udid" --domain-type appDataContainer --domain-identifier day.zone2.app --source "{{path}}" --destination "{{dest}}/$(basename "{{path}}")" >/dev/null && echo "→ {{dest}}/$(basename "{{path}}")"
 
 # Type check everything TypeScript
 check:
