@@ -67,7 +67,7 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
 | `list_activities` | R | `from?`, `to?`, `sport?`, `limit?`, `cursor?` | Список со сводкой и связью с планом |
-| `get_activity` | R | `id`, `detail?` (`summary` \| `full`, по умолчанию `full`) | Сводка (GAP, погода), официальный результат, sRPE, слова атлета, круги, интервалы план-vs-факт с `compliance`, зоны (+`basis`), нагрузка (+`basis`), Pw:HR / декаплинг по автоматически найденным ровным участкам, механика бега, бассейн (чистый темп и темп с остановками + `confidence`), обувь, трасса, источники и файлы, `howToRead` |
+| `get_activity` | R | `id`, `detail?` (`summary` \| `full`, по умолчанию `full`) | Сводка (GAP, погода), официальный результат, sRPE, слова атлета, круги (темп и каденс по времени в движении), привязанная тренировка плана с таргетами в абсолютных единицах — **рядом, без автоматического сопоставления** (D41), зоны (+`basis`), нагрузка (+`basis`), Pw:HR / декаплинг по автоматически найденным ровным участкам, механика бега, бассейн (чистый темп и темп с остановками + `confidence`), обувь, трасса, источники и файлы, `howToRead` |
 | `get_activity_streams` | R | `id`, `channels?` (в т.ч. `gapSpeed`), `fromSec?`, `toSec?`, `bucketSec?` (1–600) или `maxPoints?` (≤600) | Ряды в CSV или колонками; по умолчанию около 300 точек на окно; zoom через `fromSec`/`toSec` |
 | `get_activity_file` | R | `id`, `kind` (`fit` \| `fit_original` \| `healthkit_dump` \| `streams`) | Подписанная ссылка (TTL 15 мин), размер, sha256. Для Claude Code и скриптов |
 | `get_activity_fit` | R | `id`, `messages?` (`session`, `lap`, `record`, `event`, `device_info`…), `limit?` | FIT, раскодированный в JSON (для чат-клиентов без доступа к бинарным файлам). `record` — с прореживанием |
@@ -155,15 +155,15 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless). Auth: OAuth 
   "activity": {
     "id": "…", "sport": "run", "start": "2026-11-15T07:02:11Z", "title": "Morning Run",
     "summary": { "durationSec": 4206, "distanceM": 10420, "avgHr": 141, "avgPaceSecPerKm": 404 },
-    "plan": { "plannedWorkoutId": "…", "title": "10 km + 6×10–12 s hill", "compliance": 0.86 },
-    "intervals": [
-      { "stepId": "s1", "label": "Easy", "target": "HR 125–145", "actual": { "avgHr": 138, "timeInTargetPct": 91 } },
-      { "stepId": "r1s1", "rep": 1, "label": "Hill sprint", "target": "RPE 9–10", "actual": { "durSec": 12, "maxSpeed": 6.1 } }
+    "laps": [
+      { "index": 0, "kind": "segment", "durationSec": 1200, "movingSec": 1185, "distanceM": 3010, "paceSecPerKm": 394, "avgHr": 138, "cadence": 164 },
+      { "index": 1, "kind": "segment", "durationSec": 12, "movingSec": 12, "distanceM": 68, "paceSecPerKm": 176, "maxHr": 166, "cadence": 192 }
     ],
     "zones": { "hr": [ … ], "basis": "hr: zones from LTHR 172 (profile 2026-10-01)" },
     "drift": { "hrDecouplingPct": 3.1, "basis": "first vs second half of steady steps only" }
   },
-  "howToRead": "compliance = доля шагов, где ≥70% времени в таргете…",
+  "plan": { "id": "…", "title": "10 km + 6×10–12 s hill", "structure": { "steps": [ … ] } }, // таргеты в абсолютных единицах
+  "howToRead": ["… nothing is matched to the plan automatically: compare plan.structure with laps and streams yourself"],
   "files": [ { "kind": "fit_generated" }, { "kind": "healthkit_dump" } ]
 }
 ```

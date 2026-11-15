@@ -25,7 +25,15 @@ Deno.test("summary v2: moving time excludes standing, pace by moving, weather, e
   assertEquals(s.running?.cadenceSpm, 170);
   assertEquals(s.startLocal, "08:00");
   assertEquals(s.detail, "full");
-  assertEquals(lapsOf(dump).length, 4);
+  const laps = lapsOf(dump);
+  assertEquals(laps.length, 4);
+  // Lap 1 (0–10 min) is all standing; lap 2 is all running: moving pace and cadence per lap.
+  assertEquals(laps[0].movingSec, 0);
+  assertEquals(laps[0].paceSecPerKm, null);
+  assertEquals(laps[1].movingSec, 600);
+  assertEquals(laps[1].paceSecPerKm, 225);
+  assertEquals(laps[1].cadence, 170);
+  assertEquals(laps[1].powerAvg, 250);
 });
 
 Deno.test("summary: bike cadence while moving, zeros excluded; cadence stream", () => {
@@ -265,7 +273,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     const out = await run.json();
     assertEquals(out.processed, 1);
     assertEquals(out.remaining, 0);
-    assertEquals(out.migrations[0].name, "activity-summaries-v4");
+    assertEquals(out.migrations[0].name, "activity-summaries-v5");
     // Idempotent: a second call has nothing to do.
     const again = await (await h.app.request("/jobs/data-migrations", {
       method: "POST",
@@ -273,7 +281,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     })).json();
     assertEquals(again.processed, 0);
     const [row] = await h.db.sql`select summary from zone2.activities where id = ${res.activityId}`;
-    assertEquals(row.summary.v, 4);
+    assertEquals(row.summary.v, 5);
     assertEquals(row.summary.legacy, undefined);
   } finally {
     await h.drop();

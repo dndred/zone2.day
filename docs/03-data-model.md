@@ -104,11 +104,10 @@
 | `athlete_notes?` | слова атлета: самочувствие, контекст, ошибки записи — записывает AI из чата, отдельно от `coach_notes` |
 | `gear_id?` | обувь (по умолчанию — пара по умолчанию для вида спорта; AI может поправить) |
 | `course_id?` | трасса (узнаётся автоматически) |
-| `laps[]` | круги/сегменты из источника (HKWorkoutEvent / FIT lap) |
-| `intervals[]` | шаги, сопоставленные с планом (сервер): факт vs таргет, `compliance` |
+| `laps[]` | круги/сегменты из источника (HKWorkoutEvent / FIT lap): дистанция, время в движении, темп/скорость и каденс по времени в движении, пульс ср./макс., мощность. С планом **не сопоставляются** (D41) |
 | `zones` | время в зонах по пульсу/темпу/мощности + `basis` |
 | `load` | нагрузка + `basis` (по мощности / пульсу / RPE) |
-| `planned_workout_id?`, `compliance?` | общая оценка попадания |
+| `planned_workout_id?` | связь с тренировкой плана (по дате и виду спорта); оценку выполнения даёт AI, глядя на план и круги рядом |
 | `title?`, `tags[]`, `coach_notes?` (markdown от AI ≤12000), `grade?` | теги: контекст (`race`, `test`, `indoor`…) и **грунт** (`asphalt`, `trail`, `sand`, `snow`, `ice`, `mud`, `track`, `treadmill`); словарь — в description MCP |
 | `deleted_at?`, `deleted_reason?` | удалена/скрыта: например, удалена в Health (§05 «Удаления из Health») |
 | `health_export` | `not_needed` \| `pending` \| `written:<hk uuid>` \| `skipped_overlap` |
@@ -279,7 +278,7 @@
 | Активность: дамп HK (gzip) | 100–400 КБ/час | Storage |
 | FIT | 50–200 КБ/час | Storage |
 | streams | 50–150 КБ/час | Storage |
-| Строки Postgres на активность | ~5–20 КБ (summary, laps, intervals) | Postgres |
+| Строки Postgres на активность | ~5–20 КБ (summary, laps) | Postgres |
 
 Примерно 1 тренировка в день → ~0.3 ГБ файлов в год (лимит free — 1 ГБ), Postgres — десятки МБ в год (лимит — 500 МБ).
 

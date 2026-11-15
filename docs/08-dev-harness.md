@@ -39,11 +39,11 @@
 ## 2. Пирамида тестов
 
 ### Бэкенд (Deno)
-- **Юнит, `domain/`:** резолв таргетов, зоны, интервалы, compliance, склейка активностей, генерация `.zwo`, FIT round-trip. Чистые функции, golden-фикстуры.
+- **Юнит, `domain/`:** резолв таргетов, зоны, круги, склейка активностей, генерация `.zwo`, FIT round-trip. Чистые функции, golden-фикстуры.
 - **Интеграция:** репозитории и API на реальном Postgres (`supabase start` или `postgres` в Docker), каждая тестовая сессия — свой schema/transaction.
 - **MCP-контракт:** in-memory transport SDK; снапшот списка инструментов и схем; golden-ответы; тест изоляции пользователей для каждого инструмента.
 - **Auth:** полный OAuth-флоу (DCR → authorize с фейковым WebAuthn-аутентификатором → token → refresh → revoke).
-- **Ingest:** реальные дампы HealthKit и FIT из `fixtures/` → ожидаемые summary, laps, intervals (golden JSON).
+- **Ingest:** реальные дампы HealthKit и FIT из `fixtures/` → ожидаемые summary, laps (golden JSON).
 
 ### iOS / watchOS
 - **SPM-пакеты (`swift test` на macOS):** модели, GRDB store и миграции, SyncEngine (фейковый транспорт: лента, ошибки, 410, повторы), outbox, маппинг в WorkoutKit (через промежуточную модель), `StepEngine`, `HRGuard` (последовательности пульса → сигналы), форматтеры.

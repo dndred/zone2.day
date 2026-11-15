@@ -5,6 +5,7 @@ import type { PlannedWorkout } from "../../domain/entities.ts";
 import { IsoDate } from "../../domain/entities.ts";
 import { defaultTitle, HealthKitDump, streams, type Summary } from "../../domain/healthkit.ts";
 import { gunzip } from "../../ingest/healthkit.ts";
+import { resolveStructure } from "../../domain/plan.ts";
 import type { McpContext } from "../server.ts";
 import { defineTool, ToolError } from "../util.ts";
 
@@ -61,7 +62,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
   defineTool(server, ctx, "get_activity", {
     title: "Get activity",
     description:
-      "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments with distance and HR, the matched planned workout, files. For curves use get_activity_streams.",
+      "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments (distance, moving pace/speed, HR, power, cadence), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",
     input: { id: z.uuid() },
     readOnly: true,
   }, async ({ id }, env) => {
@@ -89,7 +90,9 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
           id: planned.data.id,
           title: planned.data.title,
           goal: planned.data.goal,
-          structure: planned.data.structure,
+          structure: planned.data.structure && planned.data.sport !== "strength"
+            ? resolveStructure(planned.data.structure, planned.data.sport, await env.profile())
+            : planned.data.structure,
         }
         : null,
       files: (await ctx.activities.files(a.id)).map((f) => ({ kind: f.kind, bytes: f.bytes })),
@@ -98,7 +101,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
         "Swim: paceSecPer100m uses the sum of swim lengths (rests excluded, confidence medium); paceWithRestsSecPer100m uses elapsed.",
         "detail 'summary_only' = the source (e.g. Strava's copy) wrote totals without HR/power/route. Indoor bike/treadmill distance is 'virtual' (from the trainer app) — compare power, not speed.",
         "hr avg/max come from HR samples (~every 5 s). startLocal is in the workout's own time zone.",
-        "Laps are segments/laps recorded by the watch (custom workout steps appear as segments). Interval-vs-plan comparison is not computed yet.",
+        "Laps are segments/laps as the watch recorded them (a custom workout's steps appear as segments; manual laps too). Pace and cadence in laps use moving time inside the lap. Nothing is matched to the plan automatically: the athlete may have run it differently, so compare plan.structure (targets resolved to absolute units) with laps and streams yourself.",
       ],
     };
   });

@@ -93,7 +93,7 @@ backend/src/
   entry/supabase.ts      # Deno.serve для Edge Function
   entry/local.ts         # локальный сервер / VPS
   config.ts              # env → типизированный конфиг
-  domain/                # чистая логика без IO: зоны, резолв таргетов, compliance,
+  domain/                # чистая логика без IO: зоны, резолв таргетов,
                          # интервалы, нагрузка, склейка активностей, генерация .zwo
   db/                    # drizzle schema, репозитории, миграции
   ports/                 # интерфейсы: BlobStore, Clock, PushSender, IntervalsClient

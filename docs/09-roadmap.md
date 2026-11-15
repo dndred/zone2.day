@@ -52,7 +52,8 @@ S6 можно провести в начале фазы 2, остальные �
 - [x] `get_context`; профиль; недели (`upsert_week`); план (`plan_workouts`, `update_planned_workout` с `skipped`, `delete`, `copy`, `get_changes`, `revert_change`); старты; блокнот (лимит закреплённого); журнал — **22 инструмента на staging**.
 - [ ] `get_delivery_status`, `update_planned_workouts` (массовая правка), снаряжение.
 - [x] Активности: `list_activities`, `get_activity` (сводка, круги, погода, план), `get_activity_streams`; статусы плана done/skipped/missed/planned.
-- [ ] Активности: интервалы план-vs-факт + compliance, GAP, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), `create_activity`, `import_activity_file` (FIT/GPX).
+- [x] Круги с темпом/каденсом по времени в движении, мощностью, пульсом; план рядом с таргетами в абсолютных единицах (без автосопоставления, D41).
+- [ ] Активности: GAP, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), `create_activity`, `import_activity_file` (FIT/GPX).
 - [ ] Силовые: `get_strength_log`, `get_exercise_history`, `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion).
 - [ ] Здоровье и аналитика: `get_daily_metrics`, `get_load` (объём + sRPE×мин), `get_zone_distribution`, `get_efficiency_trend`, Pw:HR / декаплинг по ровным участкам.
 - [ ] Экспорт `.zwo`, интеграции, debug-инструменты.
@@ -61,7 +62,7 @@ S6 можно провести в начале фазы 2, остальные �
 ### 1.3 Ingest и интеграции 🛠
 - [x] HealthKit dump (контракт `fixtures/healthkit/contract-v1.json`) → сводка, круги, погода, сопоставление с планом, дубли (копии Strava), оригинал в Storage.
 - [x] Удаления из Health → мягкое удаление.
-- [ ] Интервалы и compliance, GAP, зоны, нагрузка, ровные участки, обувь по умолчанию, генерация FIT (S3).
+- [ ] GAP, зоны, нагрузка, ровные участки, обувь по умолчанию, генерация FIT (S3).
 - [ ] FIT (MyWhoosh, пульс внутри) → activity целиком → запись в Health приложением; склейка с записью часов — запасной путь.
 - [ ] intervals.icu: хранение ключа (шифрование), job `intervals-poll` (pg_cron), дедупликация, `health_export`.
 

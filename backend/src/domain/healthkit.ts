@@ -55,7 +55,7 @@ export const HealthKitDump = z.object({
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
 /** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
-export const SUMMARY_VERSION = 4;
+export const SUMMARY_VERSION = 5;
 
 type Sport = "run" | "bike" | "swim" | "strength" | "other";
 type Kind = "training" | "recovery";
@@ -164,7 +164,17 @@ export interface Lap {
   endSec: number;
   durationSec: number;
   distanceM: number | null;
+  /** Moving time inside the lap (same rule as summary.movingSec). */
+  movingSec: number;
   avgHr: number | null;
+  maxHr: number | null;
+  /** Run/walk: by moving time. */
+  paceSecPerKm: number | null;
+  /** Bike: by moving time. */
+  speedKmh: number | null;
+  powerAvg: number | null;
+  /** Run spm / bike rpm, by moving time. */
+  cadence: number | null;
 }
 
 const offset = (dump: HealthKitDump, iso: string) =>
@@ -176,25 +186,6 @@ function distanceKey(sport: string): string {
     : sport === "swim"
     ? "distanceSwimming"
     : "distanceWalkingRunning";
-}
-
-export function lapsOf(dump: HealthKitDump): Lap[] {
-  const { sport } = sportOf(dump);
-  const dk = distanceKey(sport);
-  return dump.workout.events
-    .filter((e) => e.type === "segment" || e.type === "lap")
-    .map((e) => ({ kind: e.type, s: offset(dump, e.start), e: offset(dump, e.end) }))
-    .filter((x) => x.e > x.s)
-    .sort((a, b) => a.s - b.s)
-    .map((x, index) => ({
-      index,
-      kind: x.kind,
-      startSec: round(x.s, 1)!,
-      endSec: round(x.e, 1)!,
-      durationSec: round(x.e - x.s, 1)!,
-      distanceM: dump.samples[dk] ? round(sumIn(dump, dk, x.s, x.e), 1) : null,
-      avgHr: round(meanIn(dump, "heartRate", x.s, x.e)),
-    }));
 }
 
 /** Below this speed you are standing (waiting at a start line counts as not moving; walking does). */
@@ -305,6 +296,54 @@ function cadenceAvg(dump: HealthKitDump, sport: string, moving: { sec: number; s
     return round(avg(xs));
   }
   return null;
+}
+
+/** Moving spans clipped to [from, to). */
+function clip(spans: Span[], from: number, to: number): Span[] {
+  return spans
+    .map(([s, e]) => [Math.max(s, from), Math.min(e, to)] as Span)
+    .filter(([s, e]) => e > s);
+}
+
+/**
+ * Laps/segments as the watch recorded them, with the same per-lap numbers as the summary.
+ * No matching to the plan: the coach compares these with the planned structure side by side.
+ */
+export function lapsOf(dump: HealthKitDump): Lap[] {
+  const { sport, subSport } = sportOf(dump);
+  const dk = distanceKey(sport);
+  const moving = movingTime(dump, sport, subSport);
+  const footSport = sport === "run" || subSport === "walk" || subSport === "hike";
+  const powerKey = sport === "bike" ? "cyclingPower" : "runningPower";
+  return dump.workout.events
+    .filter((e) => e.type === "segment" || e.type === "lap")
+    .map((e) => ({ kind: e.type, s: offset(dump, e.start), e: offset(dump, e.end) }))
+    .filter((x) => x.e > x.s)
+    .sort((a, b) => a.s - b.s)
+    .map((x, index) => {
+      const spans = clip(moving.spans, x.s, x.e);
+      const mv = spanSec(spans);
+      const distance = dump.samples[dk] ? sumIn(dump, dk, x.s, x.e) : null;
+      const km = distance ? distance / 1000 : null;
+      const hr = (dump.samples.heartRate?.values ?? [])
+        .filter(([s, e]) => (s + e) / 2 >= x.s && (s + e) / 2 < x.e)
+        .map((v) => v[2]);
+      return {
+        index,
+        kind: x.kind,
+        startSec: round(x.s, 1)!,
+        endSec: round(x.e, 1)!,
+        durationSec: round(x.e - x.s, 1)!,
+        distanceM: round(distance, 1),
+        movingSec: Math.round(mv),
+        avgHr: round(avg(hr)),
+        maxHr: hr.length ? Math.round(Math.max(...hr)) : null,
+        paceSecPerKm: footSport && km && mv ? Math.round(mv / km) : null,
+        speedKmh: sport === "bike" && km && mv ? round(km / (mv / 3600), 1) : null,
+        powerAvg: round(meanIn(dump, powerKey, x.s, x.e)),
+        cadence: cadenceAvg(dump, sport, { sec: mv, spans }),
+      };
+    });
 }
 
 export function summarize(dump: HealthKitDump) {
