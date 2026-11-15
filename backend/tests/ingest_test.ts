@@ -1,5 +1,5 @@
 import { assert, assertAlmostEquals, assertEquals } from "@std/assert";
-import { HealthKitDump, lapsOf, summarize } from "../src/domain/healthkit.ts";
+import { HealthKitDump, lapsOf, streams, summarize } from "../src/domain/healthkit.ts";
 import { gzip } from "../src/ingest/healthkit.ts";
 import { makeDump } from "./helpers/dump.ts";
 import { mcpHarness } from "./helpers/mcp.ts";
@@ -21,9 +21,23 @@ Deno.test("summary v2: moving time excludes standing, pace by moving, weather, e
   assertEquals(s.weather?.humidityPct, 88);
   assertEquals(s.elevationGainM, 42);
   assertEquals(s.running?.powerAvg, 250);
+  // Cadence by moving time, like pace: the 10 min at the start line do not dilute it.
+  assertEquals(s.running?.cadenceSpm, 170);
   assertEquals(s.startLocal, "08:00");
   assertEquals(s.detail, "full");
   assertEquals(lapsOf(dump).length, 4);
+});
+
+Deno.test("summary: bike cadence while moving, zeros excluded; cadence stream", () => {
+  const ride = HealthKitDump.parse(
+    makeDump({ activityType: 13, minutes: 60, distanceM: 30000, standStartSec: 300 }),
+  );
+  const s = summarize(ride);
+  assertEquals(s.movingSec, 3300);
+  assertEquals(s.cycling?.cadenceAvg, 90);
+  const run = HealthKitDump.parse(makeDump({ minutes: 40, standStartSec: 600 }));
+  const st = streams(run, ["cadence"], 0, 2400, 4);
+  assertEquals(st.cadence, [5, 170, 170, 170]); // the stream shows the standing part as is
 });
 
 Deno.test("summary v2: pauses without distance samples, swim lengths, mind & body, Strava copy", () => {
@@ -251,7 +265,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     const out = await run.json();
     assertEquals(out.processed, 1);
     assertEquals(out.remaining, 0);
-    assertEquals(out.migrations[0].name, "activity-summaries-v3");
+    assertEquals(out.migrations[0].name, "activity-summaries-v4");
     // Idempotent: a second call has nothing to do.
     const again = await (await h.app.request("/jobs/data-migrations", {
       method: "POST",
@@ -259,7 +273,7 @@ Deno.test("data migrations: outdated summaries are rebuilt from stored originals
     })).json();
     assertEquals(again.processed, 0);
     const [row] = await h.db.sql`select summary from zone2.activities where id = ${res.activityId}`;
-    assertEquals(row.summary.v, 3);
+    assertEquals(row.summary.v, 4);
     assertEquals(row.summary.legacy, undefined);
   } finally {
     await h.drop();

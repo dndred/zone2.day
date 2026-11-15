@@ -145,7 +145,7 @@
     {
       "name": "get_activity",
       "title": "Get activity",
-      "description": "Full summary of one activity: moving/elapsed time, distance, pace, HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments with distance and HR, the matched planned workout, files. For curves use get_activity_streams.",
+      "description": "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments with distance and HR, the matched planned workout, files. For curves use get_activity_streams.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,
@@ -169,7 +169,7 @@
     {
       "name": "get_activity_streams",
       "title": "Get activity streams",
-      "description": "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",
+      "description": "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, cadence (run: spm from steps; bike: rpm), distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

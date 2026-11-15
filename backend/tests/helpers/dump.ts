@@ -32,6 +32,7 @@ export function makeDump(o: DumpOpts = {}): HealthKitDump {
   for (let t = 0; t < duration; t += 5) {
     hr.push([t, t, hrBase + Math.round(10 * Math.sin(t / 300))]);
   }
+  const stand = o.standStartSec ?? 0;
   const samples: HealthKitDump["samples"] = { heartRate: { unit: "count/min", values: hr } };
   if (distance) {
     const key = type === 13
@@ -39,13 +40,31 @@ export function makeDump(o: DumpOpts = {}): HealthKitDump {
       : type === 46
       ? "distanceSwimming"
       : "distanceWalkingRunning";
-    const stand = o.standStartSec ?? 0;
     const per = distance / ((duration - stand) / 10);
     samples[key] = {
       unit: "m",
       values: Array.from(
         { length: duration / 10 },
         (_, i) => [i * 10, i * 10 + 10, i * 10 < stand ? 0 : per] as [number, number, number],
+      ),
+    };
+  }
+  if (type === 37) {
+    // 60-s step intervals: a few fidgety steps while standing, 170 spm while running.
+    samples.stepCount = {
+      unit: "count",
+      values: Array.from(
+        { length: duration / 60 },
+        (_, i) => [i * 60, i * 60 + 60, i * 60 < stand ? 5 : 170] as [number, number, number],
+      ),
+    };
+  }
+  if (type === 13) {
+    // 90 rpm, with zeros while standing and every 5th sample coasting.
+    samples.cyclingCadence = {
+      unit: "count/min",
+      values: hr.map(([t], i) =>
+        [t, t, t < stand || i % 5 === 0 ? 0 : 90] as [number, number, number]
       ),
     };
   }

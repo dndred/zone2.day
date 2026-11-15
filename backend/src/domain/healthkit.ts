@@ -55,7 +55,7 @@ export const HealthKitDump = z.object({
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
 /** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
-export const SUMMARY_VERSION = 3;
+export const SUMMARY_VERSION = 4;
 
 type Sport = "run" | "bike" | "swim" | "strength" | "other";
 type Kind = "training" | "recovery";
@@ -197,53 +197,114 @@ export function lapsOf(dump: HealthKitDump): Lap[] {
     }));
 }
 
-/** Seconds of pause (pause→resume pairs). */
-function pausedSec(dump: HealthKitDump): number {
-  let paused = 0;
-  let since: number | null = null;
-  const evs = [...dump.workout.events].sort((a, b) => a.start.localeCompare(b.start));
-  for (const e of evs) {
-    if ((e.type === "pause" || e.type === "motionPaused") && since === null) {
-      since = offset(dump, e.start);
-    }
-    if ((e.type === "resume" || e.type === "motionResumed") && since !== null) {
-      paused += offset(dump, e.start) - since;
-      since = null;
-    }
-  }
-  return paused;
-}
-
 /** Below this speed you are standing (waiting at a start line counts as not moving; walking does). */
 const MOVING_MIN_SPEED: Record<string, number> = { run: 0.5, other: 0.5, bike: 1.0 };
+
+type Span = [number, number];
+
+/** Sorted, merged copy of spans (adjacent moving samples become one span). */
+function merge(spans: Span[]): Span[] {
+  const out: Span[] = [];
+  for (const [s, e] of [...spans].sort((a, b) => a[0] - b[0])) {
+    const last = out[out.length - 1];
+    if (last && s <= last[1] + 1e-6) last[1] = Math.max(last[1], e);
+    else out.push([s, e]);
+  }
+  return out;
+}
+
+/** [0, elapsed] minus pause→resume pairs. */
+function activeSpans(dump: HealthKitDump): Span[] {
+  const elapsed = dump.workout.durationSec;
+  const evs = [...dump.workout.events].sort((a, b) => a.start.localeCompare(b.start));
+  const out: Span[] = [];
+  let from = 0;
+  let paused = false;
+  for (const e of evs) {
+    const t = Math.min(Math.max(offset(dump, e.start), 0), elapsed);
+    if ((e.type === "pause" || e.type === "motionPaused") && !paused) {
+      if (t > from) out.push([from, t]);
+      paused = true;
+    }
+    if ((e.type === "resume" || e.type === "motionResumed") && paused) {
+      from = t;
+      paused = false;
+    }
+  }
+  if (!paused && elapsed > from) out.push([from, elapsed]);
+  return out;
+}
+
+const spanSec = (spans: Span[]) => spans.reduce((a, [s, e]) => a + e - s, 0);
 
 /**
  * Moving time from distance samples: sum of sample intervals whose speed ≥ threshold.
  * Falls back to elapsed − explicit pauses when there are no distance samples.
+ * `spans` are the moving intervals — cadence and other averages use the same definition.
  */
 function movingTime(dump: HealthKitDump, sport: string, subSport: string | null): {
   sec: number;
   basis: string;
+  spans: Span[];
 } {
   const elapsed = dump.workout.durationSec;
-  const fallback = { sec: Math.max(0, elapsed - pausedSec(dump)), basis: "elapsed − pauses" };
+  const active = activeSpans(dump);
+  const fallback = { sec: spanSec(active), basis: "elapsed − pauses", spans: active };
   if (sport === "swim") {
     // Each distance sample is a length swum; rests between lengths have no samples.
     const lengths = dump.samples.distanceSwimming?.values ?? [];
     if (!lengths.length) return fallback;
-    const swim = lengths.reduce((a, [s, e]) => a + Math.max(0, e - s), 0);
-    return { sec: Math.min(swim, elapsed), basis: "sum of swim lengths (rests excluded)" };
+    const spans = merge(lengths.filter(([s, e]) => e > s).map(([s, e]) => [s, e] as Span));
+    return {
+      sec: Math.min(spanSec(spans), elapsed),
+      basis: "sum of swim lengths (rests excluded)",
+      spans,
+    };
   }
   const virtual = subSport === "indoor_bike" || subSport === "treadmill";
   const series = dump.samples[distanceKey(sport)]?.values ?? [];
   if (virtual || series.length < 10 || sport === "strength") return fallback;
   const min = MOVING_MIN_SPEED[sport] ?? 0.5;
-  let sec = 0;
-  for (const [s, e, v] of series) {
-    const d = e - s;
-    if (d > 0 && v / d >= min) sec += d;
+  const spans = merge(
+    series.filter(([s, e, v]) => e > s && v / (e - s) >= min).map(([s, e]) => [s, e] as Span),
+  );
+  return {
+    sec: Math.min(spanSec(spans), elapsed),
+    basis: `distance samples with speed ≥ ${min} m/s`,
+    spans,
+  };
+}
+
+/** Is t inside one of the merged spans (binary search). */
+function inSpans(spans: Span[], t: number): boolean {
+  let lo = 0;
+  let hi = spans.length - 1;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    if (t < spans[mid][0]) hi = mid - 1;
+    else if (t > spans[mid][1]) lo = mid + 1;
+    else return true;
   }
-  return { sec: Math.min(sec, elapsed), basis: `distance samples with speed ≥ ${min} m/s` };
+  return false;
+}
+
+/**
+ * Average cadence over moving time, like pace: standing at the start or at traffic lights
+ * does not dilute it. Run: steps in moving spans per moving minute (spm). Bike: mean of
+ * cadence samples taken while moving, zeros (coasting) excluded.
+ */
+function cadenceAvg(dump: HealthKitDump, sport: string, moving: { sec: number; spans: Span[] }) {
+  if (sport === "run" && dump.samples.stepCount && moving.sec > 0) {
+    const steps = moving.spans.reduce((a, [s, e]) => a + sumIn(dump, "stepCount", s, e), 0);
+    return steps > 0 ? round(steps / (moving.sec / 60)) : null;
+  }
+  if (sport === "bike") {
+    const xs = (dump.samples.cyclingCadence?.values ?? [])
+      .filter(([s, e, v]) => v > 0 && inSpans(moving.spans, (s + e) / 2))
+      .map((x) => x[2]);
+    return round(avg(xs));
+  }
+  return null;
 }
 
 export function summarize(dump: HealthKitDump) {
@@ -307,6 +368,7 @@ export function summarize(dump: HealthKitDump) {
         strideLengthM: round(avg(values(dump, "runningStrideLength")), 2),
         verticalOscillationCm: round(avg(values(dump, "runningVerticalOscillation")), 1),
         groundContactMs: round(avg(values(dump, "runningGroundContactTime"))),
+        cadenceSpm: cadenceAvg(dump, sport, moving),
       }
       : undefined,
     cycling: sport === "bike"
@@ -315,7 +377,7 @@ export function summarize(dump: HealthKitDump) {
         powerMax: values(dump, "cyclingPower").length
           ? Math.max(...values(dump, "cyclingPower"))
           : null,
-        cadenceAvg: round(avg(values(dump, "cyclingCadence"))),
+        cadenceAvg: cadenceAvg(dump, sport, moving),
       }
       : undefined,
     swim: sport === "swim"
@@ -374,6 +436,17 @@ export function streams(
         acc += sumIn(dump, dk, from + i * width, from + (i + 1) * width);
         return round(acc, 1);
       });
+    } else if (ch === "cadence") {
+      // Run: steps per minute from step-count intervals. Bike: rpm samples.
+      if (sport === "run" && dump.samples.stepCount) {
+        out.cadence = out.t.map((_, i) =>
+          round(sumIn(dump, "stepCount", from + i * width, from + (i + 1) * width) / (width / 60))
+        );
+      } else if (dump.samples.cyclingCadence) {
+        out.cadence = out.t.map((_, i) =>
+          round(meanIn(dump, "cyclingCadence", from + i * width, from + (i + 1) * width), 1)
+        );
+      }
     } else if (ch === "lat" || ch === "lon" || ch === "altitude") {
       const col = ch === "lat" ? 1 : ch === "lon" ? 2 : 3;
       out[ch] = out.t.map((_, i) => {

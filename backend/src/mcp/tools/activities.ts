@@ -61,7 +61,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
   defineTool(server, ctx, "get_activity", {
     title: "Get activity",
     description:
-      "Full summary of one activity: moving/elapsed time, distance, pace, HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments with distance and HR, the matched planned workout, files. For curves use get_activity_streams.",
+      "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), laps/segments with distance and HR, the matched planned workout, files. For curves use get_activity_streams.",
     input: { id: z.uuid() },
     readOnly: true,
   }, async ({ id }, env) => {
@@ -106,7 +106,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
   defineTool(server, ctx, "get_activity_streams", {
     title: "Get activity streams",
     description:
-      "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",
+      "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, cadence (run: spm from steps; bike: rpm), distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",
     input: {
       id: z.uuid(),
       channels: z.array(z.string()).min(1).max(8).default(["heartRate", "distance"]),
@@ -132,6 +132,7 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
     const available = [
       ...Object.keys(dump.samples),
       ...(dump.route.length ? ["lat", "lon", "altitude"] : []),
+      ...(dump.samples.stepCount || dump.samples.cyclingCadence ? ["cadence"] : []),
       "distance",
     ];
     return {
