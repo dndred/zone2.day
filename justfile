@@ -252,7 +252,7 @@ logs target="staging" since="30m" grep="" src="fn" limit="300":
     set -euo pipefail
     export ZONE2_SUPABASE_ACCESS_TOKEN=${ZONE2_SUPABASE_ACCESS_TOKEN:-$(grep '^ZONE2_SUPABASE_ACCESS_TOKEN=' .env.staging.local 2>/dev/null | cut -d= -f2- || true)}
     [[ -n $ZONE2_SUPABASE_ACCESS_TOKEN ]] || { echo "no ZONE2_SUPABASE_ACCESS_TOKEN (env or .env.staging.local)"; exit 1; }
-    python3 -I scripts/logs.py {{ if target == "prod" { prod_ref } else { staging_ref } }} "{{since}}" "{{grep}}" "{{src}}" "{{limit}}"
+    python3 -I scripts/logs.py {{ if target == "prod" { prod_ref } else { staging_ref } }} {{quote(since)}} {{quote(grep)}} {{quote(src)}} {{quote(limit)}}
 
 # Live logs of the edge proxy
 proxy-logs target="staging":
