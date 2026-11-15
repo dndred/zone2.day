@@ -3,11 +3,11 @@ import Foundation
 /// Unit labels. `.current` follows the app language (String Catalog of this package); tests use
 /// `.english` so they do not depend on the Mac's language.
 public struct Units: Sendable {
-    public var km, m, perKm, per100m, bpm, watt, spm, rpm, kmh, sec, min, hour, kcal, cm, ms: String
+    public var km, m, perKm, per100m, bpm, watt, spm, rpm, kmh, sec, min, hour, kcal, cm, ms, kg: String
 
     public static let english = Units(
         km: "km", m: "m", perKm: "/km", per100m: "/100m", bpm: "bpm", watt: "W", spm: "spm", rpm: "rpm",
-        kmh: "km/h", sec: "s", min: "min", hour: "h", kcal: "kcal", cm: "cm", ms: "ms"
+        kmh: "km/h", sec: "s", min: "min", hour: "h", kcal: "kcal", cm: "cm", ms: "ms", kg: "kg"
     )
 
     public static var current: Units {
@@ -15,7 +15,7 @@ public struct Units: Sendable {
         return Units(
             km: l("km"), m: l("m"), perKm: l("/km"), per100m: l("/100m"), bpm: l("bpm"), watt: l("W"),
             spm: l("spm"), rpm: l("rpm"), kmh: l("km/h"), sec: l("s"), min: l("min"), hour: l("h"),
-            kcal: l("kcal"), cm: l("cm"), ms: l("ms")
+            kcal: l("kcal"), cm: l("cm"), ms: l("ms"), kg: l("kg")
         )
     }
 }

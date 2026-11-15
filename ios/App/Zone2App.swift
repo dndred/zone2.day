@@ -29,6 +29,7 @@ struct Zone2App: App {
                     HomeView(model: model, health: model.health)
                 }
             }
+            .environment(\.planContext, context)
         }
         .onChange(of: scenePhase) { _, phase in
             switch phase {
@@ -58,6 +59,6 @@ struct Zone2App: App {
 
     private var context: PlanContext {
         let model = model
-        return PlanContext(store: model.store) { await model.pull() }
+        return PlanContext(store: model.store, refresh: { await model.pull() }, send: { await model.sendQueued() })
     }
 }

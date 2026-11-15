@@ -151,6 +151,16 @@
           }
         }
       }
+    },
+    "kg": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "кг"
+          }
+        }
+      }
     }
   }
 }

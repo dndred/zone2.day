@@ -25,6 +25,14 @@ public struct SyncPage: Codable, Sendable, Equatable {
     public let hasMore: Bool
     public let snapshot: Bool
     public let serverTime: String?
+
+    public init(changes: [SyncChange], cursor: String, hasMore: Bool, snapshot: Bool, serverTime: String?) {
+        self.changes = changes
+        self.cursor = cursor
+        self.hasMore = hasMore
+        self.snapshot = snapshot
+        self.serverTime = serverTime
+    }
 }
 
 public struct SyncStatus: Sendable, Equatable {
@@ -170,6 +178,43 @@ public final class LocalStore: Sendable {
         }
     }
 
+    // MARK: Strength
+
+    /// Saves a gym session locally (UI updates at once) and queues it for the server.
+    public func saveStrength(_ s: StrengthSession, now: Date = Date()) throws {
+        let data = try JSONEncoder().encode(s)
+        try db.write { db in
+            try db.execute(
+                sql: """
+                INSERT INTO record (entity, id, version, date, data) VALUES ('strength_session', ?, 0, ?, ?)
+                ON CONFLICT (entity, id) DO UPDATE SET date = excluded.date, data = excluded.data
+                """,
+                arguments: [s.id, s.date.iso, data]
+            )
+            try db.execute(
+                sql: """
+                INSERT INTO outbox (id, kind, payload, attempts, nextAttemptAt, lastError, createdAt) VALUES (?, 'strength', ?, 0, ?, NULL, ?)
+                ON CONFLICT (id) DO UPDATE SET payload = excluded.payload, attempts = 0, nextAttemptAt = excluded.nextAttemptAt, lastError = NULL
+                """,
+                arguments: ["strength-\(s.id)", data, now.timeIntervalSince1970, now.timeIntervalSince1970]
+            )
+        }
+    }
+
+    static func strengthSessions(_ db: Database, sql: String, _ args: StatementArguments) throws -> [StrengthSession] {
+        try decode(StrengthSession.self, db, sql: sql, args)
+    }
+
+    /// The session logged for a planned workout (nil until the first tap in the gym).
+    public func observeStrength(plannedWorkoutId: String) -> AsyncValueObservation<StrengthSession?> {
+        ValueObservation.tracking { db in
+            try Self.strengthSessions(db, sql: "SELECT data FROM record WHERE entity = 'strength_session'", [])
+                .first { $0.plannedWorkoutId == plannedWorkoutId }
+        }
+        .removeDuplicates()
+        .values(in: db)
+    }
+
     /// Stable id of this app install (kept across resyncs).
     public func deviceId() throws -> String {
         try db.write { db in
@@ -186,8 +231,13 @@ public final class LocalStore: Sendable {
     public func apply(_ page: SyncPage, at now: Date = Date()) throws {
         let encoder = JSONEncoder()
         try db.write { db in
-            if page.snapshot { try db.execute(sql: "DELETE FROM record") }
+            // Gym sessions with unsent local edits stay: the phone is their source of truth until sent.
+            let pending = Set(try String.fetchAll(db, sql: "SELECT substr(id, 10) FROM outbox WHERE kind = 'strength'"))
+            if page.snapshot {
+                try db.execute(sql: "DELETE FROM record WHERE NOT (entity = 'strength_session' AND 'strength-' || id IN (SELECT id FROM outbox))")
+            }
             for c in page.changes {
+                if c.entity == "strength_session" && pending.contains(c.id) { continue }
                 if c.op == "delete" || c.data == nil {
                     try db.execute(sql: "DELETE FROM record WHERE entity = ? AND id = ?", arguments: [c.entity, c.id])
                     continue
@@ -316,6 +366,8 @@ public final class LocalStore: Sendable {
         let workouts = try decode(PlannedWorkout.self, db, sql: "SELECT data FROM record WHERE entity = 'planned_workout' AND date BETWEEN ? AND ?", range)
         let activities = try decode(Activity.self, db, sql: "SELECT data FROM record WHERE entity = 'activity' AND date BETWEEN ? AND ?", range)
         let journal = try decode(JournalEntry.self, db, sql: "SELECT data FROM record WHERE entity = 'journal' AND date BETWEEN ? AND ?", range)
+        let lifted = Set(try strengthSessions(db, sql: "SELECT data FROM record WHERE entity = 'strength_session' AND date BETWEEN ? AND ?", range)
+            .filter { $0.doneCount > 0 }.compactMap(\.plannedWorkoutId))
         let events = try decode(PlanEvent.self, db, sql: "SELECT data FROM record WHERE entity = 'event'", [])
             .filter { $0.dateTo >= from && $0.dateFrom <= to && $0.status != "cancelled" }
         let weeks = try decode(Week.self, db, sql: "SELECT data FROM record WHERE entity = 'week' AND date BETWEEN ? AND ?", [from.weekStart.iso, to.iso])
@@ -328,7 +380,7 @@ public final class LocalStore: Sendable {
             let planned = workouts.filter { $0.date == date }.sorted { ($0.order, $0.title) < ($1.order, $1.title) }
                 .map { w -> PlannedItem in
                     let a = acts.first { $0.plannedWorkoutId == w.id }
-                    let status: WorkoutStatus = a != nil ? .done : w.skipped != nil ? .skipped : date < today ? .missed : .planned
+                    let status: WorkoutStatus = a != nil || lifted.contains(w.id) ? .done : w.skipped != nil ? .skipped : date < today ? .missed : .planned
                     return PlannedItem(workout: w, activity: a, status: status)
                 }
             let matched = Set(planned.compactMap { $0.activity?.id })

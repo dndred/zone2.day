@@ -34,6 +34,16 @@
         }
       }
     },
+    "Add set": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Добавить подход"
+          }
+        }
+      }
+    },
     "Athlete notes": {
       "localizations": {
         "ru": {
@@ -70,6 +80,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Календарь"
+          }
+        }
+      }
+    },
+    "Cancel": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отмена"
           }
         }
       }
@@ -124,6 +144,16 @@
         }
       }
     },
+    "Edit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Изменить"
+          }
+        }
+      }
+    },
     "Elapsed": {
       "localizations": {
         "ru": {
@@ -174,12 +204,32 @@
         }
       }
     },
+    "Gym": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зал"
+          }
+        }
+      }
+    },
     "Heart rate": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Пульс"
+          }
+        }
+      }
+    },
+    "Hold": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Удержание"
           }
         }
       }
@@ -274,6 +324,16 @@
         }
       }
     },
+    "Note": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметка"
+          }
+        }
+      }
+    },
     "Notes": {
       "localizations": {
         "ru": {
@@ -290,6 +350,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "На часах"
+          }
+        }
+      }
+    },
+    "Open gym log": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть лог зала"
           }
         }
       }
@@ -354,6 +424,16 @@
         }
       }
     },
+    "Reps": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Повторы"
+          }
+        }
+      }
+    },
     "Rest": {
       "localizations": {
         "ru": {
@@ -380,6 +460,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Результат"
+          }
+        }
+      }
+    },
+    "Save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сохранить"
           }
         }
       }
@@ -440,6 +530,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сплиты"
+          }
+        }
+      }
+    },
+    "Start in the gym": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать в зале"
           }
         }
       }
@@ -580,6 +680,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Погода"
+          }
+        }
+      }
+    },
+    "Weight": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вес"
           }
         }
       }

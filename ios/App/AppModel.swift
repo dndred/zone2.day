@@ -40,6 +40,7 @@ final class AppModel: ObservableObject {
         outbox = OutboxSender(store: store) { [api, auth] item in
             switch item.kind {
             case "delivery": try await api.postJSON("v1/deliveries", body: item.payload, auth: auth)
+            case "strength": try await api.postJSON("v1/strength-sessions", body: item.payload, auth: auth)
             default: break // unknown kinds from a newer build: drop
             }
         }
@@ -79,6 +80,12 @@ final class AppModel: ObservableObject {
             await WatchSync.run(store: store, interactive: false) // done workouts leave the watch
             await outbox.flush()
         }
+    }
+
+    /// Sends queued local changes (gym log) right away; no-op offline or signed out.
+    func sendQueued() async {
+        guard !isDemo, await auth.isSignedIn else { return }
+        await outbox.flush()
     }
 
     /// Pull only (pull-to-refresh, background wake): quick, no HealthKit export.

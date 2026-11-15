@@ -5,10 +5,14 @@ import Zone2Kit
 public struct PlanContext: Sendable {
     public let store: LocalStore
     public let refresh: @Sendable () async -> Void
+    /// Sends queued local changes (gym log) now; offline it just returns.
+    public let send: @Sendable () async -> Void
 
-    public init(store: LocalStore, refresh: @escaping @Sendable () async -> Void) {
+    public init(store: LocalStore, refresh: @escaping @Sendable () async -> Void,
+                send: @escaping @Sendable () async -> Void = {}) {
         self.store = store
         self.refresh = refresh
+        self.send = send
     }
 }
 
@@ -89,7 +93,11 @@ public struct TodayView: View {
                 }
                 ForEach(day.planned) { item in
                     NavigationLink {
-                        PlannedWorkoutView(item: item, onWatch: snap.status.onWatch.contains(item.id))
+                        if item.workout.sport == .strength && item.status != .skipped {
+                            GymView(workout: item.workout)
+                        } else {
+                            PlannedWorkoutView(item: item, onWatch: snap.status.onWatch.contains(item.id))
+                        }
                     } label: {
                         WorkoutCard(item: item, expanded: item.id == firstOpen || item.status == .done || firstOpen == nil,
                                     onWatch: snap.status.onWatch.contains(item.id))
@@ -245,7 +253,7 @@ public struct CalendarView: View {
                     }
                 }
                 .background(Color.groupedBackground)
-                .onChange(of: snap?.today) { _, today in
+                    .onChange(of: snap?.today) { _, today in
                     if let today { proxy.scrollTo(today.weekStart, anchor: .top) }
                 }
             }

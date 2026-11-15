@@ -120,6 +120,17 @@ public struct PlannedWorkoutView: View {
             if let s = w.resolved {
                 Section(L("Steps")) { StepList(structure: s, sport: w.sport) }
             }
+            if w.sport == .strength && item.status != .skipped {
+                Section {
+                    NavigationLink {
+                        GymView(workout: w)
+                    } label: {
+                        Label(item.status == .done ? L("Open gym log") : L("Start in the gym"),
+                              systemImage: "figure.strengthtraining.traditional")
+                            .font(.headline)
+                    }
+                }
+            }
             if let s = w.strength {
                 Section(L("Exercises")) { StrengthList(structure: s) }
             }
