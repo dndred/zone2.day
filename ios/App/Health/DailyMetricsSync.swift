@@ -2,7 +2,7 @@ import Foundation
 import HealthKit
 import Zone2Kit
 
-/// Daily health metrics → server (docs/05-sync.md §7). Reads HealthKit aggregates per local day,
+/// Daily health metrics → server (docs/05-sync.md §8). Reads HealthKit aggregates per local day,
 /// queues them in the outbox (`daily_metrics` → POST /v1/daily-metrics). First run sends the last
 /// year (baseline for the coach), then the last 8 days on every sync — late watch data replaces
 /// the day on the server. A sleep observer wakes the app in the background after the night.

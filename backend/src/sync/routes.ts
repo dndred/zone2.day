@@ -166,7 +166,7 @@ export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
   });
 
   /**
-   * Daily health metrics aggregated on the phone from HealthKit (docs/05-sync.md §7). Each day is
+   * Daily health metrics aggregated on the phone from HealthKit (docs/05-sync.md §8). Each day is
    * replaced as a whole; the phone resends the last week on every sync (late watch data) and the
    * whole history once. Idempotent.
    */

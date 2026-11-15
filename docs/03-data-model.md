@@ -141,7 +141,7 @@
 - Время подходов и отдыха **не логируется и не планируется**: зал хаотичен. `holdSec` — только для статики (планка), `distanceM` — для переносок. Длительность силовой — внутренняя оценка сервера (`estimate.durationSec`) для календаря и нагрузки, атлету как таргет не показывается.
 
 ### 2.7 Метрики здоровья — `daily_metrics`
-`date`, `resting_hr`, `hrv_sdnn_ms` (Apple хранит SDNN, не RMSSD — указываем явно), `sleep` (`{totalMin, deepMin, remMin, coreMin, awakeMin, inBedStart, inBedEnd}`), `weight_kg`, `vo2max`, `respiratory_rate?`, `source`, `sample_refs`. Upsert по `(user_id, date)`.
+Реализовано в `supabase/migrations/20261115050000_daily_metrics.sql`: `date` (локальная дата; сон — ночь, закончившаяся этим утром), `resting_hr`, `hrv_sdnn_ms` (Apple хранит SDNN, не RMSSD — указываем явно) и `hrv_samples`, `sleep` (`{asleepMin, deepMin, remMin, coreMin, awakeMin, inBedStart, inBedEnd, source}`), `respiratory_rate`, `wrist_temp_c` (абсолютная температура запястья во сне; сервер сравнивает с базой атлета), `weight_kg`, `vo2max`, `device_id`. Ключ `(user_id, date)`; телефон шлёт день целиком и заменяет его ([05-sync §8](05-sync.md#8-метрики-восстановления)).
 
 ### 2.8 Старты — `events`
 | Поле | Описание |

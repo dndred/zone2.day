@@ -1,6 +1,6 @@
 import Foundation
 
-// Daily health metrics (docs/05-sync.md §7): the app reads HealthKit, aggregates each local day
+// Daily health metrics (docs/05-sync.md §8): the app reads HealthKit, aggregates each local day
 // here (pure, testable) and sends days through the outbox to POST /v1/daily-metrics, where the
 // coach compares them with the athlete's own baseline. Each day is sent whole and replaces the
 // server's copy, so late watch syncs are fixed by resending the last week.

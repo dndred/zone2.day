@@ -57,7 +57,7 @@ S6 можно провести в начале фазы 2, остальные �
 - [ ] Активности: ~~GAP~~ ✓, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), ~~`create_activity`~~ ✓, `import_activity_file` (FIT ✓ через `create_upload_link`; GPX, `url` — позже).
 - [x] Силовые: `get_strength_log`, `get_exercise_history` (e1RM, план vs факт, перерывы), `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion); `POST /v1/strength-sessions`; сессии в ленте синка.
 - [x] Аналитика (D44): `get_load` (объём + sRPE×мин + HR-нагрузка), `get_zone_distribution` (зоны при чтении, поляризация), `get_efficiency_trend` (темп/мощность при пульсе по ровным участкам), GAP и декаплинг в `get_activity`.
-- [ ] Здоровье: `get_daily_metrics` (сон, HRV, пульс покоя, вес) — нужна выгрузка суточных метрик с телефона.
+- [x] Здоровье: `get_daily_metrics` (пульс покоя, HRV, сон, дыхание, температура запястья, вес, VO2max против базы 28 дней, флаги), `recovery` в `get_context`.
 - [ ] Экспорт `.zwo`, интеграции, debug-инструменты.
 - [ ] Descriptions по правилам; ревью descriptions «глазами модели» в живом чате.
 
@@ -72,7 +72,8 @@ S6 можно провести в начале фазы 2, остальные �
 ### 1.4 Sync API 🛠
 - [x] `GET /v1/sync` (снимок −90…+60 дней + инкремент, 410, `resolved` у тренировок, переразрешение после смены профиля).
 - [x] `GET /v1/activities/{id}/streams`, `POST /v1/deliveries`, `POST /v1/strength-sessions`.
-- [ ] `POST` daily-metrics, client-logs, devices.
+- [x] `POST /v1/daily-metrics`.
+- [ ] `POST` client-logs, devices.
 - [ ] OpenAPI → Swift-клиент (`just gen`).
 
 ### 1.5 iOS: данные 🛠
@@ -82,7 +83,8 @@ S6 можно провести в начале фазы 2, остальные �
 - [x] Outbox (GRDB, backoff 30 с…6 ч, 4xx — пауза на сутки) и отчёт о доставке → `devices`/`deliveries` на сервере, `get_delivery_status`, `delivery` в `get_plan`.
 - [ ] BGProcessing, HK observers → pull.
 - [x] Экспорт тренировок: разрешения, anchored query (новые + удалённые), дамп, очередь, **бэкфилл всей истории** (≈700 тренировок, ~255 КБ/шт в gzip).
-- [ ] Суточные метрики, запись внешних активностей в Health.
+- [x] Суточные метрики: бэкфилл за год, последние 8 дней на каждом синке, observer сна (05-sync §8).
+- [ ] Запись внешних активностей в Health.
 - [x] Фоновая отправка: экспорт дампов в gzip-файлы → **фоновая URLSession** (досылает при свёрнутом/выгруженном приложении), `beginBackgroundTask` при уходе с экрана. Экспорт требует разблокированного телефона (HealthKit зашифрован при блокировке), поэтому `BGProcessingTask` для бэкфилла не используется.
 - [ ] Клиентские логи и отчёты о состоянии устройства.
 
