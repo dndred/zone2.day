@@ -26,7 +26,6 @@ public struct TodayView: View {
     let context: PlanContext
     let syncing: Bool
     @State private var snap: PlanSnapshot?
-    @State private var events: [PlanEvent] = []
     @State private var showWeekHeader = false
 
     public init(context: PlanContext, syncing: Bool) {
@@ -48,11 +47,6 @@ public struct TodayView: View {
             .task {
                 do {
                     for try await s in context.store.observe(pastDays: 0, futureDays: 4) { snap = s }
-                } catch {}
-            }
-            .task {
-                do {
-                    for try await e in context.store.observeEvents() { events = e }
                 } catch {}
             }
         }
@@ -122,10 +116,6 @@ public struct TodayView: View {
                 }
             }
 
-            if let next = events.first(where: { $0.isConfirmed && $0.dateFrom >= today }) {
-                EventCountdown(event: next, today: today)
-            }
-
             let upcoming = snap.days.filter { $0.date > today && !$0.isEmpty }
             if !upcoming.isEmpty {
                 Text("Next days", bundle: .module).font(.headline).padding(.top, 4)
@@ -145,25 +135,6 @@ public struct TodayView: View {
     }
 }
 
-struct EventCountdown: View {
-    let event: PlanEvent
-    let today: LocalDate
-
-    var body: some View {
-        HStack {
-            Image(systemName: "flag.checkered")
-            VStack(alignment: .leading) {
-                Text(event.name).font(.subheadline.weight(.medium))
-                Text(event.dateFrom.formatted(.dateTime.day().month(.wide))).font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            Text("\(today.days(until: event.dateFrom)) d", bundle: .module).font(.headline.monospacedDigit())
-        }
-        .padding(14)
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
-    }
-}
-
 /// Compact lines of one day: "Tue 17 Nov  🏃 Easy 45 min".
 struct DayRows: View {
     let day: Day
@@ -176,7 +147,12 @@ struct DayRows: View {
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(day.date == today ? Color.accentColor : .secondary)
             ForEach(day.events) { e in
-                Label(e.name, systemImage: "flag.checkered").font(.subheadline.weight(.medium))
+                NavigationLink { EventView(event: e) } label: {
+                    Label(e.name, systemImage: "flag.checkered").font(.subheadline.weight(.medium))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
             }
             ForEach(day.planned) { item in
                 NavigationLink { PlannedWorkoutView(item: item, onWatch: onWatch.contains(item.id)) } label: {

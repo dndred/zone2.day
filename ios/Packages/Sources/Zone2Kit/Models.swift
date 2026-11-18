@@ -243,11 +243,49 @@ public struct PlanEvent: Decodable, Sendable, Equatable, Identifiable {
     public let distanceM: Double?
     public let priority: String?
     public let goal: String?
+    /// Race plan, logistics, check lists — Markdown, read in the app (written by the coach).
+    public let notes: String?
+    public let url: String?
+    /// "08:00" local to `timezone` (IANA) on `dateFrom`.
+    public let startTime: String?
+    public let timezone: String?
+    public let format: String?
+    /// Notebook page slugs the race links to.
+    public let notebookRefs: [String]?
+    public let result: Result?
+
+    public struct Result: Decodable, Sendable, Equatable {
+        public let timeSec: Double?
+        public let place: String?
+        public let notes: String?
+
+        enum CodingKeys: String, CodingKey { case timeSec, place, notes }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            timeSec = try? c.decodeIfPresent(Double.self, forKey: .timeSec)
+            // "12 из 64" or 12 — either way it is shown as text.
+            place = (try? c.decodeIfPresent(String.self, forKey: .place))
+                ?? (try? c.decodeIfPresent(Int.self, forKey: .place)).map(String.init)
+            notes = try? c.decodeIfPresent(String.self, forKey: .notes)
+        }
+    }
+
+    /// Finished, did not finish or cancelled: history, whatever the date says.
+    public var isClosed: Bool { status == "done" || status == "dnf" || status == "cancelled" }
+
+    /// The start is on (planned or registered), whatever the date precision: "Ahead" in Races.
+    public var isOn: Bool { status == "planned" || status == "registered" }
 
     /// Shown with a countdown only when the date is exact and the start is really on.
-    public var isConfirmed: Bool {
-        datePrecision == "day" && (status == "planned" || status == "registered")
-    }
+    public var isConfirmed: Bool { datePrecision == "day" && isOn }
+
+    /// Where it goes in a list by date: an exact date by its day; a month or a year after the
+    /// exact dates inside it (end of the window) — "конец мая" is not before "3 мая".
+    public var sortDate: LocalDate { datePrecision == "day" ? dateFrom : dateTo }
+
+    /// Still ahead: until the end of its window (the day, the month, the season, the year).
+    public func isUpcoming(today: LocalDate) -> Bool { dateTo >= today }
 }
 
 public struct JournalEntry: Decodable, Sendable, Equatable, Identifiable {

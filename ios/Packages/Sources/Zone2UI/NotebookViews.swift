@@ -12,12 +12,7 @@ public struct NotebookView: View {
         List {
             ForEach(pages) { page in
                 NavigationLink {
-                    ScrollView {
-                        MarkdownText(page.content).padding()
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .navigationTitle(page.title)
-                    .inlineTitle()
+                    NotebookPageView(page: page)
                 } label: {
                     Label(page.title, systemImage: page.pinned ? "pin.fill" : "doc.text")
                 }
@@ -32,5 +27,19 @@ public struct NotebookView: View {
                 for try await p in store.observeNotebook() { pages = p }
             } catch {}
         }
+    }
+}
+
+/// One notebook page, read-only.
+struct NotebookPageView: View {
+    let page: NotebookPage
+
+    var body: some View {
+        ScrollView {
+            MarkdownText(page.content).padding()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .navigationTitle(page.title)
+        .inlineTitle()
     }
 }

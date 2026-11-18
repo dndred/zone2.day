@@ -65,6 +65,11 @@ struct HomeView: View {
 
                 Section {
                     NavigationLink {
+                        RacesView(store: model.store)
+                    } label: {
+                        Label("Races", systemImage: "flag.checkered")
+                    }
+                    NavigationLink {
                         NotebookView(store: model.store)
                     } label: {
                         Label("Notebook", systemImage: "book")

@@ -38,7 +38,6 @@ struct WorkoutCard: View {
             if let skipped = w.skipped {
                 Text(skipped.reason).font(.footnote).foregroundStyle(.secondary)
             }
-            if expanded, item.status == .planned, let change = w.lastChange { LastChangeLine(change: change) }
             if !item.activities.isEmpty {
                 Divider()
                 if item.activities.count > 1 { PartsTotal(item: item) }
@@ -70,8 +69,8 @@ struct PartsTotal: View {
 /// "Changed 10 Nov: easier after the race" — why the coach changed it last.
 struct LastChangeLine: View {
     let change: PlannedWorkout.LastChange
-    /// Today card keeps it short; the workout detail shows the whole reason.
-    var lineLimit: Int? = 2
+    /// Shown only at the bottom of the workout detail (history, not the plan); whole reason by default.
+    var lineLimit: Int? = nil
 
     var body: some View {
         if let why = change.why, !why.isEmpty {
@@ -145,7 +144,6 @@ public struct PlannedWorkoutView: View {
                         if item.status != .planned { Chip(text: item.status.title, color: item.status.color) }
                     }
                     if let goal = w.goal { MarkdownText(goal, style: .compact) }
-                    if let change = w.lastChange { LastChangeLine(change: change, lineLimit: nil) }
                     if let s = w.resolved { StructureBar(structure: s, sport: w.sport, height: 40) }
                     if item.status == .planned {
                         DeliveryLabel(execution: w.execution, onWatch: onWatch)
@@ -190,6 +188,10 @@ public struct PlannedWorkoutView: View {
                         }
                     }
                 }
+            }
+            // The coach's change log is history, not the plan: last, below the result.
+            if let change = w.lastChange, let why = change.why, !why.isEmpty {
+                Section { LastChangeLine(change: change) }
             }
         }
         .navigationTitle(w.title)

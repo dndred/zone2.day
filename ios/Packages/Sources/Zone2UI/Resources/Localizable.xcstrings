@@ -34,12 +34,32 @@
         }
       }
     },
+    "Ahead": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Впереди"
+          }
+        }
+      }
+    },
     "Athlete notes": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Слова атлета"
+          }
+        }
+      }
+    },
+    "autumn": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "осень"
           }
         }
       }
@@ -84,6 +104,16 @@
         }
       }
     },
+    "Cancelled": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отменён"
+          }
+        }
+      }
+    },
     "Changed %@: %@": {
       "localizations": {
         "ru": {
@@ -124,6 +154,16 @@
         }
       }
     },
+    "DNF": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сошёл"
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "ru": {
@@ -140,6 +180,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Упражнение"
+          }
+        }
+      }
+    },
+    "early %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "начало %@"
           }
         }
       }
@@ -194,6 +244,16 @@
         }
       }
     },
+    "Finished": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Финиш"
+          }
+        }
+      }
+    },
     "Ground contact": {
       "localizations": {
         "ru": {
@@ -234,6 +294,26 @@
         }
       }
     },
+    "Idea": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идея"
+          }
+        }
+      }
+    },
+    "Ideas": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Идеи"
+          }
+        }
+      }
+    },
     "Intervals": {
       "localizations": {
         "ru": {
@@ -254,12 +334,32 @@
         }
       }
     },
+    "late %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "конец %@"
+          }
+        }
+      }
+    },
     "Lengths": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Отрезки"
+          }
+        }
+      }
+    },
+    "mid %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "середина %@"
           }
         }
       }
@@ -290,6 +390,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ближайшие дни"
+          }
+        }
+      }
+    },
+    "No races yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стартов пока нет"
           }
         }
       }
@@ -384,6 +494,16 @@
         }
       }
     },
+    "Past": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прошедшие"
+          }
+        }
+      }
+    },
     "Plan": {
       "localizations": {
         "ru": {
@@ -424,12 +544,42 @@
         }
       }
     },
+    "Race website": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Сайт старта"
+          }
+        }
+      }
+    },
+    "Races": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Старты"
+          }
+        }
+      }
+    },
     "Recovery": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
             "value": "Отдых"
+          }
+        }
+      }
+    },
+    "Registered": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зарегистрирован"
           }
         }
       }
@@ -534,6 +684,16 @@
         }
       }
     },
+    "spring": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "весна"
+          }
+        }
+      }
+    },
     "Start in the gym": {
       "localizations": {
         "ru": {
@@ -570,6 +730,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Сводка"
+          }
+        }
+      }
+    },
+    "summer": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "лето"
           }
         }
       }
@@ -690,6 +860,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Вес"
+          }
+        }
+      }
+    },
+    "winter": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "зима"
           }
         }
       }

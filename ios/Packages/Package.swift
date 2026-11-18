@@ -28,5 +28,6 @@ let package = Package(
             resources: [.process("Resources")]
         ),
         .testTarget(name: "Zone2KitTests", dependencies: ["Zone2Kit"]),
+        .testTarget(name: "Zone2UITests", dependencies: ["Zone2UI"]),
     ]
 )

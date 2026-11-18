@@ -134,6 +134,16 @@
         }
       }
     },
+    "Races": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Старты"
+          }
+        }
+      }
+    },
     "Records on this iPhone": {
       "localizations": {
         "ru": {
