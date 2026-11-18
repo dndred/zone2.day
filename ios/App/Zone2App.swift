@@ -22,9 +22,6 @@ struct Zone2App: App {
                 Tab(String(localized: "Calendar"), systemImage: "calendar") {
                     CalendarView(context: context, syncing: model.syncing).signedOutBanner(model)
                 }
-                Tab(String(localized: "Activities"), systemImage: "figure.run") {
-                    ActivitiesView(context: context).signedOutBanner(model)
-                }
                 Tab(String(localized: "Profile"), systemImage: "person.crop.circle") {
                     HomeView(model: model, health: model.health)
                 }

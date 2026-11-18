@@ -186,3 +186,32 @@ private actor FakeSource: SyncSource {
     #expect(run.totalMovingSec == 4650)
     #expect(sat.unplanned.isEmpty)
 }
+
+@Test func calendarEndsWithPlanAndKnowsAboutHistory() throws {
+    let store = try LocalStore()
+    try store.apply(try page(snapshotJSON), at: now)
+    // Today is Sun 2026-11-15; the last planned workout is Mon 11-16 → its week ends 11-22.
+    // The race on 12-06 doesn't pull in empty weeks.
+    var cal = try store.calendar(pastDays: 56, now: now)
+    #expect(cal.days.first?.date == LocalDate("2026-11-09")) // the first record's week
+    #expect(cal.days.last?.date == LocalDate("2026-11-22"))
+    #expect(!cal.hasEarlier)
+
+    try store.apply(try page(#"""
+    { "snapshot": false, "hasMore": false, "cursor": "43", "changes": [
+      { "entity": "planned_workout", "id": "w-tempo", "op": "delete", "version": 3 },
+      { "entity": "activity", "id": "old", "op": "upsert", "version": 1,
+        "data": { "id": "old", "date": "2026-10-01", "sport": "run", "kind": "training", "summary": { "v": 7 }, "laps": [] } }
+    ] }
+    """#), at: now)
+    // Nothing planned ahead → the calendar stops at the end of the current week.
+    cal = try store.calendar(pastDays: 0, now: now)
+    #expect(cal.days.last?.date == LocalDate("2026-11-15"))
+    #expect(cal.hasEarlier)
+
+    // Eight weeks back would be 09-14, but history starts on 10-01 (week of 09-28).
+    cal = try store.calendar(pastDays: 8 * 7, now: now)
+    #expect(cal.days.first?.date == LocalDate("2026-09-28"))
+    #expect(cal.day(LocalDate("2026-10-01")!)?.unplanned.map(\.id) == ["old"])
+    #expect(!cal.hasEarlier)
+}

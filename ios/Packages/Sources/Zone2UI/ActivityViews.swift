@@ -196,10 +196,9 @@ struct LapTable: View {
     }
 }
 
-/// Row for lists (Activities tab, unplanned activities in a day).
+/// Row for unplanned activities in a day.
 struct ActivityRow: View {
     let activity: Activity
-    var showDate = false
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
@@ -211,8 +210,7 @@ struct ActivityRow: View {
                 HStack {
                     Text(activity.title ?? activity.sport.rawValue).font(.subheadline.weight(.medium)).lineLimit(1)
                     Spacer()
-                    Text([showDate ? activity.date.formatted(.dateTime.day().month(.abbreviated)) : nil, activity.startLocal]
-                        .compactMap { $0 }.joined(separator: " "))
+                    Text(activity.startLocal ?? "")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if !activity.isRecovery { ActivityHeadline(activity: activity) }

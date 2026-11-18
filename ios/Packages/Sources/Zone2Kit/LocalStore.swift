@@ -71,6 +71,8 @@ public struct PlanSnapshot: Sendable, Equatable {
     public var days: [Day]
     public var weeks: [LocalDate: Week]
     public var status: SyncStatus
+    /// Calendar: there are records before `days.first` (more history to load on scroll).
+    public var hasEarlier = false
 
     public func day(_ date: LocalDate) -> Day? { days.first { $0.date == date } }
 }
@@ -467,14 +469,35 @@ public final class LocalStore: Sendable {
         .values(in: db)
     }
 
-    /// Recent activities, newest first (Activities tab).
-    public func observeActivities(limit: Int = 200) -> AsyncValueObservation<[Activity]> {
-        ValueObservation.tracking { db in
-            try Self.decode(Activity.self, db, sql: "SELECT data FROM record WHERE entity = 'activity' ORDER BY date DESC, id LIMIT ?", [limit])
-                .sorted { ($0.date, $0.startLocal ?? "") > ($1.date, $1.startLocal ?? "") }
-        }
-        .removeDuplicates()
-        .values(in: db)
+    /// Calendar: `pastDays` back from today; forward only as far as the plan goes.
+    public func observeCalendar(pastDays: Int) -> AsyncValueObservation<PlanSnapshot> {
+        ValueObservation.tracking { db in try Self.calendar(db, pastDays: pastDays) }
+            .removeDuplicates()
+            .values(in: db)
+    }
+
+    /// Calendar range: from `today - pastDays` to the end of the week holding the last future
+    /// planned workout or week record (at least the current week), so it never ends in empty weeks;
+    /// it doesn't start before the week of the first record either. Events don't extend it:
+    /// a race months away would otherwise pull in a run of empty weeks.
+    /// `hasEarlier` tells whether older history exists to load on scroll.
+    public static func calendar(_ db: Database, pastDays: Int, now: Date = Date()) throws -> PlanSnapshot {
+        let profile = try decode(Profile.self, db, sql: "SELECT data FROM record WHERE entity = 'profile'", []).first ?? Profile()
+        let today = LocalDate.today(in: profile.effectiveTimeZone(now: now), now: now)
+        let lastPlanned = try String.fetchOne(db, sql: "SELECT max(date) FROM record WHERE entity IN ('planned_workout', 'week')")
+            .flatMap(LocalDate.init)
+        let first = try String.fetchOne(db, sql: "SELECT min(date) FROM record WHERE entity IN ('planned_workout', 'activity', 'journal', 'week')")
+            .flatMap(LocalDate.init)
+        let to = max(today, lastPlanned ?? today).weekStart.adding(days: 6)
+        let wanted = today.adding(days: -pastDays).weekStart
+        let from = min(max(wanted, first?.weekStart ?? today.weekStart), today.weekStart)
+        var snap = try snapshot(db, from: from, to: to, now: now)
+        snap.hasEarlier = first.map { $0 < from } ?? false
+        return snap
+    }
+
+    public func calendar(pastDays: Int, now: Date = Date()) throws -> PlanSnapshot {
+        try db.read { db in try Self.calendar(db, pastDays: pastDays, now: now) }
     }
 
     public func activity(id: String) throws -> Activity? {

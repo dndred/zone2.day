@@ -24,16 +24,6 @@
         }
       }
     },
-    "Activities": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Активности"
-          }
-        }
-      }
-    },
     "Add set": {
       "localizations": {
         "ru": {
@@ -300,16 +290,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Ближайшие дни"
-          }
-        }
-      }
-    },
-    "No activities yet": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Пока нет тренировок"
           }
         }
       }

@@ -11,16 +11,6 @@
         }
       }
     },
-    "Activities": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Активности"
-          }
-        }
-      }
-    },
     "Apple Health": {
       "localizations": {
         "ru": {

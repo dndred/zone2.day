@@ -228,13 +228,20 @@ struct DayRows: View {
 
 // MARK: - Calendar
 
+/// Weeks from history to the end of the plan. Opens on the current week; scrolling up loads
+/// older weeks page by page; it ends at the last planned week, never in empty future weeks.
 public struct CalendarView: View {
     let context: PlanContext
     let syncing: Bool
     @State private var snap: PlanSnapshot?
+    @State private var pastDays = Self.pageDays
+    /// Week kept in place while an older page loads above it.
+    @State private var anchor: LocalDate?
+    /// Set once the athlete scrolls: before that the top is visible only until the jump to today.
+    @State private var scrolled = false
+    @State private var nearTop = false
 
-    static let pastDays = 8 * 7
-    static let futureDays = 6 * 7
+    static let pageDays = 8 * 7
 
     public init(context: PlanContext, syncing: Bool) {
         self.context = context
@@ -248,6 +255,9 @@ public struct CalendarView: View {
                     if let snap {
                         LazyVStack(alignment: .leading, spacing: 18) {
                             SyncStatusLine(status: snap.status, syncing: syncing)
+                            if snap.hasEarlier {
+                                ProgressView().frame(maxWidth: .infinity)
+                            }
                             ForEach(weeks(snap), id: \.start) { week in
                                 WeekSection(start: week.start, days: week.days, info: snap.weeks[week.start], today: snap.today,
                                             onWatch: snap.status.onWatch)
@@ -259,18 +269,43 @@ public struct CalendarView: View {
                     }
                 }
                 .background(Color.groupedBackground)
-                    .onChange(of: snap?.today) { _, today in
+                .onScrollPhaseChange { _, phase in
+                    if phase == .interacting { scrolled = true; loadEarlier() }
+                }
+                // Less than a screen above the viewport → load the previous page.
+                .onScrollGeometryChange(for: Bool.self) { g in
+                    g.contentOffset.y + g.contentInsets.top < g.containerSize.height
+                } action: { _, near in
+                    nearTop = near
+                    loadEarlier()
+                }
+                .onChange(of: snap?.today) { _, today in
                     if let today { proxy.scrollTo(today.weekStart, anchor: .top) }
+                }
+                .onChange(of: snap?.days.first?.date) {
+                    guard let week = anchor else { return }
+                    // After the new weeks are laid out, or the jump lands short of the anchor.
+                    Task { @MainActor in
+                        proxy.scrollTo(week, anchor: .top)
+                        anchor = nil
+                        loadEarlier() // still near the top (a fast fling) → keep going
+                    }
                 }
             }
             .navigationTitle(L("Calendar"))
             .refreshable { await context.refresh() }
-            .task {
+            .task(id: pastDays) {
                 do {
-                    for try await s in context.store.observe(pastDays: Self.pastDays, futureDays: Self.futureDays) { snap = s }
+                    for try await s in context.store.observeCalendar(pastDays: pastDays) { snap = s }
                 } catch {}
             }
         }
+    }
+
+    private func loadEarlier() {
+        guard scrolled, nearTop, anchor == nil, let snap, snap.hasEarlier, let first = snap.days.first else { return }
+        anchor = first.date.weekStart
+        pastDays += Self.pageDays
     }
 
     private func weeks(_ snap: PlanSnapshot) -> [(start: LocalDate, days: [Day])] {
@@ -343,36 +378,5 @@ struct WeekSection: View {
         if run > 0 { parts.append(L("run \(Formats.distance(run))")) }
         parts.append(Formats.hoursMinutes(time))
         return parts.joined(separator: " · ")
-    }
-}
-
-// MARK: - Activities
-
-public struct ActivitiesView: View {
-    let context: PlanContext
-    @State private var activities: [Activity] = []
-
-    public init(context: PlanContext) { self.context = context }
-
-    public var body: some View {
-        NavigationStack {
-            List {
-                ForEach(activities) { a in
-                    NavigationLink { ActivityView(activity: a) } label: { ActivityRow(activity: a, showDate: true) }
-                }
-            }
-            .overlay {
-                if activities.isEmpty {
-                    ContentUnavailableView(L("No activities yet"), systemImage: "figure.run")
-                }
-            }
-            .navigationTitle(L("Activities"))
-            .refreshable { await context.refresh() }
-            .task {
-                do {
-                    for try await xs in context.store.observeActivities() { activities = xs }
-                } catch {}
-            }
-        }
     }
 }
