@@ -41,6 +41,26 @@ Deno.test("FIT → dump: MyWhoosh-like ride summarizes like a Health workout", (
   assertEquals(laps[1].powerAvg, 200);
 });
 
+Deno.test("FIT → dump: pool lengths become laps with strokes, stroke style and SWOLF", () => {
+  const fit = makeFit({
+    minutes: 3,
+    laps: 1,
+    sport: "swimming",
+    subSport: "lapSwimming",
+    speedMps: 0.8,
+    poolLengthM: 50,
+    lengths: [[60, 18, "freestyle"], [70, 30, "breaststroke"], [50, 0, "drill"]],
+  });
+  const laps = lapsOf(fitToDump(fit, "sha256:swim", new Date()));
+  const lengths = laps.filter((l) => l.kind === "lap");
+  assertEquals(lengths.length, 3);
+  assertEquals(lengths.map((l) => [l.strokes, l.stroke, l.swolf]), [
+    [18, "freestyle", 78],
+    [30, "breaststroke", 100],
+    [0, "drill", 50],
+  ]);
+});
+
 Deno.test("FIT → dump: rejects non-FIT and damaged files", () => {
   let err: unknown;
   try {

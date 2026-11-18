@@ -279,7 +279,7 @@
     {
       "name": "get_activity",
       "title": "Get activity",
-      "description": "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), analysis (GAP, time in zones, steady stretches, aerobic decoupling), laps/segments (distance, moving pace/speed, HR, power, cadence), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",
+      "description": "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), analysis (GAP, time in zones, steady stretches, aerobic decoupling), laps/segments (distance, moving pace/speed, HR, power, cadence; pool lengths with strokes, stroke style, SWOLF), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",
       "annotations": {
         "readOnlyHint": true,
         "destructiveHint": false,

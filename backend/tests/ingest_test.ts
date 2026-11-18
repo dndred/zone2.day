@@ -100,6 +100,38 @@ Deno.test("summary: bike cadence while moving, zeros excluded; cadence stream", 
   assertEquals(st.cadence, [5, 170, 170, 170]); // the stream shows the standing part as is
 });
 
+Deno.test("laps: pool lengths carry strokes, stroke style and SWOLF; sets carry strokes", () => {
+  // Two lengths of 50 m in one set, then a rest: like Apple Watch writes a pool swim.
+  const raw = makeDump({ activityType: 46, distanceM: null, minutes: 5 });
+  raw.workout.metadata.HKSwimmingLocationType = 1;
+  raw.workout.metadata.HKLapLength = { value: 50, unit: "m" };
+  const at = (s: number) =>
+    new Date(new Date(raw.workout.start).getTime() + s * 1000).toISOString();
+  raw.workout.events = [
+    { type: "segment", start: at(0), end: at(130), metadata: { HKSWOLFScore: 80 } },
+    {
+      type: "lap",
+      start: at(0),
+      end: at(60),
+      metadata: { HKSwimmingStrokeStyle: 2, HKSWOLFScore: 78.9 },
+    },
+    { type: "lap", start: at(60), end: at(130), metadata: { HKSwimmingStrokeStyle: 4 } },
+  ];
+  raw.samples.distanceSwimming = { unit: "m", values: [[0, 60, 50], [60, 130, 50]] };
+  raw.samples.swimmingStrokeCount = { unit: "count", values: [[0, 60, 19], [60, 130, 31]] };
+  const laps = lapsOf(HealthKitDump.parse(raw));
+  assertEquals(laps.map((l) => l.kind), ["segment", "lap", "lap"]);
+  assertEquals(laps[0].strokes, 50);
+  assertEquals(laps[0].stroke, undefined);
+  assertEquals([laps[1].strokes, laps[1].stroke, laps[1].swolf], [19, "freestyle", 79]);
+  // No watch score → seconds + strokes.
+  assertEquals([laps[2].strokes, laps[2].stroke, laps[2].swolf], [31, "breaststroke", 101]);
+
+  // Runs get no swim fields at all.
+  const run = lapsOf(HealthKitDump.parse(makeDump({ minutes: 40, distanceM: 8000, segments: 4 })));
+  assertEquals("strokes" in run[0], false);
+});
+
 Deno.test("summary v2: pauses without distance samples, swim lengths, mind & body, Strava copy", () => {
   const strength = summarize(
     HealthKitDump.parse(makeDump({ activityType: 20, distanceM: null, pauseSec: 60 })),

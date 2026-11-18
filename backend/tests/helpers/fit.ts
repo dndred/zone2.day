@@ -12,6 +12,9 @@ export interface FitOpts {
   hr?: number;
   speedMps?: number;
   manufacturer?: string;
+  /** Pool swim: lengths back to back from the start, [seconds, strokes, swim_stroke]. */
+  lengths?: [number, number, string][];
+  poolLengthM?: number;
 }
 
 export function makeFit(o: FitOpts = {}): Uint8Array {
@@ -50,6 +53,19 @@ export function makeFit(o: FitOpts = {}): Uint8Array {
       totalDistance: lapLen * speed,
     });
   }
+  let t = 0;
+  for (const [dur, strokes, swimStroke] of o.lengths ?? []) {
+    enc.onMesg(Profile.MesgNum.LENGTH, {
+      timestamp: at(t + dur),
+      startTime: at(t),
+      totalElapsedTime: dur,
+      totalTimerTime: dur,
+      totalStrokes: strokes,
+      swimStroke,
+      lengthType: "active",
+    });
+    t += dur;
+  }
   enc.onMesg(Profile.MesgNum.EVENT, { timestamp: at(sec), event: "timer", eventType: "stopAll" });
   enc.onMesg(Profile.MesgNum.SESSION, {
     timestamp: at(sec),
@@ -60,6 +76,7 @@ export function makeFit(o: FitOpts = {}): Uint8Array {
     totalTimerTime: sec,
     totalDistance: sec * speed,
     totalCalories: 650,
+    ...(o.poolLengthM ? { poolLength: o.poolLengthM } : {}),
   });
   enc.onMesg(Profile.MesgNum.ACTIVITY, {
     timestamp: at(sec),

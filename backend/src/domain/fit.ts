@@ -162,6 +162,7 @@ export function fitToDump(bytes: Uint8Array, uuid: string, exportedAt: Date): He
 
   // Pool swim: each active length is a distance sample (rests have none), like the watch writes.
   const metadata: Record<string, unknown> = { HKIndoorWorkout: indoor };
+  const lengthEvents: HealthKitDump["workout"]["events"] = [];
   if (type === 46) {
     const pool: number | undefined = session?.poolLength;
     if (sub === "lapSwimming") metadata.HKSwimmingLocationType = 1;
@@ -175,6 +176,14 @@ export function fitToDump(bytes: Uint8Array, uuid: string, exportedAt: Date): He
       if (typeof l.totalStrokes === "number") {
         push("swimmingStrokeCount", "count", [s, e, l.totalStrokes]);
       }
+      // Each length is a lap event, like the watch writes; stroke style by name.
+      const style = fitStroke(l.swimStroke);
+      lengthEvents.push({
+        type: "lap",
+        start: iso(l.startTime),
+        end: iso(new Date(l.startTime.getTime() + (l.totalElapsedTime ?? 0) * 1000)),
+        metadata: style ? { HKSwimmingStrokeStyle: style } : {},
+      });
     }
     if (!samples.distanceSwimming && records.length) {
       // Open water: distance from records.
@@ -231,6 +240,8 @@ export function fitToDump(bytes: Uint8Array, uuid: string, exportedAt: Date): He
     }
   }
 
+  events.push(...lengthEvents);
+
   const device: Mesg | undefined = (messages.deviceInfoMesgs ?? []).find((d: Mesg) =>
     d.deviceIndex === "creator" || d.deviceIndex === 0
   );
@@ -255,4 +266,12 @@ export function fitToDump(bytes: Uint8Array, uuid: string, exportedAt: Date): He
     samples,
     route,
   };
+}
+
+/** FIT swim_stroke → the names lapsOf() reports (im and its variants count as mixed). */
+function fitStroke(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  if (["freestyle", "backstroke", "breaststroke", "butterfly", "drill"].includes(v)) return v;
+  if (["mixed", "im", "imByRound", "rimo"].includes(v)) return "mixed";
+  return null;
 }

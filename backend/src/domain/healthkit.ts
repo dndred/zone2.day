@@ -56,7 +56,7 @@ export const HealthKitDump = z.object({
 export type HealthKitDump = z.infer<typeof HealthKitDump>;
 
 /** Bump when summarize() changes; the recompute job rebuilds older summaries from stored dumps. */
-export const SUMMARY_VERSION = 9;
+export const SUMMARY_VERSION = 10;
 
 type Sport = "run" | "bike" | "swim" | "strength" | "other";
 type Kind = "training" | "recovery";
@@ -177,6 +177,28 @@ export interface Lap {
   powerAvg: number | null;
   /** Run spm / bike rpm, by moving time. */
   cadence: number | null;
+  /** Swim only: strokes inside the lap (pool lengths and sets). */
+  strokes?: number | null;
+  /** Swim length (`lap`) only: freestyle | backstroke | breaststroke | butterfly | mixed | kickboard | drill. */
+  stroke?: string | null;
+  /** Swim length (`lap`) only: seconds + strokes (the watch's own score when it wrote one). */
+  swolf?: number | null;
+}
+
+/** HKSwimmingStrokeStyle → name (0 = unknown). FIT imports write the name itself. */
+const STROKE_STYLES: Record<number, string> = {
+  1: "mixed",
+  2: "freestyle",
+  3: "backstroke",
+  4: "breaststroke",
+  5: "butterfly",
+  6: "kickboard",
+};
+
+function strokeStyle(meta: Record<string, unknown>): string | null {
+  const v = meta.HKSwimmingStrokeStyle;
+  if (typeof v === "number") return STROKE_STYLES[v] ?? null;
+  return typeof v === "string" && v ? v : null;
 }
 
 const offset = (dump: HealthKitDump, iso: string) =>
@@ -308,7 +330,7 @@ function clip(spans: Span[], from: number, to: number): Span[] {
     .filter(([s, e]) => e > s);
 }
 
-type RawLap = { kind: string; s: number; e: number };
+type RawLap = { kind: string; s: number; e: number; meta?: Record<string, unknown> };
 
 /**
  * Watch segments come as parallel chains: Apple writes auto-splits per km AND per mile, both as
@@ -330,7 +352,9 @@ function segmentChains(xs: RawLap[]): RawLap[][] {
  *   [start, m1], [m1, m2], …, [mN, end]. Usually the most meaningful split (e.g. a parkrun
  *   inside a long session with warm-up and cool-down).
  * - `split_km` — automatic km splits (mile splits are dropped as a duplicate when km exist).
- * - `segment` — other segment chains (custom workout steps), `lap` — lap events (e.g. pool).
+ * - `segment` — other segment chains: custom workout steps, FIT laps, and in a pool swim the sets
+ *   the watch splits by rests at the wall (not the plan's steps).
+ * - `lap` — lap events; in a pool swim one per length, with strokes, stroke style and SWOLF.
  * No matching to the plan: the coach compares these with the planned structure side by side.
  */
 export function lapsOf(dump: HealthKitDump): Lap[] {
@@ -343,7 +367,14 @@ export function lapsOf(dump: HealthKitDump): Lap[] {
   const distIn = (x: RawLap) => (dump.samples[dk] ? sumIn(dump, dk, x.s, x.e) : null);
 
   const evs = dump.workout.events
-    .map((e) => ({ kind: e.type, s: offset(dump, e.start), e: offset(dump, e.end) }));
+    .map((e) => ({
+      kind: e.type,
+      s: offset(dump, e.start),
+      e: offset(dump, e.end),
+      meta: e.metadata as Record<string, unknown>,
+    }));
+  const swim = sport === "swim";
+  const hasStrokes = swim && !!dump.samples.swimmingStrokeCount;
   const markers = [
     ...new Set(
       evs.filter((x) => x.kind === "marker" && x.s > 1 && x.s < elapsed - 1).map((x) => x.s),
@@ -397,8 +428,21 @@ export function lapsOf(dump: HealthKitDump): Lap[] {
         speedKmh: sport === "bike" && km && mv ? round(km / (mv / 3600), 1) : null,
         powerAvg: round(meanIn(dump, powerKey, x.s, x.e)),
         cadence: cadenceAvg(dump, sport, { sec: mv, spans }),
+        ...(swim ? swimLap(x) : {}),
       };
     });
+
+  function swimLap(x: RawLap) {
+    const strokes = hasStrokes ? Math.round(sumIn(dump, "swimmingStrokeCount", x.s, x.e)) : null;
+    if (x.kind !== "lap") return { strokes };
+    const watch = x.meta?.HKSWOLFScore;
+    const swolf = typeof watch === "number"
+      ? Math.round(watch)
+      : strokes !== null
+      ? Math.round(x.e - x.s + strokes)
+      : null;
+    return { strokes, stroke: strokeStyle(x.meta ?? {}), swolf };
+  }
 }
 
 export function summarize(dump: HealthKitDump) {
