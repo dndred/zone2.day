@@ -63,15 +63,46 @@ ios-gen:
 ios-build: ios-gen
     cd ios && xcodebuild -project Zone2.xcodeproj -scheme Zone2 -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData build CODE_SIGNING_ALLOWED=NO -quiet
 
-# Run in the booted simulator (iOS 26+) on demo data: just ios-sim; lang=en for English
-ios-sim lang="ru": ios-build
+# Run in the booted simulator (iOS 26+) on demo data: just ios-sim; `just ios-sim en` for English;
+# `just ios-sim ru build/demo/prod-feed.json` for the last copy of prod data (see ios-sim-prod)
+ios-sim lang="ru" feed="fixtures/sync/demo-feed.json": ios-build
     #!/usr/bin/env zsh
     set -euo pipefail
+    [[ -f "{{feed}}" ]] || { echo "no feed: {{feed}}"; exit 1; }
     udid=$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1)
     [[ -n $udid ]] || { echo "no booted simulator"; exit 1; }
     xcrun simctl install $udid build/DerivedData/Build/Products/Debug-iphonesimulator/Zone2.app
     xcrun simctl launch --terminate-running-process $udid day.zone2.app \
-      -DemoFeed $PWD/fixtures/sync/demo-feed.json -AppleLanguages "({{lang}})"
+      -DemoFeed "${${:-{{feed}}}:A}" -AppleLanguages "({{lang}})"
+
+# Fresh copy of prod data → build/demo/prod-feed.json (gitignored). Prod is only read (pg_dump);
+# the dump is restored into the zone2_demo database of the test container and turned into
+# the snapshot sync page by the server's own code. `just demo-feed-prod <uuid>` picks a user (default: most activities).
+demo-feed-prod user="": test-db-up
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    tmp=$(mktemp -d); trap 'rm -rf $tmp' EXIT
+    pw=$(tools/secret.sh prod db_password)
+    supabase db dump --remote={{prod_ref}} -p "$pw" -s zone2 -f $tmp/schema.sql >/dev/null 2>&1
+    supabase db dump --remote={{prod_ref}} -p "$pw" -s zone2 --data-only --use-copy -f $tmp/data.sql >/dev/null 2>&1
+    docker cp $tmp/schema.sql zone2-test-pg:/tmp/demo-schema.sql
+    docker cp $tmp/data.sql zone2-test-pg:/tmp/demo-data.sql
+    p() { docker exec -i zone2-test-pg psql -q -U postgres "$@" }
+    p -c "drop database if exists zone2_demo" -c "create database zone2_demo" 2>/dev/null
+    for r in authenticated anon service_role; do
+      p -d zone2_demo -c "do \$\$ begin create role $r; exception when duplicate_object then null; end \$\$" 2>/dev/null
+    done
+    # Supabase is Postgres 17, the container 13: version-only settings (transaction_timeout) fail harmlessly.
+    p -d zone2_demo -f /tmp/demo-schema.sql >/dev/null 2>&1
+    print 'set session_replication_role = replica;\n\\i /tmp/demo-data.sql' | p -d zone2_demo >/dev/null 2>&1
+    docker exec zone2-test-pg rm -f /tmp/demo-schema.sql /tmp/demo-data.sql
+    mkdir -p build/demo
+    ZONE2_ENV=local ZONE2_DATABASE_URL=postgres://postgres:postgres@localhost:54329/zone2_demo \
+      deno run -A scripts/demo_feed.ts build/demo/prod-feed.json {{user}}
+
+# Run in the booted simulator on a fresh copy of prod data (demo mode: in memory, no network)
+ios-sim-prod lang="ru": demo-feed-prod
+    just ios-sim {{lang}} build/demo/prod-feed.json
 
 # Build, sign (Personal Team), install and launch on the connected iPhone. Also renews the 7-day profile.
 # just ios-device → zone2 (prod); just ios-device stg → zone2 stg (staging). Two copies side by side.
@@ -106,7 +137,7 @@ ios-pull path dest="build/device" app="prod":
 
 # Type check everything TypeScript
 check:
-    deno check backend/src backend/tests edge-proxy/src supabase/functions/api/index.ts
+    deno check backend/src backend/tests edge-proxy/src supabase/functions/api/index.ts scripts/demo_feed.ts
 
 # Lint and verify formatting
 lint:
