@@ -250,15 +250,22 @@ Deno.test("full flow: sign-up → tokens → MCP ping → refresh rotation → s
     assertEquals((await mcp(app, raced.access_token, "tools/list")).status, 200);
     assertEquals((await mcp(app, refreshed.access_token, "tools/list")).status, 200);
 
-    // Later, the old token again = reuse: the whole family is revoked.
+    // The app goes on with one of the raced pairs; later the old token again = reuse after its
+    // successor was used: the whole family is revoked.
     clock.offsetMs = 2 * 60 * 1000;
+    const next = await (await tokenRequest(app, {
+      grant_type: "refresh_token",
+      refresh_token: raced.refresh_token,
+      client_id: client.client_id,
+    })).json();
+    assertExists(next.access_token);
     const reuse = await tokenRequest(app, {
       grant_type: "refresh_token",
       refresh_token: tokens.refresh_token,
       client_id: client.client_id,
     });
     assertEquals((await reuse.json()).error, "invalid_grant");
-    assertEquals((await mcp(app, refreshed.access_token, "tools/list")).status, 401);
+    assertEquals((await mcp(app, next.access_token, "tools/list")).status, 401);
 
     // Sign in again with the same passkey (new authorization).
     const p2 = await pkce();
@@ -273,6 +280,60 @@ Deno.test("full flow: sign-up → tokens → MCP ping → refresh rotation → s
       code_verifier: p2.verifier,
     })).json();
     assertEquals((await mcp(app, tokens2.access_token, "tools/list")).status, 200);
+  } finally {
+    await db.drop();
+  }
+});
+
+Deno.test("lost refresh response: the previous token still works until its successor is used", async () => {
+  const { app, db } = await setup();
+  try {
+    const client = await registerClient(app);
+    await addInvite(db, "LOST-0001");
+    const p = await pkce();
+    const request = await authorize(app, client.client_id, p.challenge);
+    const signup = await signUp(app, request, "LOST-0001", "cred-1");
+    const code = new URL(signup.body.redirect).searchParams.get("code")!;
+    const tokens = await (await tokenRequest(app, {
+      grant_type: "authorization_code",
+      code,
+      client_id: client.client_id,
+      code_verifier: p.verifier,
+    })).json();
+    const refresh = (token: string) =>
+      tokenRequest(app, {
+        grant_type: "refresh_token",
+        refresh_token: token,
+        client_id: client.client_id,
+      });
+
+    // The server rotates, but the app (suspended in a background wake) never gets the answer.
+    const lost = await (await refresh(tokens.refresh_token)).json();
+
+    // 16 minutes later it refreshes with the token it still holds: a new pair, not a sign-out.
+    clock.offsetMs = 16 * 60 * 1000;
+    const recovered = await refresh(tokens.refresh_token);
+    assertEquals(recovered.status, 200);
+    const fresh = await recovered.json();
+    assertEquals((await mcp(app, fresh.access_token, "tools/list")).status, 200);
+    // The pair that never arrived is gone.
+    assertEquals((await mcp(app, lost.access_token, "tools/list")).status, 401);
+    assertEquals((await (await refresh(lost.refresh_token)).json()).error, "invalid_grant");
+    assertEquals((await mcp(app, fresh.access_token, "tools/list")).status, 200);
+
+    // Lost again: still recoverable while nothing issued for the old token was used.
+    clock.offsetMs = 30 * 60 * 1000;
+    const again = await (await refresh(tokens.refresh_token)).json();
+    assertExists(again.access_token);
+    assertEquals((await mcp(app, fresh.access_token, "tools/list")).status, 401);
+
+    // The app uses what it got; the old token after that is theft: family revoked.
+    clock.offsetMs = 90 * 60 * 1000;
+    const used = await (await refresh(again.refresh_token)).json();
+    assertExists(used.access_token);
+    clock.offsetMs = 120 * 60 * 1000;
+    assertEquals((await (await refresh(tokens.refresh_token)).json()).error, "invalid_grant");
+    assertEquals((await mcp(app, used.access_token, "tools/list")).status, 401);
   } finally {
     await db.drop();
   }

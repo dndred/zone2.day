@@ -24,12 +24,20 @@ final class KeychainTokenStore: TokenStore, @unchecked Sendable {
         return try? JSONDecoder().decode(TokenSet.self, from: data)
     }
 
+    /// Replaces the item in place: delete-then-add would lose the tokens if the app is suspended
+    /// or killed between the two calls (background wakes) — a sign-out with nothing on the server.
     func save(_ tokens: TokenSet?) {
-        SecItemDelete(query as CFDictionary)
-        guard let tokens, let data = try? JSONEncoder().encode(tokens) else { return }
-        var q = query
-        q[kSecValueData as String] = data
-        q[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        SecItemAdd(q as CFDictionary, nil)
+        guard let tokens else {
+            SecItemDelete(query as CFDictionary)
+            return
+        }
+        guard let data = try? JSONEncoder().encode(tokens) else { return }
+        let attrs: [String: Any] = [kSecValueData as String: data,
+                                    kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly]
+        if SecItemUpdate(query as CFDictionary, attrs as CFDictionary) == errSecItemNotFound {
+            var q = query
+            q.merge(attrs) { $1 }
+            SecItemAdd(q as CFDictionary, nil)
+        }
     }
 }

@@ -24,6 +24,11 @@ export const REFRESH_TOKEN_TTL_SEC = 90 * 24 * 60 * 60;
  * A refresh token presented again shortly after it was rotated, while its family is still alive,
  * is a client race (two requests refreshing at once), not theft: answer with a fresh pair instead
  * of revoking the family — which would sign the athlete out of the app.
+ *
+ * Later than that, the previous refresh token is still honoured if nothing issued for it was ever
+ * used: the response was lost (iOS suspended the app mid-request in a background wake) and the
+ * client still holds the old token. The unused pair is dropped and a new one issued. Reuse after
+ * the successor was used is theft (or a confused client): the family is revoked.
  */
 export const REFRESH_REUSE_GRACE_SEC = 60;
 const CODE_TTL_SEC = 10 * 60;
@@ -382,6 +387,7 @@ export function authRoutes(config: Config, deps: AuthDeps): Hono<AppEnv> {
       scopes: string[];
       resource: string | null;
       familyId: string;
+      parentHash?: string | null;
     },
   ) => {
     const now = deps.now().getTime();
@@ -457,6 +463,27 @@ export function authRoutes(config: Config, deps: AuthDeps): Hono<AppEnv> {
             scopes: rt.scopes,
             resource: rt.resource,
             familyId: rt.familyId,
+            parentHash: hash,
+          });
+        }
+        const children = await store.refreshChildren(hash);
+        if (
+          age > REFRESH_REUSE_GRACE_SEC * 1000 && children.count > 0 && !children.anyRevoked &&
+          rt.expiresAt.getTime() > deps.now().getTime()
+        ) {
+          await store.dropChildren(hash);
+          log("info", "oauth.refresh_recovered", {
+            clientId: client.clientId,
+            userId: rt.userId,
+            lostSec: Math.round(age / 1000),
+          });
+          return issueTokens(c, {
+            clientId: client.clientId,
+            userId: rt.userId,
+            scopes: rt.scopes,
+            resource: rt.resource,
+            familyId: rt.familyId,
+            parentHash: hash,
           });
         }
         await store.revokeFamily(rt.familyId);
@@ -481,6 +508,7 @@ export function authRoutes(config: Config, deps: AuthDeps): Hono<AppEnv> {
         scopes,
         resource: rt.resource,
         familyId: rt.familyId,
+        parentHash: hash,
       });
     }
 

@@ -54,6 +54,8 @@ export interface StoredToken {
   familyId: string;
   expiresAt: Date;
   revokedAt: Date | null;
+  /** Hash of the refresh token this one was issued for (null for a fresh authorization). */
+  parentHash?: string | null;
 }
 
 /** All SQL for accounts, passkeys and OAuth. Everything is keyed by hashes, never raw secrets. */
@@ -196,9 +198,9 @@ export class AuthStore {
   async saveToken(tokenHash: string, t: Omit<StoredToken, "revokedAt">): Promise<void> {
     await this.sql`
       insert into zone2.oauth_tokens
-        (token_hash, kind, client_id, user_id, scopes, resource, family_id, expires_at)
+        (token_hash, kind, client_id, user_id, scopes, resource, family_id, expires_at, parent_hash)
       values (${tokenHash}, ${t.kind}, ${t.clientId}, ${t.userId}, ${t.scopes}, ${t.resource},
-              ${t.familyId}, ${t.expiresAt})`;
+              ${t.familyId}, ${t.expiresAt}, ${t.parentHash ?? null})`;
   }
 
   async findToken(tokenHash: string): Promise<StoredToken | null> {
@@ -232,6 +234,25 @@ export class AuthStore {
       select exists(select 1 from zone2.oauth_tokens where family_id = ${familyId}
         and kind = 'refresh' and revoked_at is null and expires_at > ${now}) as active`;
     return Boolean(row?.active);
+  }
+
+  /**
+   * Refresh tokens issued for `parentHash`, and whether any of them was already used or revoked.
+   * None used = the client never received (or never saved) what it was given.
+   */
+  async refreshChildren(parentHash: string): Promise<{ count: number; anyRevoked: boolean }> {
+    const [row] = await this.sql`
+      select count(*)::int as count, coalesce(bool_or(revoked_at is not null), false) as any_revoked
+      from zone2.oauth_tokens where parent_hash = ${parentHash} and kind = 'refresh'`;
+    return { count: row?.count ?? 0, anyRevoked: Boolean(row?.any_revoked) };
+  }
+
+  /**
+   * Drops everything issued for `parentHash` (the pair(s) the client never received). Deleted, not
+   * revoked: a revoked child reads as "used", and the next lost response would revoke the family.
+   */
+  async dropChildren(parentHash: string): Promise<void> {
+    await this.sql`delete from zone2.oauth_tokens where parent_hash = ${parentHash}`;
   }
 
   async revokeFamily(familyId: string): Promise<void> {
