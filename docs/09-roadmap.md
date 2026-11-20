@@ -24,8 +24,8 @@
 | # | Риск | Как проверяем | Критерий успеха | План Б |
 |---|---|---|---|---|
 | **S1** ✅ ([отчёт](spikes/S1-healthkit-workoutkit.md)) | HealthKit и WorkoutKit на бесплатной Personal Team | Мини-приложение на телефоне: разрешения HealthKit, чтение последней тренировки, `WorkoutScheduler.schedule` для бега с HR-алертом, вело и **бассейна**; требует ли `schedule(_:at:)` час или хватает даты | Тренировки видны в «Тренировке» на Ultra 2, HealthKit читается | Попросить друга добавить в его команду (Developer) |
-| **S2** ✅ web / ⏳ mobile | claude.ai находит OAuth через прокси на `api.zone2.day` + Edge Function | Минимальный AS (DCR, authorize с passkey, token) + MCP с инструментом `ping`; подключить коннектор в claude.ai (web и mobile) | `ping` вызывается из claude.ai | Supabase Auth OAuth server или перенос API на Cloud Run |
-| **S3** | Дамп HealthKit → FIT | Экспорт реальной пробежки, `@garmin/fitsdk` encode → decode → сверка; загрузка FIT в intervals.icu как внешний валидатор | Файл валиден, ряды и круги совпадают | Своя минимальная реализация FIT-энкодера |
+| **S2** ✅ web (mobile закрыт без проверки — мобильным AI атлет почти не пользуется) | claude.ai находит OAuth через прокси на `api.zone2.day` + Edge Function | Минимальный AS (DCR, authorize с passkey, token) + MCP с инструментом `ping`; подключить коннектор в claude.ai (web и mobile) | `ping` вызывается из claude.ai | Supabase Auth OAuth server или перенос API на Cloud Run |
+| **S3** ✅ ([отчёт](spikes/S3-dump-to-fit.md)); ⏳ 👤 внешняя проверка в intervals.icu | Дамп HealthKit → FIT | Экспорт реальной пробежки, `@garmin/fitsdk` encode → decode → сверка; загрузка FIT в intervals.icu как внешний валидатор | Файл валиден, ряды и круги совпадают | Своя минимальная реализация FIT-энкодера |
 | **S4** ✅ с оговоркой: медиана 0,5 ч, но бывают дневные дыры по 4–10 ч и пусто ночью ([отчёт](spikes/S4-background-wakes.md)) | Частота фоновых пробуждений без push | Debug-сборка логирует каждое пробуждение (BGAppRefresh, HK observer) на сервер; 3–5 дней обычной жизни | Медианный интервал между пробуждениями днём ≤ 1–2 ч | Ускорить переход на платный аккаунт (push) |
 | **S5** ⏳ ключ работает, ждём первый заезд MyWhoosh | intervals.icu отдаёт оригинальный FIT заездов MyWhoosh | Атлет подключает MyWhoosh → intervals.icu; скрипт с API-ключом скачивает файл | Оригинальный FIT с мощностью и каденсом | Strava-стримы + генерация FIT |
 | **S6** 👤 | Своё приложение на часах: `HKWorkoutSession` в фоне 2+ часа, haptics в фоне, Action Button | Минимальный watch-раннер с сторожем-заглушкой | Сессия живёт 2 ч, сигналы приходят при погашенном экране | Пересмотреть ф.2 (сторож только в пресетах и т.п.) |
@@ -58,14 +58,16 @@ S6 можно провести в начале фазы 2, остальные �
 - [x] Силовые: `get_strength_log`, `get_exercise_history` (e1RM, план vs факт, перерывы), `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion); `POST /v1/strength-sessions`; сессии в ленте синка.
 - [x] Аналитика (D44): `get_load` (объём + sRPE×мин + HR-нагрузка), `get_zone_distribution` (зоны при чтении, поляризация), `get_efficiency_trend` (темп/мощность при пульсе по ровным участкам), GAP и декаплинг в `get_activity`.
 - [x] Здоровье: `get_daily_metrics` (пульс покоя, HRV, сон, дыхание, температура запястья, вес, VO2max против базы 28 дней, флаги), `recovery` в `get_context`.
-- [ ] Экспорт `.zwo`, интеграции, debug-инструменты.
+- [x] Экспорт `.zwo`: `export_workout` (ссылка на 24 ч + XML, FTP MyWhoosh, рампы/ERG/IntervalsT, D46).
+- [ ] Интеграции, debug-инструменты.
 - [ ] Descriptions по правилам; ревью descriptions «глазами модели» в живом чате.
 
 ### 1.3 Ingest и интеграции 🛠
 - [x] HealthKit dump (контракт `fixtures/healthkit/contract-v1.json`) → сводка, круги, погода, сопоставление с планом, дубли (копии Strava), оригинал в Storage.
 - [x] Удаления из Health → мягкое удаление.
 - [x] GAP, гистограммы для зон, ровные участки, декаплинг (`summary.analysis`, D44).
-- [ ] Обувь по умолчанию, генерация FIT (S3).
+- [ ] Обувь по умолчанию.
+- [x] Генерация FIT из дампа (`dumpToFit`, S3, D47). Осталось: отдавать через `get_activity_file kind=fit` / `get_activity_fit`.
 - [ ] FIT (MyWhoosh, пульс внутри) → activity целиком → запись в Health приложением; склейка с записью часов — запасной путь.
 - [ ] intervals.icu: хранение ключа (шифрование), job `intervals-poll` (pg_cron), дедупликация, `health_export`.
 

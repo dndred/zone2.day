@@ -23,6 +23,7 @@ import { registerActivityInputTools } from "./tools/activity_input.ts";
 import { registerAnalyticsTools } from "./tools/analytics.ts";
 import { registerContextTool } from "./tools/context.ts";
 import { registerDeliveryTools } from "./tools/delivery.ts";
+import { registerExportTools } from "./tools/export.ts";
 import { registerHealthTools } from "./tools/health.ts";
 import { registerPing } from "./tools/ping.ts";
 import { registerPlanTools } from "./tools/plan.ts";
@@ -48,6 +49,7 @@ You act as their coach: plans you write here reach their phone and Apple Watch a
 Human-readable fields you write (titles, goals, notes) must be in the athlete's language. The app renders every text field except titles as Markdown (goal, notes, coachNotes, athleteNotes, week header/review, journal, event notes, notebook): use short paragraphs and bullet lists, **bold** for key numbers, headings only in long texts; no tables, HTML or code blocks.
 Start every conversation with get_context. Every write is logged with your \`why\` and can be undone with revert_change.
 Completed workouts (Apple Health, FIT files, manual): list_activities / get_activity / get_activity_streams. Add a FIT (e.g. MyWhoosh) via create_upload_link → import_activity_file; a workout without a file via create_activity. Load, time in zones and aerobic efficiency (pace/power at the same HR): get_load / get_zone_distribution / get_efficiency_trend — read them before planning a week. Recovery (resting HR, HRV, sleep, wrist temperature): get_daily_metrics; get_context shows the last 3 days.
+Trainer rides (execution 'mywhoosh'): export_workout gives the .zwo file for MyWhoosh.
 Gym: the athlete logs sets in the app; read get_strength_log, and get_exercise_history before choosing weights.`;
 
 export function buildMcpServer(ctx: McpContext): McpServer {
@@ -70,6 +72,7 @@ export function buildMcpServer(ctx: McpContext): McpServer {
   registerAnalyticsTools(server, ctx);
   registerHealthTools(server, ctx);
   registerDeliveryTools(server, ctx);
+  registerExportTools(server, ctx);
   registerStrengthTools(server, ctx);
   registerPing(server, ctx);
   return server;

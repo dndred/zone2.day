@@ -93,9 +93,11 @@ export function fitToDump(bytes: Uint8Array, uuid: string, exportedAt: Date): He
 
   const start: Date = session?.startTime ?? records[0].timestamp;
   const lastRecord: Date = records.length ? records[records.length - 1].timestamp : start;
-  const elapsed: number = session?.totalElapsedTime ??
+  // Wall clock (start → end) vs timer time: HealthKit's duration excludes pauses, like FIT timer.
+  const wall: number = session?.totalElapsedTime ??
     (lastRecord.getTime() - start.getTime()) / 1000;
-  const end = new Date(start.getTime() + elapsed * 1000);
+  const elapsed: number = Math.min(session?.totalTimerTime ?? wall, wall);
+  const end = new Date(start.getTime() + wall * 1000);
   const sport: string = session?.sport ?? messages.sportMesgs?.[0]?.sport ?? "generic";
   const sub: string = session?.subSport ?? messages.sportMesgs?.[0]?.subSport ?? "generic";
   const type = activityType(sport, sub);
@@ -115,7 +117,7 @@ export function fitToDump(bytes: Uint8Array, uuid: string, exportedAt: Date): He
   let prev: Mesg | null = null;
   for (const r of records) {
     const at = t(r.timestamp);
-    if (at < 0 || at > elapsed + 1) continue;
+    if (at < 0 || at > wall + 1) continue;
     if (typeof r.heartRate === "number" && r.heartRate > 0) {
       push("heartRate", "count/min", [at, at, r.heartRate]);
     }
@@ -216,7 +218,7 @@ export function fitToDump(bytes: Uint8Array, uuid: string, exportedAt: Date): He
       }
       running = true;
     } else if (e.eventType === "stop" || e.eventType === "stopAll") {
-      if (running && t(e.timestamp) < elapsed - 1) {
+      if (running && t(e.timestamp) < wall - 1) {
         events.push({
           type: "pause",
           start: iso(e.timestamp),

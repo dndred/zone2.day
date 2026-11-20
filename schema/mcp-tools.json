@@ -277,6 +277,43 @@
       }
     },
     {
+      "name": "export_workout",
+      "title": "Export workout file",
+      "description": "Planned bike workout → .zwo file for MyWhoosh (ERG). Call when the athlete rides a trainer session (execution 'mywhoosh') and asks for the file; give them the url (valid 24 h) — they AirDrop it to the Mac and import it in MyWhoosh's workout builder. Only for workouts with power targets; steps must have time durations. .zwo stores power as a fraction of FTP, so the file is built against the FTP set in MyWhoosh: bike.mywhooshFtp from the profile, else bike.ftp; if neither is set, ask the athlete which FTP MyWhoosh shows and pass it as ftpW (save it with update_profile bike.mywhooshFtp so you need not ask again). Warmup/cooldown power ranges become ramps, other steps hold the middle of the range, steps without power are free ride. Read-only for the plan; `xml` is the file content for clients that save files themselves.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "plannedWorkoutId": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "format": {
+            "default": "zwo",
+            "type": "string",
+            "enum": [
+              "zwo"
+            ]
+          },
+          "ftpW": {
+            "description": "FTP set in MyWhoosh, W. Only when the profile has neither bike.mywhooshFtp nor bike.ftp, or the athlete says MyWhoosh shows a different one",
+            "type": "integer",
+            "minimum": 50,
+            "maximum": 600
+          }
+        },
+        "required": [
+          "plannedWorkoutId"
+        ]
+      }
+    },
+    {
       "name": "get_activity",
       "title": "Get activity",
       "description": "Full summary of one activity: moving/elapsed time, distance, pace and cadence (both by moving time), HR, running dynamics (power, stride, vertical oscillation, ground contact), cycling power/cadence, swim pool length/strokes, weather (°C), analysis (GAP, time in zones, steady stretches, aerobic decoupling), laps/segments (distance, moving pace/speed, HR, power, cadence; pool lengths with strokes, stroke style, SWOLF), the matched planned workout with targets in absolute units — compare plan and laps yourself, nothing is matched automatically — files. For curves use get_activity_streams.",

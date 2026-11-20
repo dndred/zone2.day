@@ -154,7 +154,7 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless; проток�
 ### 3.10 Экспорт и интеграции
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
-| `export_workout` | R | `plannedWorkoutId`, `format` (`zwo`; позже `fit`) | Подписанная ссылка на файл + предупреждение, если `mywhooshFtp` ≠ `bike.ftp`. `.zwo` — **только для тренировок с мощностными таргетами** |
+| `export_workout` | R | `plannedWorkoutId`, `format` (`zwo`; позже `fit`), `ftpW?` (FTP в MyWhoosh) | ✓ Подписанная ссылка на файл (24 ч) + XML в ответе. Доли мощности считаются от FTP MyWhoosh: `ftpW` → `bike.mywhooshFtp` → `bike.ftp`; если FTP нет, ошибка `ftp_required` с подсказкой спросить атлета. Предупреждение, если FTP файла ≠ `bike.ftp`. `.zwo` — **только для вело с мощностными таргетами** и шагами по времени; разминка/заминка — рампы, остальное — середина диапазона, без мощности — свободная езда (D46) |
 | `get_integrations` | R | — | Статус intervals.icu (последний импорт, ошибки); позже Strava |
 | `connect_integration` | W | `kind` (`intervals_icu`), `athleteId`, `apiKey` | Подключить интеграцию: ключ хранится у пользователя в `integrations` (шифрование на уровне хранения). Альтернатива — поле в приложении (Profile → Connections) |
 | `run_import` | W | `source` (`intervals_icu`), `since?` | Принудительный импорт сейчас |
