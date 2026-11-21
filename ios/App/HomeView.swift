@@ -2,11 +2,10 @@ import SwiftUI
 import Zone2Kit
 import Zone2UI
 
-/// Profile tab: account, Apple Health, plan sync, server; spikes under Debug in debug builds.
+/// Profile tab: account, Apple Health, races & notebook, watch delivery.
 struct HomeView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var health: HealthSync
-    @State private var server: String = "…"
     @State private var status: SyncStatus?
     @State private var watchDelivery = AppEnvironment.watchDelivery()
 
@@ -41,9 +40,6 @@ struct HomeView: View {
                             Label("Connect Apple Health", systemImage: "heart.text.square")
                         }
                     } else {
-                        LabeledContent("Uploaded", value: "\(health.state.uploaded)")
-                        LabeledContent("Uploading (background)", value: "\(health.uploadingCount + health.exportedCount)")
-                        LabeledContent("Waiting for export", value: "\(health.queuedCount)")
                         if let last = health.state.lastSync {
                             LabeledContent("Last sync", value: last.formatted(date: .abbreviated, time: .shortened))
                         }
@@ -81,35 +77,7 @@ struct HomeView: View {
                     }
                 }
 
-                Section("Plan sync") {
-                    if let status {
-                        LabeledContent("Records on this iPhone", value: "\(status.records)" + (model.storeInMemory ? " (in memory)" : ""))
-                        if let at = status.lastSyncAt {
-                            LabeledContent("Last pull", value: at.formatted(date: .abbreviated, time: .shortened))
-                        }
-                        if let err = status.lastError {
-                            Text(err).font(.caption).foregroundStyle(.orange)
-                        }
-                        LabeledContent("Cursor", value: status.cursor ?? "—").font(.caption)
-                        LabeledContent("Outbox", value: "\(status.outboxPending)" + (status.outboxError.map { " · \($0)" } ?? ""))
-                            .font(.caption)
-                        if let at = status.watchAt {
-                            LabeledContent("Watch", value: status.watchError ?? "\(status.onWatch.count) · " + at.formatted(date: .omitted, time: .shortened))
-                                .font(.caption)
-                        }
-                    }
-                    Button("Full resync", role: .destructive) {
-                        Task {
-                            try? model.store.reset()
-                            await model.pull()
-                        }
-                    }
-                    .disabled(!model.signedIn)
-                }
-
                 Section {
-                    LabeledContent(model.api.baseURL.host() ?? "", value: server)
-                        .font(.callout)
                     Toggle("Workouts on the watch", isOn: Binding(
                         get: { watchDelivery },
                         set: { on in
@@ -118,27 +86,20 @@ struct HomeView: View {
                             Task { await model.pull() }
                         }
                     ))
+                    if let err = syncError {
+                        Text(err).font(.caption).foregroundStyle(.orange)
+                    }
                 } header: {
-                    Text("Server")
+                    Text("Apple Watch")
                 } footer: {
                     Text("Only one copy of the app should put the plan on the watch.")
                 }
-
-                #if DEBUG
-                Section("Debug") {
-                    NavigationLink("S1 · HealthKit & WorkoutKit") { S1SpikeView() }
-                    NavigationLink("S4 · Background wakes") { S4WakeView() }
-                    NavigationLink("S9 · Watch heart rate") { S9MirrorView() }
-                }
-                #endif
             }
             .navigationTitle("zone2.day")
             .refreshable {
                 await model.refreshAccount()
                 await model.sync()
-                await loadServer()
             }
-            .task { await loadServer() }
             .task {
                 do {
                     for try await s in model.store.observeStatus() { status = s }
@@ -147,12 +108,9 @@ struct HomeView: View {
         }
     }
 
-    private func loadServer() async {
-        do {
-            let h = try await model.api.health()
-            server = "\(h.env) · \(h.version)"
-        } catch {
-            server = "unavailable"
-        }
+    /// Plan pull, outbox or watch delivery error — the only sync detail worth showing outside Debug.
+    private var syncError: String? {
+        guard let status else { return nil }
+        return status.lastError ?? status.outboxError ?? status.watchError
     }
 }

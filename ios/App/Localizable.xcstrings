@@ -41,46 +41,6 @@
         }
       }
     },
-    "Cursor": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Курсор"
-          }
-        }
-      }
-    },
-    "Debug": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Отладка"
-          }
-        }
-      }
-    },
-    "Full resync": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Полная пересинхронизация"
-          }
-        }
-      }
-    },
-    "Last pull": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Последнее обновление"
-          }
-        }
-      }
-    },
     "Last sync": {
       "localizations": {
         "ru": {
@@ -111,19 +71,6 @@
         }
       }
     },
-    "Outbox": {
-      "shouldTranslate": false
-    },
-    "Plan sync": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Синхронизация плана"
-          }
-        }
-      }
-    },
     "Profile": {
       "localizations": {
         "ru": {
@@ -140,32 +87,6 @@
           "stringUnit": {
             "state": "translated",
             "value": "Старты"
-          }
-        }
-      }
-    },
-    "Records on this iPhone": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Записей на iPhone"
-          }
-        }
-      }
-    },
-    "S1 · HealthKit & WorkoutKit": {
-      "shouldTranslate": false
-    },
-    "S4 · Background wakes": {
-      "shouldTranslate": false
-    },
-    "Server": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Сервер"
           }
         }
       }
@@ -230,46 +151,6 @@
         }
       }
     },
-    "Uploaded": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Загружено"
-          }
-        }
-      }
-    },
-    "Uploading (background)": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Загружается (в фоне)"
-          }
-        }
-      }
-    },
-    "Waiting for export": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Ждут выгрузки"
-          }
-        }
-      }
-    },
-    "Watch": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Часы"
-          }
-        }
-      }
-    },
     "Workouts are uploaded with full detail (heart rate, power, route). Export from Apple Health needs the app open and the phone unlocked; uploads then continue in the background. First sync covers your whole history, newest first.": {
       "localizations": {
         "ru": {
@@ -306,6 +187,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Войти"
+          }
+        }
+      }
+    },
+    "Apple Watch": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple Watch"
           }
         }
       }
