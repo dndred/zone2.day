@@ -223,6 +223,7 @@ private func difference(_ a: Data, _ b: Data) -> Double? {
     @Test func screens() async throws {
         try await assertScreen(NavigationStack { PlannedWorkoutView(item: Fixture.item("w-bike")) }, "planned-workout", height: 1500)
         try await assertScreen(NavigationStack { ActivityView(activity: Fixture.activity("a-park")) }, "activity", height: 2600)
+        try await assertScreen(NavigationStack { GymView(workout: Fixture.item("w-gym").workout) }, "gym", height: 1600)
         // While the curves load, placeholders hold the blocks' places: the sections below the
         // chart sit where they will be once loaded (compare with screen-activity).
         try await assertScreen(NavigationStack { ActivityView(activity: Fixture.activity("a-park")) }, "activity-loading",

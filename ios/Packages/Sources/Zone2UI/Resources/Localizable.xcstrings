@@ -1496,6 +1496,56 @@
           }
         }
       }
+    },
+    "Finish the workout?": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить тренировку?"
+          }
+        }
+      }
+    },
+    "Finish": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Завершить"
+          }
+        }
+      }
+    },
+    "%lld sets not marked. They stay not done.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Не отмечено подходов: %lld. Они останутся невыполненными."
+          }
+        }
+      }
+    },
+    "Volume %@ %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Объём %@ %@"
+          }
+        }
+      }
+    },
+    "Note: how it went, what to change": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Заметка: как прошло, что поменять"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
