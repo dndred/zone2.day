@@ -48,6 +48,14 @@ private enum Fixture {
 
     static let context = PlanContext(store: store, refresh: {})
 
+    /// The same data, but the curves are still on their way (a slow network).
+    static let loadingContext: PlanContext = {
+        let data = try! Data(contentsOf: repoRoot.appending(path: "fixtures/sync/demo-feed.json"))
+        let store = try! LocalStore()
+        try! store.apply(try! JSONDecoder().decode(SyncPage.self, from: data))
+        return PlanContext(store: store, refresh: {}, loadStreams: { _ in try? await Task.sleep(for: .seconds(30)) })
+    }()
+
     static func item(_ id: String) -> PlannedItem {
         snap.days.flatMap(\.planned).first { $0.id == id }!
     }
@@ -66,8 +74,10 @@ private enum Fixture {
             return effort(x) ? 150 + 18 * min((x - 2408) / 900, 1) + 2 * sin(x / 60) : 128 + 8 * sin(x / 300) + (x > 3934 ? 8 : 0)
         }
         let speed: [Double?] = t.map { x in effort(x) ? 3.6 + 0.1 * sin(x / 90) : 2.75 + 0.15 * sin(x / 200) }
+        let power: [Double?] = speed.map { $0.map { $0 * 72 } }
         let none = [Double?](repeating: nil, count: n)
-        return ActivityStreams(bucketSec: dur / Double(n), columns: ["t": t, "heartRate": hr, "speed": speed, "lat": none, "lon": none])
+        return ActivityStreams(bucketSec: dur / Double(n), columns: ["t": t, "heartRate": hr, "speed": speed, "runningPower": power,
+                                                                     "lat": none, "lon": none])
     }()
 }
 
@@ -93,12 +103,13 @@ private func assertSnapshot<V: View>(_ view: V, _ name: String, width: CGFloat =
 /// A whole screen as on the phone: a real hosting controller in a window as tall as the screen's
 /// content (navigation bar, scroll view and charts included), after its tasks have loaded data.
 @MainActor
-private func assertScreen<V: View>(_ view: V, _ name: String, height: CGFloat = 2200) async throws {
+private func assertScreen<V: View>(_ view: V, _ name: String, height: CGFloat = 2200,
+                                    context: PlanContext = Fixture.context) async throws {
     for scheme in [ColorScheme.light, .dark] {
         let file = "screen-\(name)-\(scheme == .light ? "light" : "dark")"
         let host = UIHostingController(rootView: view
             .environment(\.athleteProfile, Fixture.profile)
-            .environment(\.planContext, Fixture.context))
+            .environment(\.planContext, context))
         host.overrideUserInterfaceStyle = scheme == .light ? .light : .dark
         let window = UIWindow(frame: CGRect(x: 0, y: 0, width: 402, height: height))
         window.overrideUserInterfaceStyle = host.overrideUserInterfaceStyle
@@ -212,6 +223,10 @@ private func difference(_ a: Data, _ b: Data) -> Double? {
     @Test func screens() async throws {
         try await assertScreen(NavigationStack { PlannedWorkoutView(item: Fixture.item("w-bike")) }, "planned-workout", height: 1500)
         try await assertScreen(NavigationStack { ActivityView(activity: Fixture.activity("a-park")) }, "activity", height: 2600)
+        // While the curves load, placeholders hold the blocks' places: the sections below the
+        // chart sit where they will be once loaded (compare with screen-activity).
+        try await assertScreen(NavigationStack { ActivityView(activity: Fixture.activity("a-park")) }, "activity-loading",
+                               height: 2600, context: Fixture.loadingContext)
     }
 
     @Test func fitness() throws {

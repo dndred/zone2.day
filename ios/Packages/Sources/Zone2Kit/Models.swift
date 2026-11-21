@@ -438,6 +438,10 @@ public struct ActivitySummary: Decodable, Sendable, Equatable {
     public let intervals: [Lap]?
     /// Bundle id of the recording app ("day.zone2.ride" for the Mac overlay).
     public let sourceBundle: String?
+    /// Route samples in the raw recording (0 or absent: no map) and whether it was indoors;
+    /// lets the activity screen reserve the map's place before the curves load.
+    public let routePoints: Int?
+    public let indoor: Bool?
     /// Server analysis: grade-adjusted pace (run with altitude) and aerobic decoupling.
     public let analysis: Analysis?
 

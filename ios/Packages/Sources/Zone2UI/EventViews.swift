@@ -111,6 +111,8 @@ struct EventRow: View {
 public struct RacesView: View {
     let store: LocalStore
     @State private var events: [PlanEvent] = []
+    /// Until the store answers: a spinner, not "No races yet".
+    @State private var loaded = false
     @State private var today: LocalDate?
 
     public init(store: LocalStore) { self.store = store }
@@ -128,12 +130,16 @@ public struct RacesView: View {
             section(L("Past"), Array(past), today)
         }
         .overlay {
-            if events.isEmpty { ContentUnavailableView(L("No races yet"), systemImage: "flag.checkered") }
+            if !loaded {
+                ProgressView()
+            } else if events.isEmpty {
+                ContentUnavailableView(L("No races yet"), systemImage: "flag.checkered")
+            }
         }
         .navigationTitle(L("Races"))
         .task {
             do {
-                for try await e in store.observeEvents() { events = e }
+                for try await e in store.observeEvents() { events = e; loaded = true }
             } catch {}
         }
         .task {

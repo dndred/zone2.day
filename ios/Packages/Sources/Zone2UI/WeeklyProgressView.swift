@@ -35,6 +35,7 @@ public struct WeeklyProgressView: View {
                 content(snap).padding(.horizontal, Space.l).padding(.bottom, Space.xl)
             }
         }
+        .overlay { if snap == nil { ProgressView() } }
         .background(Color.groupedBackground)
         .navigationTitle(L("Progress"))
         .inlineTitle()

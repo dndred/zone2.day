@@ -7,6 +7,7 @@ import Zone2Kit
 public struct ZonesView: View {
     let store: LocalStore
     @State private var profile = Profile()
+    @State private var loaded = false
 
     public init(store: LocalStore) { self.store = store }
 
@@ -42,10 +43,13 @@ public struct ZonesView: View {
             }
             .padding(.horizontal, Space.l)
             .padding(.bottom, Space.xl)
+            .opacity(loaded ? 1 : 0)
         }
         .background(Color.groupedBackground)
         .overlay {
-            if profile.hrZones(for: .run) == nil && thresholdStats(profile.run, sport: .run).isEmpty
+            if !loaded {
+                ProgressView()
+            } else if profile.hrZones(for: .run) == nil && thresholdStats(profile.run, sport: .run).isEmpty
                 && thresholdStats(profile.bike, sport: .bike).isEmpty {
                 ContentUnavailableView(L("No thresholds yet"), systemImage: "heart.text.clipboard")
             }
@@ -54,7 +58,7 @@ public struct ZonesView: View {
         .inlineTitle()
         .task {
             do {
-                for try await p in store.observeProfile() { profile = p }
+                for try await p in store.observeProfile() { profile = p; loaded = true }
             } catch {}
         }
     }

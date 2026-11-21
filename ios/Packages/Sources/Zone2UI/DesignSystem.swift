@@ -276,6 +276,32 @@ struct ProgressRing<Label: View>: View {
     }
 }
 
+// MARK: - Loading
+
+extension View {
+    /// While `active`: the view keeps its size but is hidden, a spinner sits in its middle.
+    /// Content that loads later takes a placeholder of its own height, so the screen doesn't jump.
+    func loadingPlaceholder(_ active: Bool) -> some View {
+        opacity(active ? 0 : 1)
+            .overlay { if active { ProgressView() } }
+            .allowsHitTesting(!active)
+            .accessibilityHidden(active)
+    }
+}
+
+/// A card-sized grey block with a spinner, for content whose final shape is unknown.
+struct LoadingCard: View {
+    var height: CGFloat
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: Radius.card, style: .continuous)
+            .fill(Color.card)
+            .frame(height: height)
+            .overlay { ProgressView() }
+            .accessibilityLabel(L("Loading"))
+    }
+}
+
 // MARK: - Athlete profile in the environment
 
 private struct AthleteProfileKey: EnvironmentKey {

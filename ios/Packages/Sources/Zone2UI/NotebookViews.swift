@@ -5,6 +5,7 @@ import Zone2Kit
 public struct NotebookView: View {
     let store: LocalStore
     @State private var pages: [NotebookPage] = []
+    @State private var loaded = false
 
     public init(store: LocalStore) { self.store = store }
 
@@ -19,12 +20,16 @@ public struct NotebookView: View {
             }
         }
         .overlay {
-            if pages.isEmpty { ContentUnavailableView(L("Notebook is empty"), systemImage: "book.closed") }
+            if !loaded {
+                ProgressView()
+            } else if pages.isEmpty {
+                ContentUnavailableView(L("Notebook is empty"), systemImage: "book.closed")
+            }
         }
         .navigationTitle(L("Notebook"))
         .task {
             do {
-                for try await p in store.observeNotebook() { pages = p }
+                for try await p in store.observeNotebook() { pages = p; loaded = true }
             } catch {}
         }
     }

@@ -5,6 +5,11 @@ public enum StreamMath {
     public struct BestPower: Sendable, Equatable {
         public let seconds: Int
         public let watts: Double
+
+        public init(seconds: Int, watts: Double) {
+            self.seconds = seconds
+            self.watts = watts
+        }
     }
 
     /// Durations of the power curve (Strava's power curve, HealthFit's mean-maximal power).

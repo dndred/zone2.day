@@ -66,6 +66,8 @@ public struct ActivityView: View {
     @Environment(\.planContext) private var context
     @Environment(\.athleteProfile) private var profile
     @State private var streams: ActivityStreams?
+    /// The fetch has finished (with curves or without): placeholders give way to content or vanish.
+    @State private var fetched = false
     let activity: Activity
     /// The plan this activity fulfils: its steps shade the chart (plan vs fact).
     let planned: PlannedWorkout?
@@ -78,40 +80,60 @@ public struct ActivityView: View {
         self.linkToPlan = linkToPlan
     }
 
+    /// Curves are expected (full detail) but not here yet: blocks that need them hold their place.
+    private var loading: Bool { streams == nil && !fetched && activity.summary.detail != "summary_only" }
+
     public var body: some View {
         let s = activity.summary
+        let hrZones = profile.hrZones(for: activity.sport)
         ScrollView {
             VStack(alignment: .leading, spacing: Space.l) {
                 header
 
-                if let streams, let pieces = RouteMap.pieces(streams, zones: profile.hrZones(for: activity.sport),
-                                                              fallback: activity.sport.color) {
+                if let streams, let pieces = RouteMap.pieces(streams, zones: hrZones, fallback: activity.sport.color) {
                     RouteMap(pieces: pieces)
                         .frame(height: 220)
                         .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+                } else if loading, (s.routePoints ?? 0) > 1, s.indoor != true {
+                    LoadingCard(height: 220)
                 }
 
                 StatGrid(stats: mainStats, columns: 3, size: 26).card()
 
                 if let streams {
-                    ActivityChartCard(activity: activity, streams: streams, zones: profile.hrZones(for: activity.sport),
+                    ActivityChartCard(activity: activity, streams: streams, zones: hrZones,
                                       plan: planned.flatMap { PlanWindow.windows($0, profile: profile) } ?? [])
+                } else if loading {
+                    ChartPlaceholder()
                 }
 
-                if let zones = profile.hrZones(for: activity.sport), let hr = streams?.series("heartRate"), let b = streams?.bucketSec {
+                if let zones = hrZones, let hr = streams?.series("heartRate"), let b = streams?.bucketSec {
                     let secs = zones.seconds(in: hr, bucketSec: b)
                     if secs.reduce(0, +) > 0 {
                         SectionTitle(L("Heart rate zones"), trailing: zones.edwardsTrimp(secs).map { "TRIMP \($0)" })
                         ZoneDistribution(zones: zones, seconds: secs).card()
                     }
+                } else if loading, let zones = hrZones, s.hr?.avg != nil {
+                    SectionTitle(L("Heart rate zones"))
+                    ZoneDistribution(zones: zones, seconds: Array(repeating: 0, count: zones.count))
+                        .loadingPlaceholder(true)
+                        .card()
                 }
 
                 if let streams {
-                    let channel = activity.sport == .bike ? "cyclingPower" : "runningPower"
-                    let best = StreamMath.bestPower(streams, channel: channel)
+                    let best = StreamMath.bestPower(streams, channel: powerChannel)
                     if best.count >= 2 {
                         SectionTitle(L("Power curve"))
                         PowerCurveCard(best: best, zones: profile.powerZones(for: activity.sport)).card()
+                    }
+                } else if loading, (s.cycling?.powerAvg ?? s.running?.powerAvg) != nil {
+                    // As many rows as durations fit the recording, with stand-in numbers.
+                    let fit = StreamMath.powerDurations.filter { Double($0) <= (s.elapsedSec ?? 0) }
+                    if fit.count >= 2 {
+                        SectionTitle(L("Power curve"))
+                        PowerCurveCard(best: fit.map { StreamMath.BestPower(seconds: $0, watts: 200) }, zones: nil)
+                            .loadingPlaceholder(true)
+                            .card()
                     }
                 }
 
@@ -180,9 +202,18 @@ public struct ActivityView: View {
         .background(Color.groupedBackground)
         .task {
             guard let context, s.detail != "summary_only" else { return }
-            Task { await context.loadStreams(activity.id) }
+            let id = activity.id
+            // Cached curves at once; else fetch, then take what landed (or give up the placeholders).
+            if let cached = try? context.store.streams(id), cached.columns["lat"] != nil {
+                streams = cached
+            }
+            Task {
+                await context.loadStreams(id)
+                if let loaded = try? context.store.streams(id) { streams = loaded }
+                fetched = true
+            }
             do {
-                for try await cached in context.store.observeStreams(activity.id) { streams = cached }
+                for try await cached in context.store.observeStreams(id) where cached != nil { streams = cached }
             } catch {}
         }
         .navigationTitle(activity.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
@@ -222,7 +253,14 @@ public struct ActivityView: View {
         }
         var second: [Stat] = []
         if let hr = s.hr?.avg { second.append(Stat(label: L("Avg heart rate"), value: "\(Int(hr))", unit: u.bpm)) }
-        if let load = trimp { second.append(Stat(label: L("Load"), value: "\(load)", unit: "TRIMP")) }
+        // The load's slot is known up front (heart rate and zones), so the grid doesn't reflow
+        // when the value arrives: the server's TRIMP, else from the curves, "–" meanwhile.
+        if s.hr?.avg != nil, profile.hrZones(for: activity.sport) != nil, s.detail != "summary_only" {
+            let load = s.analysis?.trimp.map { Int($0.rounded()) } ?? trimp
+            if load != nil || loading {
+                second.append(Stat(label: L("Load"), value: load.map { "\($0)" } ?? "–", unit: "TRIMP"))
+            }
+        }
         // Grade-adjusted pace (as Strava's GAP): only when the hills change it.
         if let gap = s.analysis?.gapSecPerKm, let p = s.paceSecPerKm, abs(gap - p) >= 3 {
             second.append(Stat(label: L("GAP"), value: Formats.clock(gap), unit: u.perKm))
@@ -235,6 +273,8 @@ public struct ActivityView: View {
         while first.count < 3 && !second.isEmpty { first.append(second.removeFirst()) }
         return first + second.prefix(6)
     }
+
+    private var powerChannel: String { activity.sport == .bike ? "cyclingPower" : "runningPower" }
 
     /// Climbing per km for the splits table, when the curves have altitude and the climb is real.
     private var climbPerKm: [Double]? {

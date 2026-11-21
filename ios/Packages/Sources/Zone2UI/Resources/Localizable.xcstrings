@@ -1486,6 +1486,16 @@
           }
         }
       }
+    },
+    "Loading": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Загрузка"
+          }
+        }
+      }
     }
   },
   "version": "1.0"

@@ -254,6 +254,14 @@ public final class LocalStore: Sendable {
         }
     }
 
+    /// The cached curves now (after a fetch, before the observation delivers them).
+    public func streams(_ activityId: String) throws -> ActivityStreams? {
+        try db.read { db in
+            try Data.fetchOne(db, sql: "SELECT data FROM stream_cache WHERE activityId = ?", arguments: [activityId])
+                .flatMap { try? JSONDecoder().decode(ActivityStreams.self, from: $0) }
+        }
+    }
+
     public func observeStreams(_ activityId: String) -> AsyncValueObservation<ActivityStreams?> {
         ValueObservation.tracking { db in
             try Data.fetchOne(db, sql: "SELECT data FROM stream_cache WHERE activityId = ?", arguments: [activityId])

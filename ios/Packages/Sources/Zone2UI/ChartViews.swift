@@ -449,3 +449,39 @@ struct PowerCurveCard: View {
         }
     }
 }
+
+/// The chart card while the curves load: the real card's chip row and readout (hidden, so the
+/// heights match at any text size) and its plot frame with a spinner.
+struct ChartPlaceholder: View {
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.m) {
+            HStack(spacing: Space.s) {
+                ForEach([L("Heart rate"), L("Pace"), L("Power")], id: \.self) { title in
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                        .fixedSize()
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 7)
+                        .foregroundStyle(.clear)
+                        .background(Capsule().fill(Color.secondary.opacity(0.12)))
+                }
+            }
+            HStack(alignment: .lastTextBaseline, spacing: Space.l) {
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(L("Average")).font(.caption)
+                    StatValue(value: "000", unit: Units.current.bpm, size: 26)
+                }
+                VStack(alignment: .leading, spacing: 0) {
+                    Text(L("Max")).font(.caption)
+                    StatValue(value: "000", unit: Units.current.bpm, size: 18, weight: .medium)
+                }
+                Spacer(minLength: 0)
+            }
+            .hidden()
+            ProgressView().frame(maxWidth: .infinity).frame(height: 200)
+        }
+        .card()
+        .accessibilityLabel(L("Loading"))
+    }
+}

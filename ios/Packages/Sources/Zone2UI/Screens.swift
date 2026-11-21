@@ -40,6 +40,7 @@ public struct TodayView: View {
                     content(snap).frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
+            .overlay { if snap == nil { ProgressView() } }
             .background(Color.groupedBackground)
             .navigationTitle(L("Today"))
             .refreshable { await context.refresh() }
@@ -414,6 +415,8 @@ public struct CalendarView: View {
     /// Set once the athlete scrolls: before that the top is visible only until the jump to today.
     @State private var scrolled = false
     @State private var nearTop = false
+    /// Hidden until scrolled to the current week: no flash of the top, no visible jump.
+    @State private var positioned = false
 
     static let pageDays = 8 * 7
 
@@ -440,8 +443,10 @@ public struct CalendarView: View {
                         }
                         .padding(.horizontal, 16)
                         .padding(.bottom, 24)
+                        .opacity(positioned ? 1 : 0)
                     }
                 }
+                .overlay { if !positioned { ProgressView() } }
                 .background(Color.groupedBackground)
                 .onScrollPhaseChange { _, phase in
                     if phase == .interacting { scrolled = true; loadEarlier() }
@@ -454,7 +459,16 @@ public struct CalendarView: View {
                     loadEarlier()
                 }
                 .onChange(of: snap?.today) { _, today in
-                    if let today { proxy.scrollTo(today.weekStart, anchor: .top) }
+                    guard let today else { return }
+                    proxy.scrollTo(today.weekStart, anchor: .top)
+                    // The lazy stack estimates heights above the target: scroll again once those
+                    // rows are laid out, then show.
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(60))
+                        proxy.scrollTo(today.weekStart, anchor: .top)
+                        try? await Task.sleep(for: .milliseconds(30))
+                        withAnimation(.easeOut(duration: 0.15)) { positioned = true }
+                    }
                 }
                 .onChange(of: snap?.days.first?.date) {
                     guard let week = anchor else { return }
