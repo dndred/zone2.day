@@ -338,6 +338,38 @@
       }
     },
     {
+      "name": "get_activity_file",
+      "title": "Get activity file",
+      "description": "Download link (valid 24 h) for one recorded activity as a file, for the athlete to upload to Strava, intervals.icu, TrainingPeaks or a friend. kind 'fit' (default): the original FIT when the activity was imported from one (byte for byte), else a FIT generated from the recording — 1 s records of heart rate, power, cadence, speed, distance and GPS, laps, pauses as timer stop/start. kind 'healthkit_dump': the raw recording as JSON (what the app uploaded), for scripts. Give the athlete the url; to read the data yourself use get_activity / get_activity_streams instead.",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "inputSchema": {
+        "type": "object",
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$"
+          },
+          "kind": {
+            "default": "fit",
+            "type": "string",
+            "enum": [
+              "fit",
+              "healthkit_dump"
+            ]
+          }
+        },
+        "required": [
+          "id"
+        ]
+      }
+    },
+    {
       "name": "get_activity_streams",
       "title": "Get activity streams",
       "description": "Curves of one activity resampled into time buckets (default ~200 points; zoom with fromSec/toSec). Channels: heartRate, runningSpeed, runningPower, runningStrideLength, runningVerticalOscillation, runningGroundContactTime, cyclingPower, cyclingCadence, cyclingSpeed, cadence (run: spm from steps; bike: rpm), speed (m/s from distance, any sport), distance (cumulative m), altitude, lat, lon. Columns share the `t` axis (seconds from start).",

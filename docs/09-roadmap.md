@@ -56,7 +56,7 @@ S6 можно провести в начале фазы 2, остальные �
 - [ ] `update_planned_workouts` (массовая правка), снаряжение.
 - [x] Активности: `list_activities`, `get_activity` (сводка, круги, погода, план), `get_activity_streams`; статусы плана done/skipped/missed/planned.
 - [x] Круги с темпом/каденсом по времени в движении, мощностью, пульсом; план рядом с таргетами в абсолютных единицах (без автосопоставления, D41).
-- [ ] Активности: ~~GAP~~ ✓, `get_activity_file`/`get_activity_fit`, `update_activity` (слова атлета, sRPE, официальный результат, обувь), ~~`create_activity`~~ ✓, `import_activity_file` (FIT ✓ через `create_upload_link`; GPX, `url` — позже).
+- [ ] Активности: ~~GAP~~ ✓, ~~`get_activity_file`~~ ✓ (FIT по ссылке), `get_activity_fit` (FIT в JSON — пока хватает `get_activity_streams`), `update_activity` (✓ слова атлета, RPE, заметки тренера, теги; осталось: официальный результат, обувь), ~~`create_activity`~~ ✓, `import_activity_file` (FIT ✓ через `create_upload_link`; GPX, `url` — позже).
 - [x] Силовые: `get_strength_log`, `get_exercise_history` (e1RM, план vs факт, перерывы), `update_strength_log`, `merge_exercises`, `log_strength_session` (перенос из Notion); `POST /v1/strength-sessions`; сессии в ленте синка.
 - [x] Аналитика (D44): `get_load` (объём + sRPE×мин + HR-нагрузка), `get_zone_distribution` (зоны при чтении, поляризация), `get_efficiency_trend` (темп/мощность при пульсе по ровным участкам), GAP и декаплинг в `get_activity`.
 - [x] Здоровье: `get_daily_metrics` (пульс покоя, HRV, сон, дыхание, температура запястья, вес, VO2max против базы 28 дней, флаги), `recovery` в `get_context`.
@@ -69,7 +69,7 @@ S6 можно провести в начале фазы 2, остальные �
 - [x] Удаления из Health → мягкое удаление.
 - [x] GAP, гистограммы для зон, ровные участки, декаплинг (`summary.analysis`, D44).
 - [ ] Обувь по умолчанию.
-- [x] Генерация FIT из дампа (`dumpToFit`, S3, D47). Осталось: отдавать через `get_activity_file kind=fit` / `get_activity_fit`.
+- [x] Генерация FIT из дампа (`dumpToFit`, S3, D47); отдаётся через `get_activity_file kind=fit`.
 - [ ] ⏸ (D48) FIT MyWhoosh → запись в Health приложением; склейка с записью часов.
 - [ ] ⏸ (D48) intervals.icu: хранение ключа (шифрование), job `intervals-poll` (pg_cron), дедупликация, `health_export`.
 

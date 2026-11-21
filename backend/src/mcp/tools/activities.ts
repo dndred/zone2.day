@@ -9,6 +9,9 @@ import type { PlannedWorkout } from "../../domain/entities.ts";
 import { IsoDate } from "../../domain/entities.ts";
 import { defaultTitle, streams, type Summary } from "../../domain/healthkit.ts";
 import { loadDump, NoStreamsError } from "../../sync/streams.ts";
+import { dumpToFit } from "../../domain/fit_encode.ts";
+import { sha256Bytes } from "../../auth/crypto.ts";
+import { EXPORT_TTL_SEC } from "./export.ts";
 import { resolveStructure } from "../../domain/plan.ts";
 import { analysisOf } from "../../domain/analysis.ts";
 import { analysisView, ZoneContext } from "./analytics.ts";
@@ -177,6 +180,70 @@ export function registerActivityTools(server: McpServer, ctx: McpContext): void 
       missing: channels.filter((ch) => !(ch in data)),
       available,
     };
+  });
+  defineTool(server, ctx, "get_activity_file", {
+    title: "Get activity file",
+    description:
+      "Download link (valid 24 h) for one recorded activity as a file, for the athlete to upload to Strava, intervals.icu, TrainingPeaks or a friend. kind 'fit' (default): the original FIT when the activity was imported from one (byte for byte), else a FIT generated from the recording — 1 s records of heart rate, power, cadence, speed, distance and GPS, laps, pauses as timer stop/start. kind 'healthkit_dump': the raw recording as JSON (what the app uploaded), for scripts. Give the athlete the url; to read the data yourself use get_activity / get_activity_streams instead.",
+    input: {
+      id: z.uuid(),
+      kind: z.enum(["fit", "healthkit_dump"]).default("fit"),
+    },
+    readOnly: true,
+  }, async ({ id, kind }, env) => {
+    const a = await ctx.activities.get(env.userId, id);
+    if (!a) throw new ToolError("not_found", `activity ${id} not found`);
+    const files = await ctx.activities.files(a.id);
+    const base = `${a.localDate}-${a.sport}`;
+    const link = async (
+      key: string,
+      filename: string,
+      bytes: number,
+      sha256: string,
+      generated: boolean,
+    ) => {
+      const url = await ctx.blobs.signedUrl(key, EXPORT_TTL_SEC);
+      return {
+        activityId: a.id,
+        kind,
+        filename,
+        url: `${url}${url.includes("?") ? "&" : "?"}download=${encodeURIComponent(filename)}`,
+        expiresAt: new Date(ctx.now().getTime() + EXPORT_TTL_SEC * 1000).toISOString(),
+        bytes,
+        sha256,
+        generated,
+      };
+    };
+
+    const original = files.find((f) => f.kind === "fit_original");
+    if (kind === "fit" && original) {
+      return await link(original.key, `${base}.fit`, original.bytes, original.sha256, false);
+    }
+    if (kind === "healthkit_dump") {
+      const dumpFile = files.find((f) => f.kind === "healthkit_dump");
+      if (!dumpFile) {
+        throw new ToolError(
+          "no_file",
+          "this activity has no HealthKit recording",
+          "Use kind 'fit'",
+        );
+      }
+      return await link(dumpFile.key, `${base}.json.gz`, dumpFile.bytes, dumpFile.sha256, false);
+    }
+    let dump;
+    try {
+      dump = await loadDump(ctx.activities, ctx.blobs, env.userId, id);
+    } catch (err) {
+      if (err instanceof NoStreamsError) throw new ToolError("no_file", err.message);
+      throw err;
+    }
+    if (!dump) throw new ToolError("not_found", `activity ${id} not found`);
+    // Stable serial from the activity id, so the same activity always gets the same file id.
+    const serial = parseInt(a.id.replaceAll("-", "").slice(0, 8), 16);
+    const fit = dumpToFit(dump, { serial });
+    const key = `${env.userId}/exports/activities/${a.id}/v${a.version}.fit`;
+    await ctx.blobs.put(key, fit, "application/vnd.ant.fit");
+    return await link(key, `${base}.fit`, fit.length, await sha256Bytes(fit), true);
   });
   defineTool(server, ctx, "link_activities", {
     title: "Link activities to planned workouts",

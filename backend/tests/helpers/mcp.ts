@@ -30,6 +30,7 @@ export interface McpHarness {
   userId: string;
   token: string;
   appToken: string;
+  blobs: MemoryBlobStore;
   /** POST to the Sync API with the app-scope token. */
   api: (path: string, body: BodyInit, type?: string) => Response | Promise<Response>;
   clock: { now: Date };
@@ -111,5 +112,17 @@ export async function mcpHarness(
     }
     return { isError: Boolean(r.result.isError), data };
   };
-  return { db, app, userId, token, appToken, api, clock, call, rpc, drop: () => db.drop() };
+  return {
+    db,
+    app,
+    userId,
+    token,
+    appToken,
+    api,
+    clock,
+    call,
+    rpc,
+    blobs: deps.blobs as MemoryBlobStore,
+    drop: () => db.drop(),
+  };
 }

@@ -366,6 +366,12 @@ Deno.test("activity input: users are isolated", async () => {
     const own = await callB("import_activity_file", { uploadId: linkB.uploadId });
     assertEquals(own.created, true);
     assertEquals((await a.call("list_activities", {})).data.activities.length, 0);
+    // A cannot download B's activity file.
+    assertEquals(
+      (await a.call("get_activity_file", { id: own.activity.id })).data.error,
+      "not_found",
+    );
+    assertEquals((await callB("get_activity_file", { id: own.activity.id })).generated, false);
   } finally {
     await a.drop();
   }
@@ -396,4 +402,60 @@ Deno.test("real MyWhoosh FIT (fixtures/fit): numbers match the file's own sessio
   // Virtual-world coordinates are dropped; one session lap → no segments.
   assertEquals(dump.route.length, 0);
   assertEquals(lapsOf(dump).length, 0);
+});
+
+Deno.test("get_activity_file: generated FIT reads back; original FIT as is; dump; isolation", async () => {
+  const h = await mcpHarness({ now: "2026-11-21T15:00:00Z" });
+  const blob = (url: string) =>
+    h.blobs.objects.get(new URL(url).host + new URL(url).pathname)?.body;
+  try {
+    // Health workout (indoor ride with power) → FIT generated from the recording.
+    const ride = makeDump({
+      start: "2026-11-20T12:00:00Z",
+      activityType: 13,
+      indoor: true,
+      minutes: 30,
+    });
+    ride.samples.cyclingPower = {
+      unit: "W",
+      values: ride.samples.heartRate.values.map(([t]) => [t, t, 180] as [number, number, number]),
+    };
+    const id = (await (await h.api("/v1/activities/healthkit", enc(ride))).json()).activityId;
+    const fit = await h.call("get_activity_file", { id });
+    assert(!fit.isError, JSON.stringify(fit.data));
+    assertEquals(fit.data.filename, "2026-11-20-bike.fit");
+    assertEquals(fit.data.generated, true);
+    assertStringIncludes(fit.data.url, "download=2026-11-20-bike.fit");
+    const bytes = blob(fit.data.url)!;
+    assertEquals(bytes.length, fit.data.bytes);
+    const back = summarize(fitToDump(bytes, "x", new Date()));
+    assertEquals(back.sport, "bike");
+    assertEquals(back.cycling?.powerAvg, 180);
+    assert(back.hr?.avg);
+
+    // The raw recording.
+    const raw = await h.call("get_activity_file", { id, kind: "healthkit_dump" });
+    assertEquals(raw.data.filename, "2026-11-20-bike.json.gz");
+    assertEquals(raw.data.generated, false);
+
+    // Imported FIT → the original, byte for byte.
+    const original = makeFit({ minutes: 20, laps: 2 });
+    const imported = await h.call("import_activity_file", {
+      uploadId: await uploaded(h, original),
+    });
+    const fid = imported.data.activityId ?? imported.data.activity?.id;
+    assert(fid, JSON.stringify(imported.data));
+    const orig = await h.call("get_activity_file", { id: fid });
+    assertEquals(orig.data.generated, false);
+    assertEquals(blob(orig.data.url), original);
+    const noDump = await h.call("get_activity_file", { id: fid, kind: "healthkit_dump" });
+    assert(noDump.isError);
+
+    // Unknown (or another athlete's) activity.
+    const missing = await h.call("get_activity_file", { id: crypto.randomUUID() });
+    assert(missing.isError);
+    assertStringIncludes(JSON.stringify(missing.data), "not_found");
+  } finally {
+    await h.drop();
+  }
 });
