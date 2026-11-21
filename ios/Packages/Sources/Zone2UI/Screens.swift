@@ -187,7 +187,8 @@ struct DayRows: View {
                         if let d = a.summary.distanceM {
                             Text(Formats.distance(d)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
                         }
-                        Image(systemName: "checkmark.circle.fill").foregroundStyle(.green.opacity(a.isRecovery ? 0.4 : 1))
+                        // No status badge: a check means "planned workout done"; keep the column aligned.
+                        Image(systemName: "circle").hidden()
                     }
                     .opacity(a.isRecovery ? 0.6 : 1)
                     .contentShape(Rectangle())
