@@ -26,7 +26,9 @@ final class AppModel: ObservableObject {
         EnvironmentReset.ifServerChanged(baseURL)
         api = APIClient(baseURL: baseURL)
         oauth = OAuthClient(config: .app(baseURL: baseURL))
-        auth = AuthSession(client: oauth, store: KeychainTokenStore(account: baseURL.host() ?? "default"))
+        let tokens = KeychainTokenStore(account: baseURL.host() ?? "default")
+        Self.seedTokens(tokens)
+        auth = AuthSession(client: oauth, store: tokens)
         health = HealthSync(api: api, auth: auth)
         rides = RideImport(api: api, auth: auth)
         // A broken database file must not brick the app: fall back to memory, resync from server.
@@ -69,6 +71,15 @@ final class AppModel: ObservableObject {
         return store
         #else
         return nil
+        #endif
+    }
+
+    /// Debug: `-SeedRefreshToken z2r_…` signs in without the passkey sheet (simulator, agent;
+    /// `just ios-sim-signin`). The first request refreshes it into a real pair; ignored once signed in.
+    private static func seedTokens(_ store: TokenStore) {
+        #if DEBUG
+        guard let refresh = UserDefaults.standard.string(forKey: "SeedRefreshToken"), store.load() == nil else { return }
+        store.save(TokenSet(accessToken: "", refreshToken: refresh, expiresAt: .distantPast))
         #endif
     }
 

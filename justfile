@@ -118,6 +118,28 @@ demo-feed-prod user="": test-db-up
 ios-sim-prod lang="ru": demo-feed-prod
     just ios-sim {{lang}} build/demo/prod-feed.json
 
+# Booted simulator signed in to a real account, no passkey: mints a refresh token for zone2-ios in
+# the target database (writes oauth_tokens) and launches with -SeedRefreshToken. The app then syncs
+# for real (and reports itself as a device). ZONE2_ALLOW_PROD=1 just ios-sim-signin prod [<uuid>]
+ios-sim-signin target="staging" user="" lang="ru": (_guard target) ios-gen
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    # Signed (ad hoc), unlike ios-build: an unsigned app gets no Keychain in the simulator.
+    (cd ios && xcodebuild -project Zone2.xcodeproj -scheme Zone2 -destination 'generic/platform=iOS Simulator' -derivedDataPath ../build/DerivedData build CODE_SIGN_IDENTITY=- -quiet)
+    udid=${ZONE2_SIM:-$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1)}
+    [[ -n $udid ]] || { echo "no booted simulator"; exit 1; }
+    ref={{ if target == "prod" { prod_ref } else { staging_ref } }}
+    case "{{target}}" in prod) server=https://api.zone2.day ;; *) server=https://api-staging.zone2.day ;; esac
+    token="z2r_$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=\n')"
+    hash=$(printf %s "$token" | openssl dgst -sha256 -binary | openssl base64 -A | tr '+/' '-_' | tr -d '=')
+    user="{{user}}"
+    [[ -n $user ]] && who="'$user'::uuid" || who="(select u.id from zone2.users u order by (select count(*) from zone2.activities a where a.user_id = u.id) desc limit 1)"
+    supabase db query --yes --remote=$ref "insert into zone2.oauth_tokens (token_hash, kind, client_id, user_id, scopes, resource, family_id, expires_at) values ('$hash', 'refresh', 'zone2-ios', $who, '{app}', null, gen_random_uuid(), now() + interval '90 days')" >/dev/null
+    xcrun simctl install $udid build/DerivedData/Build/Products/Debug-iphonesimulator/Zone2.app
+    xcrun simctl launch --terminate-running-process $udid day.zone2.app \
+      -ServerURL $server -SeedRefreshToken "$token" -AppleLanguages "({{lang}})" >/dev/null
+    echo "launched on $server (signs in on first request)"
+
 # Build, sign (Personal Team), install and launch on the connected iPhone. Also renews the 7-day profile.
 # just ios-device → zone2 (prod); just ios-device stg → zone2 stg (staging). Two copies side by side.
 ios-device app="prod":
