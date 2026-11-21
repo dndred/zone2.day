@@ -18,17 +18,101 @@ public struct Profile: Decodable, Sendable, Equatable {
         public let timezone: String
     }
 
+    /// Thresholds and zones of one sport (read-only, written by the coach). A threshold may be a
+    /// range (`{low, high}`); its middle is what zones are built from, as on the server.
+    public struct SportProfile: Decodable, Sendable, Equatable {
+        public var lthr: Double?
+        public var maxHr: Double?
+        public var restingHr: Double?
+        /// Lower bounds of zones 2…n, bpm.
+        public var hrZones: [Double]?
+        public var thresholdPaceSecPerKm: Double?
+        public var ftp: Double?
+        /// Lower bounds of zones 2…n, W.
+        public var powerZones: [Double]?
+        public var cssSecPer100m: Double?
+        /// Thresholds as the coach wrote them: a range and why (key: lthr, thresholdPaceSecPerKm,
+        /// ftp, cssSecPer100m). The fields above hold their middles.
+        public var detail: [String: Threshold] = [:]
+
+        public init(lthr: Double? = nil, maxHr: Double? = nil, restingHr: Double? = nil, hrZones: [Double]? = nil,
+                    thresholdPaceSecPerKm: Double? = nil, ftp: Double? = nil, powerZones: [Double]? = nil,
+                    cssSecPer100m: Double? = nil) {
+            self.lthr = lthr
+            self.maxHr = maxHr
+            self.restingHr = restingHr
+            self.hrZones = hrZones
+            self.thresholdPaceSecPerKm = thresholdPaceSecPerKm
+            self.ftp = ftp
+            self.powerZones = powerZones
+            self.cssSecPer100m = cssSecPer100m
+        }
+
+        enum CodingKeys: String, CodingKey {
+            case lthr, maxHr, restingHr, hrZones, thresholdPaceSecPerKm, ftp, powerZones, cssSecPer100m
+        }
+
+        /// A number or `{low, high, basis}`; `value` is the number or the middle of the range.
+        public struct Threshold: Decodable, Sendable, Equatable {
+            public let value: Double
+            public let low: Double?
+            public let high: Double?
+            public let basis: String?
+
+            public init(from decoder: Decoder) throws {
+                if let v = try? decoder.singleValueContainer().decode(Double.self) {
+                    value = v
+                    low = nil
+                    high = nil
+                    basis = nil
+                    return
+                }
+                struct Range: Decodable { let low: Double; let high: Double; let basis: String? }
+                let r = try Range(from: decoder)
+                value = (r.low + r.high) / 2
+                low = r.low
+                high = r.high
+                basis = r.basis
+            }
+        }
+
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            var detail: [String: Threshold] = [:]
+            func t(_ k: CodingKeys) -> Double? {
+                guard let v = (try? c.decodeIfPresent(Threshold.self, forKey: k)) ?? nil else { return nil }
+                detail[k.stringValue] = v
+                return v.value
+            }
+            lthr = t(.lthr)
+            maxHr = try? c.decodeIfPresent(Double.self, forKey: .maxHr)
+            restingHr = try? c.decodeIfPresent(Double.self, forKey: .restingHr)
+            hrZones = try? c.decodeIfPresent([Double].self, forKey: .hrZones)
+            thresholdPaceSecPerKm = t(.thresholdPaceSecPerKm)
+            ftp = t(.ftp)
+            powerZones = try? c.decodeIfPresent([Double].self, forKey: .powerZones)
+            cssSecPer100m = t(.cssSecPer100m)
+            self.detail = detail
+        }
+    }
+
     public var timezone: String = "UTC"
     public var travel: [Travel] = []
+    public var run = SportProfile()
+    public var bike = SportProfile()
+    public var swim = SportProfile()
 
     public init() {}
 
-    enum CodingKeys: String, CodingKey { case timezone, travel }
+    enum CodingKeys: String, CodingKey { case timezone, travel, run, bike, swim }
 
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         timezone = (try? c.decode(String.self, forKey: .timezone)) ?? "UTC"
         travel = (try? c.decode([Travel].self, forKey: .travel)) ?? []
+        run = (try? c.decode(SportProfile.self, forKey: .run)) ?? SportProfile()
+        bike = (try? c.decode(SportProfile.self, forKey: .bike)) ?? SportProfile()
+        swim = (try? c.decode(SportProfile.self, forKey: .swim)) ?? SportProfile()
     }
 
     /// Zone the plan's dates are in right now: home, or a travel period covering home's today.
@@ -354,6 +438,22 @@ public struct ActivitySummary: Decodable, Sendable, Equatable {
     public let intervals: [Lap]?
     /// Bundle id of the recording app ("day.zone2.ride" for the Mac overlay).
     public let sourceBundle: String?
+    /// Server analysis: grade-adjusted pace (run with altitude) and aerobic decoupling.
+    public let analysis: Analysis?
+
+    public struct Analysis: Decodable, Sendable, Equatable {
+        public struct Decoupling: Decodable, Sendable, Equatable {
+            /// "pace" (grade-adjusted speed per bpm) or "power" (power per bpm).
+            public let metric: String
+            /// Drop of output per beat from the first to the second half of steady segments, %.
+            public let pct: Double
+            public let steadyMin: Double?
+        }
+        public let gapSecPerKm: Double?
+        public let decoupling: Decoupling?
+        /// HR load (Edwards TRIMP by the profile's zones), computed by the server.
+        public let trimp: Double?
+    }
 }
 
 public struct Activity: Decodable, Sendable, Equatable, Identifiable {

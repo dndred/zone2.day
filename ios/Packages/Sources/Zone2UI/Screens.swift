@@ -26,7 +26,6 @@ public struct TodayView: View {
     let context: PlanContext
     let syncing: Bool
     @State private var snap: PlanSnapshot?
-    @State private var showWeekHeader = false
 
     public init(context: PlanContext, syncing: Bool) {
         self.context = context
@@ -46,48 +45,41 @@ public struct TodayView: View {
             .refreshable { await context.refresh() }
             .task {
                 do {
-                    for try await s in context.store.observe(pastDays: 0, futureDays: 4) { snap = s }
+                    // The whole current week (strip and volume) plus the next days.
+                    for try await s in context.store.observe(pastDays: 6, futureDays: 7) { snap = s }
                 } catch {}
             }
         }
+        .environment(\.athleteProfile, snap?.profile ?? Profile())
     }
 
     @ViewBuilder
     private func content(_ snap: PlanSnapshot) -> some View {
         let today = snap.today
-        VStack(alignment: .leading, spacing: 16) {
-            SyncStatusLine(status: snap.status, syncing: syncing)
-
-            if let week = snap.weeks[today.weekStart], week.title != nil || week.header != nil {
-                Button {
-                    withAnimation(.snappy) { showWeekHeader.toggle() }
-                } label: {
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack {
-                            Text(week.title ?? L("This week")).font(.headline)
-                            Spacer()
-                            if week.header != nil {
-                                Image(systemName: showWeekHeader ? "chevron.up" : "chevron.down")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }
-                        if showWeekHeader, let header = week.header {
-                            MarkdownText(header, style: .compact).font(.subheadline).foregroundStyle(.secondary)
-                        }
-                    }
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
-                }
-                .buttonStyle(.plain)
+        VStack(alignment: .leading, spacing: Space.l) {
+            VStack(alignment: .leading, spacing: 2) {
+                Eyebrow(today.formatted(.dateTime.weekday(.wide).day().month(.wide)), color: .brand)
+                SyncStatusLine(status: snap.status, syncing: syncing)
             }
+            .padding(.horizontal, Space.xs)
+
+            WeekCard(snap: snap)
 
             if let day = snap.day(today) {
                 let firstOpen = day.planned.first { $0.status == .planned }?.id
                 if day.planned.isEmpty && day.unplanned.isEmpty {
-                    Text("Rest day", bundle: .module)
-                        .font(.title3).foregroundStyle(.secondary)
-                        .padding(.vertical, 8)
+                    HStack(spacing: Space.m) {
+                        Image(systemName: "leaf.fill")
+                            .font(.title2)
+                            .foregroundStyle(Color.zone(3).gradient)
+                            .frame(width: 44, height: 44)
+                            .background(Color.zone(3).opacity(0.12), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Rest day", bundle: .module).font(.title3.weight(.bold))
+                            Text("Recovery is part of the plan.", bundle: .module).font(.subheadline).foregroundStyle(.secondary)
+                        }
+                    }
+                    .card()
                 }
                 ForEach(day.planned) { item in
                     NavigationLink {
@@ -104,102 +96,307 @@ public struct TodayView: View {
                 }
                 ForEach(day.unplanned) { a in
                     NavigationLink { ActivityView(activity: a) } label: {
-                        ActivityRow(activity: a)
-                            .padding(14)
-                            .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
+                        ActivityRow(activity: a).card()
                     }
                     .buttonStyle(.plain)
                 }
                 ForEach(day.journal) { j in
                     Label { MarkdownText(j.text, style: .compact) } icon: { Image(systemName: "note.text") }
                         .font(.footnote).foregroundStyle(.secondary)
+                        .padding(.horizontal, Space.xs)
                 }
             }
 
-            let upcoming = snap.days.filter { $0.date > today && !$0.isEmpty }
+            let upcoming = snap.days.filter { $0.date > today && $0.date <= today.adding(days: 4) && !$0.isEmpty }
             if !upcoming.isEmpty {
-                Text("Next days", bundle: .module).font(.headline).padding(.top, 4)
+                SectionTitle(L("Next days"))
                 VStack(spacing: 0) {
                     ForEach(upcoming) { day in
-                        DayRows(day: day, today: today, onWatch: snap.status.onWatch)
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                        if day.id != upcoming.last?.id { Divider().padding(.leading, 14) }
+                        DayRows(day: day, today: today, onWatch: snap.status.onWatch, titleLines: 2)
+                            .padding(.horizontal, Space.l)
+                            .padding(.vertical, Space.m)
+                        if day.id != upcoming.last?.id { Divider().padding(.leading, 68) }
                     }
                 }
-                .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
+                .background(Color.card, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
             }
         }
-        .padding(.horizontal, 16)
-        .padding(.bottom, 24)
+        .padding(.horizontal, Space.l)
+        .padding(.bottom, Space.xl)
     }
 }
 
-/// Compact lines of one day: "Tue 17 Nov  🏃 Easy 45 min".
+/// The current week on Today: title (tap → the coach's header), a strip of seven days with a dot
+/// per workout, and done volume against the plan.
+struct WeekCard: View {
+    let snap: PlanSnapshot
+    @State private var showHeader = false
+
+    var body: some View {
+        let start = snap.today.weekStart
+        let days = (0..<7).map { start.adding(days: $0) }
+        let week = snap.weeks[start]
+        let volume = WeekVolume(days: snap.days.filter { $0.date.weekStart == start })
+        VStack(alignment: .leading, spacing: Space.m) {
+            Button {
+                withAnimation(.snappy) { showHeader.toggle() }
+            } label: {
+                HStack(alignment: .firstTextBaseline) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Eyebrow(start.formatted(.dateTime.day().month(.abbreviated)) + " – "
+                            + start.adding(days: 6).formatted(.dateTime.day().month(.abbreviated)))
+                        Text(week?.title ?? L("This week")).font(.headline).multilineTextAlignment(.leading)
+                    }
+                    Spacer()
+                    if week?.header != nil {
+                        Image(systemName: "chevron.down")
+                            .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                            .rotationEffect(.degrees(showHeader ? 180 : 0))
+                    }
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .disabled(week?.header == nil)
+            if showHeader, let header = week?.header {
+                MarkdownText(header, style: .compact).font(.subheadline).foregroundStyle(.secondary)
+            }
+
+            HStack(spacing: 0) {
+                ForEach(days, id: \.self) { date in
+                    DayDot(date: date, day: snap.day(date), today: snap.today).frame(maxWidth: .infinity)
+                }
+            }
+
+            if volume.plannedSec > 0 || volume.doneSec > 0 {
+                Divider()
+                HStack(alignment: .bottom, spacing: Space.l) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(alignment: .firstTextBaseline, spacing: 4) {
+                            StatValue(value: Formats.hoursMinutes(volume.doneSec), size: 20)
+                            if volume.plannedSec > 0 {
+                                Text("of ≈\(Formats.hoursMinutes(volume.plannedSec))", bundle: .module)
+                                    .font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                        if volume.plannedSec > 0 {
+                            ProgressTrack(fraction: volume.doneSec / volume.plannedSec)
+                        }
+                    }
+                    if volume.runM > 0 {
+                        let p = Formats.distanceParts(volume.runM)
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text(Sport.run.title).font(.caption).foregroundStyle(.secondary)
+                            StatValue(value: p.value, unit: p.unit, size: 20)
+                        }
+                    }
+                }
+            }
+        }
+        .card()
+    }
+}
+
+/// One day of the week strip: weekday, number (today filled), a dot per workout.
+struct DayDot: View {
+    let date: LocalDate
+    let day: Day?
+    let today: LocalDate
+
+    var body: some View {
+        let isToday = date == today
+        VStack(spacing: 6) {
+            Text(date.formatted(.dateTime.weekday(.narrow)))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(isToday ? Color.brand : .secondary)
+            Text(date.formatted(.dateTime.day()))
+                .font(.subheadline.weight(isToday ? .bold : .medium).monospacedDigit())
+                .foregroundStyle(isToday ? .white : date < today ? .secondary : .primary)
+                .frame(width: 32, height: 32)
+                .background(Circle().fill(isToday ? Color.brand : .clear))
+            HStack(spacing: 3) {
+                ForEach(dots) { d in
+                    Group {
+                        if d.filled {
+                            Circle().fill(d.color)
+                        } else {
+                            Circle().strokeBorder(d.color, lineWidth: 1.5)
+                        }
+                    }
+                    .frame(width: 7, height: 7)
+                }
+            }
+            .frame(height: 7)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private struct DotItem: Identifiable {
+        let id: String
+        let color: Color
+        let filled: Bool
+    }
+
+    private var dots: [DotItem] {
+        guard let day else { return [] }
+        let planned = day.planned.map { item in
+            DotItem(id: item.id,
+                    color: item.status == .skipped || item.status == .missed ? Color.secondary.opacity(0.5) : item.workout.sport.color,
+                    filled: item.status == .done)
+        }
+        let extra = day.unplanned.filter { !$0.isRecovery }.map { DotItem(id: $0.id, color: $0.sport.color, filled: true) }
+        return Array((planned + extra).prefix(4))
+    }
+}
+
+/// Done and planned time of a week; run distance.
+struct WeekVolume {
+    var doneSec = 0.0
+    var plannedSec = 0.0
+    var runM = 0.0
+
+    init(days: [Day]) {
+        let acts = days.flatMap { $0.planned.flatMap(\.activities) + $0.unplanned }.filter { !$0.isRecovery }
+        doneSec = acts.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }.reduce(0, +)
+        runM = acts.filter { $0.sport == .run }.compactMap(\.summary.distanceM).reduce(0, +)
+        plannedSec = days.flatMap(\.planned).filter { $0.status != .skipped }.compactMap { item -> Double? in
+            if let s = item.workout.resolved { return PlanEstimate(s, sport: item.workout.sport).seconds }
+            // Strength has no length in the plan: count what was done, else ~45 min.
+            if item.workout.sport == .strength {
+                return item.activities.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }.reduce(0, +).nonZero ?? 45 * 60
+            }
+            return nil
+        }.reduce(0, +)
+    }
+}
+
+private extension Double {
+    var nonZero: Double? { self == 0 ? nil : self }
+}
+
+/// Lines of one day with the date in a column: "ВТ 17 | 🏃 Easy 45 min".
 struct DayRows: View {
     let day: Day
     let today: LocalDate
     var onWatch: Set<String> = []
+    /// Two on Today (few days, room to read), one in the calendar (many days, scan fast).
+    var titleLines = 1
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(day.date.relativeTitle(today: today))
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(day.date == today ? Color.accentColor : .secondary)
-            ForEach(day.events) { e in
-                NavigationLink { EventView(event: e) } label: {
-                    Label(e.name, systemImage: "flag.checkered").font(.subheadline.weight(.medium))
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        let isToday = day.date == today
+        HStack(alignment: .top, spacing: Space.m) {
+            VStack(spacing: 0) {
+                Text(day.date.formatted(.dateTime.weekday(.abbreviated)).uppercased())
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(isToday ? Color.brand : .secondary)
+                Text(day.date.formatted(.dateTime.day()))
+                    .font(.title3.weight(.bold).monospacedDigit())
+                    .foregroundStyle(isToday ? Color.brand : day.date < today ? .secondary : .primary)
+            }
+            .frame(width: 40)
+
+            VStack(alignment: .leading, spacing: Space.s) {
+                ForEach(day.events) { e in
+                    NavigationLink { EventView(event: e) } label: {
+                        HStack(spacing: Space.s) {
+                            Image(systemName: "flag.checkered")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .frame(width: 30, height: 30)
+                                .background(Color.brand.gradient, in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+                            Text(e.name).font(.subheadline.weight(.semibold)).lineLimit(1)
+                            Spacer(minLength: 0)
+                        }
                         .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-            }
-            ForEach(day.planned) { item in
-                NavigationLink { PlannedWorkoutView(item: item, onWatch: onWatch.contains(item.id)) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: Sport.symbol(item.workout.sport, subSport: item.workout.subSport))
-                            .foregroundStyle(item.workout.sport.color)
-                            .frame(width: 22)
-                        Text(item.workout.title).font(.subheadline).lineLimit(1)
-                        if item.workout.key { Image(systemName: "star.fill").font(.caption2).foregroundStyle(.yellow) }
-                        Spacer()
-                        if let d = item.totalDistanceM {
-                            Text(Formats.distance(d)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
-                        }
-                        if item.status == .planned && onWatch.contains(item.id) {
-                            Image(systemName: "applewatch").font(.caption).foregroundStyle(.green)
-                        }
-                        StatusBadge(status: item.status)
                     }
-                    .opacity(item.status == .skipped ? 0.5 : 1)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
-            }
-            ForEach(day.unplanned) { a in
-                NavigationLink { ActivityView(activity: a) } label: {
-                    HStack(spacing: 8) {
-                        Image(systemName: Sport.symbol(a.sport, subSport: a.subSport))
-                            .foregroundStyle(a.isRecovery ? .secondary : a.sport.color)
-                            .frame(width: 22)
-                        Text(a.title ?? a.sport.rawValue).font(.subheadline).lineLimit(1)
-                        Spacer()
-                        if let d = a.summary.distanceM {
-                            Text(Formats.distance(d)).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                ForEach(day.planned) { item in
+                    NavigationLink { PlannedWorkoutView(item: item, onWatch: onWatch.contains(item.id)) } label: {
+                        DayItemRow(sport: item.workout.sport, subSport: item.workout.subSport, title: item.workout.title,
+                                   subtitle: subtitle(item), key: item.workout.key, muted: item.status == .skipped,
+                                   titleLines: titleLines) {
+                            if item.status == .planned && onWatch.contains(item.id) {
+                                Image(systemName: "applewatch").font(.caption).foregroundStyle(.green)
+                            }
+                            StatusBadge(status: item.status).font(.title3)
                         }
-                        // No status badge: a check means "planned workout done"; keep the column aligned.
-                        Image(systemName: "circle").hidden()
                     }
-                    .opacity(a.isRecovery ? 0.6 : 1)
-                    .contentShape(Rectangle())
+                    .buttonStyle(.plain)
                 }
-                .buttonStyle(.plain)
+                ForEach(day.unplanned) { a in
+                    NavigationLink { ActivityView(activity: a) } label: {
+                        DayItemRow(sport: a.sport, subSport: a.subSport, title: a.title ?? a.sport.title,
+                                   subtitle: activityLine(a), key: false, muted: a.isRecovery, titleLines: titleLines) { EmptyView() }
+                    }
+                    .buttonStyle(.plain)
+                }
+                ForEach(day.journal) { j in
+                    Label { Text(MarkdownText.preview(j.text)) } icon: { Image(systemName: "note.text") }
+                        .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+                if day.isEmpty {
+                    Text(L("Day off")).font(.subheadline).foregroundStyle(.tertiary)
+                        .frame(minHeight: 30)
+                }
             }
-            ForEach(day.journal) { j in
-                Label { Text(MarkdownText.preview(j.text)) } icon: { Image(systemName: "note.text") }
-                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
-            }
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+
+    /// Done → what was recorded; planned → what the plan adds up to; skipped → why.
+    private func subtitle(_ item: PlannedItem) -> String? {
+        if let skipped = item.workout.skipped { return skipped.reason }
+        if !item.activities.isEmpty {
+            var parts: [String] = []
+            if let d = item.totalDistanceM { parts.append(Formats.distance(d)) }
+            if let t = item.totalMovingSec { parts.append(Formats.clock(t)) }
+            return parts.joined(separator: " · ")
+        }
+        if let s = item.workout.resolved {
+            let e = PlanEstimate(s, sport: item.workout.sport)
+            return (["≈" + Formats.hoursMinutes(e.seconds)] + (e.distanceM.map { [Formats.distance($0)] } ?? []))
+                .joined(separator: " · ")
+        }
+        return nil
+    }
+
+    private func activityLine(_ a: Activity) -> String? {
+        var parts: [String] = []
+        if let d = a.summary.distanceM { parts.append(Formats.distance(d)) }
+        if let t = a.summary.movingSec ?? a.summary.elapsedSec { parts.append(Formats.clock(t)) }
+        return parts.isEmpty ? nil : parts.joined(separator: " · ")
+    }
+}
+
+/// Sport badge, title (+ key star), a grey line under it, trailing status.
+struct DayItemRow<Trailing: View>: View {
+    let sport: Sport
+    let subSport: String?
+    let title: String
+    let subtitle: String?
+    let key: Bool
+    let muted: Bool
+    var titleLines = 1
+    @ViewBuilder let trailing: () -> Trailing
+
+    var body: some View {
+        HStack(spacing: Space.m) {
+            SportBadge(sport: sport, subSport: subSport, size: 30, muted: muted)
+            VStack(alignment: .leading, spacing: 1) {
+                HStack(spacing: 4) {
+                    Text(title).font(.subheadline.weight(.semibold)).lineLimit(titleLines)
+                    if key { Image(systemName: "star.fill").font(.caption2).foregroundStyle(Color.brand) }
+                }
+                if let subtitle, !subtitle.isEmpty {
+                    Text(subtitle).font(.caption.monospacedDigit()).foregroundStyle(.secondary).lineLimit(1)
+                }
+            }
+            Spacer(minLength: 0)
+            trailing()
+        }
+        .opacity(muted ? 0.55 : 1)
+        .contentShape(Rectangle())
     }
 }
 
@@ -230,7 +427,7 @@ public struct CalendarView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     if let snap {
-                        LazyVStack(alignment: .leading, spacing: 18) {
+                        LazyVStack(alignment: .leading, spacing: Space.xl) {
                             SyncStatusLine(status: snap.status, syncing: syncing)
                             if snap.hasEarlier {
                                 ProgressView().frame(maxWidth: .infinity)
@@ -270,6 +467,14 @@ public struct CalendarView: View {
                 }
             }
             .navigationTitle(L("Calendar"))
+            .toolbar {
+                ToolbarItem(placement: .primaryAction) {
+                    NavigationLink { WeeklyProgressView(store: context.store) } label: {
+                        Image(systemName: "chart.bar.xaxis")
+                    }
+                    .accessibilityLabel(L("Progress"))
+                }
+            }
             .refreshable { await context.refresh() }
             .task(id: pastDays) {
                 do {
@@ -277,6 +482,7 @@ public struct CalendarView: View {
                 } catch {}
             }
         }
+        .environment(\.athleteProfile, snap?.profile ?? Profile())
     }
 
     private func loadEarlier() {
@@ -300,19 +506,25 @@ struct WeekSection: View {
     @State private var showHeader = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        let isCurrent = start == today.weekStart
+        VStack(alignment: .leading, spacing: Space.s) {
             Button {
                 withAnimation(.snappy) { showHeader.toggle() }
             } label: {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(start.formatted(.dateTime.day().month(.abbreviated)) + " – "
-                        + start.adding(days: 6).formatted(.dateTime.day().month(.abbreviated)))
-                        .font(.caption).foregroundStyle(.secondary)
-                    HStack {
-                        Text(info?.title ?? "").font(.headline)
+                VStack(alignment: .leading, spacing: 6) {
+                    Eyebrow(start.formatted(.dateTime.day().month(.abbreviated)) + " – "
+                        + start.adding(days: 6).formatted(.dateTime.day().month(.abbreviated)),
+                        color: isCurrent ? .brand : .secondary)
+                    HStack(alignment: .firstTextBaseline) {
+                        Text(info?.title ?? "").font(.title3.weight(.bold)).multilineTextAlignment(.leading)
                         Spacer()
-                        Text(volume).font(.caption.monospacedDigit()).foregroundStyle(.secondary)
+                        if info?.header != nil || info?.review != nil {
+                            Image(systemName: "chevron.down")
+                                .font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                                .rotationEffect(.degrees(showHeader ? 180 : 0))
+                        }
                     }
+                    WeekVolumeChips(days: days)
                     if showHeader {
                         ForEach([info?.header, info?.review].compactMap { $0 }, id: \.self) { text in
                             MarkdownText(text, style: .compact).font(.footnote).foregroundStyle(.secondary)
@@ -320,40 +532,65 @@ struct WeekSection: View {
                         }
                     }
                 }
+                .padding(.horizontal, Space.xs)
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .disabled(info?.header == nil && info?.review == nil)
 
             VStack(spacing: 0) {
                 ForEach(days) { day in
-                    if day.isEmpty {
-                        HStack {
-                            Text(day.date.formatted(.dateTime.weekday(.abbreviated).day()))
-                                .font(.caption).foregroundStyle(.tertiary)
-                            Spacer()
-                        }
-                        .padding(.horizontal, 14).padding(.vertical, 6)
-                    } else {
-                        DayRows(day: day, today: today, onWatch: onWatch)
-                            .padding(.horizontal, 14).padding(.vertical, 10)
-                            .background(day.date == today ? Color.accentColor.opacity(0.08) : .clear)
-                    }
-                    if day.id != days.last?.id { Divider().padding(.leading, 14) }
+                    DayRows(day: day, today: today, onWatch: onWatch)
+                        .padding(.horizontal, Space.l)
+                        .padding(.vertical, day.isEmpty ? Space.s : Space.m)
+                        .background(day.date == today ? Color.brand.opacity(0.07) : .clear)
+                    if day.id != days.last?.id { Divider().padding(.leading, 68) }
                 }
             }
-            .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
+            .background(Color.card, in: RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: Radius.card, style: .continuous))
+        }
+    }
+}
+
+/// Done volume of a week by sport: a chip per sport ("🏃 32 km", "🚴 1 h 05 min") and the total time.
+struct WeekVolumeChips: View {
+    let days: [Day]
+
+    var body: some View {
+        let acts = days.flatMap { $0.planned.flatMap(\.activities) + $0.unplanned }.filter { !$0.isRecovery }
+        if !acts.isEmpty {
+            let bySport = Dictionary(grouping: acts, by: \.sport)
+            let total = acts.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }.reduce(0, +)
+            // One row when it fits, else it scrolls (four sports and the total rarely fit).
+            ViewThatFits(in: .horizontal) {
+                chips(bySport, total)
+                ScrollView(.horizontal, showsIndicators: false) { chips(bySport, total) }
+                    .scrollBounceBehavior(.basedOnSize)
+            }
         }
     }
 
-    /// Done volume of the week: "run 32 km · 4 h 10 min".
-    private var volume: String {
-        let acts = days.flatMap { $0.planned.flatMap(\.activities) + $0.unplanned }.filter { !$0.isRecovery }
-        guard !acts.isEmpty else { return "" }
-        let run = acts.filter { $0.sport == .run }.compactMap(\.summary.distanceM).reduce(0, +)
-        let time = acts.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }.reduce(0, +)
-        var parts: [String] = []
-        if run > 0 { parts.append(L("run \(Formats.distance(run))")) }
-        parts.append(Formats.hoursMinutes(time))
-        return parts.joined(separator: " · ")
+    private func chips(_ bySport: [Sport: [Activity]], _ total: Double) -> some View {
+        HStack(spacing: Space.s) {
+            ForEach(Sport.allCases.filter { bySport[$0] != nil }, id: \.self) { sport in
+                let xs = bySport[sport]!
+                let dist = xs.compactMap(\.summary.distanceM).reduce(0, +)
+                let time = xs.compactMap { $0.summary.movingSec ?? $0.summary.elapsedSec }.reduce(0, +)
+                HStack(spacing: 4) {
+                    Image(systemName: sport.symbol).font(.caption2.weight(.semibold))
+                    Text(sport == .strength || dist == 0 ? Formats.hoursMinutes(time) : Formats.distance(dist))
+                        .font(.caption.weight(.semibold).monospacedDigit())
+                }
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .foregroundStyle(sport.color)
+                .background(sport.color.opacity(0.12), in: Capsule())
+                .fixedSize()
+            }
+            Text(Formats.hoursMinutes(total)).font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(.secondary)
+                .fixedSize()
+                .padding(.leading, Space.xs)
+        }
     }
 }

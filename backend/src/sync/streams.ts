@@ -25,7 +25,11 @@ export async function loadDump(
   return HealthKitDump.parse(JSON.parse(new TextDecoder().decode(await gunzip(raw))));
 }
 
-/** Channels the app charts: heart rate, speed (m/s), power, cadence, altitude. */
+/**
+ * Channels the app charts: heart rate, speed (m/s), power, cadence, altitude; lat/lon for the
+ * route map (always present as columns, all null without a route — the app tells an old cache by
+ * their absence).
+ */
 export const APP_CHANNELS = [
   "heartRate",
   "speed",
@@ -33,6 +37,8 @@ export const APP_CHANNELS = [
   "cyclingPower",
   "cadence",
   "altitude",
+  "lat",
+  "lon",
 ];
 
 export function appStreams(dump: HealthKitDump, maxPoints: number) {

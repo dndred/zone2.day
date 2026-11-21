@@ -55,6 +55,20 @@ test-db-up:
 test-kit:
     cd ios/Packages && swift test
 
+# UI snapshot tests on an iOS simulator (ios/Packages/Tests/Zone2UITests/__Snapshots__, light/dark;
+# a mismatch writes <name>.failed.png next to the reference). ZONE2_SIM=<udid> picks the simulator.
+snapshots:
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    udid=${ZONE2_SIM:-$(xcrun simctl list devices booted | grep -oE '[0-9A-F-]{36}' | head -1)}
+    [[ -n $udid ]] || { echo "no booted simulator"; exit 1; }
+    cd ios/Packages && xcodebuild test -scheme Zone2Core-Package -destination "platform=iOS Simulator,id=$udid" \
+      -only-testing:Zone2UITests -derivedDataPath ../../build/DerivedData-snapshots -quiet
+
+# Rewrite the reference snapshots (look at the PNG diff before committing)
+snapshots-update:
+    TEST_RUNNER_UPDATE_SNAPSHOTS=1 just snapshots
+
 # Generate the Xcode project from ios/project.yml
 ios-gen:
     cd ios && xcodegen generate --quiet

@@ -8,6 +8,7 @@ import type { AppDeps } from "../deps.ts";
 import { DEFAULT_PROFILE, type PlannedWorkout, Profile } from "../domain/entities.ts";
 import { resolveStructure } from "../domain/plan.ts";
 import { analysisOf } from "../domain/analysis.ts";
+import { distribute, edwardsTrimp, familyOf, hrZones } from "../domain/zones.ts";
 import { addDays, athleteNow } from "../domain/time.ts";
 import { brief } from "../mcp/tools/activities.ts";
 
@@ -41,12 +42,12 @@ interface DocRow {
 }
 
 /** What the app stores for an activity: list fields + summary and laps (no streams). */
-function activityData(a: ActivityRow) {
+function activityData(a: ActivityRow, profile: Profile) {
   return {
     ...brief(a),
     startAt: a.startAt.toISOString(),
     timezone: a.timezone,
-    summary: slimSummary(a.summary),
+    summary: slimSummary(a.summary, a.sport, profile),
     laps: a.laps,
     tags: a.tags,
     athleteNotes: a.athleteNotes,
@@ -57,13 +58,17 @@ function activityData(a: ActivityRow) {
   };
 }
 
-/** The app gets GAP and decoupling; histograms and steady segments stay on the server. */
-function slimSummary(summary: Record<string, unknown>) {
+/**
+ * The app gets GAP, decoupling and the HR load (Edwards TRIMP by the profile's zones, as in the
+ * MCP analytics) for its fitness/fatigue/form chart; histograms and steady segments stay here.
+ */
+function slimSummary(summary: Record<string, unknown>, sport: string, profile: Profile) {
   const an = analysisOf(summary);
   const { analysis: _a, ...rest } = summary;
-  return an
-    ? { ...rest, analysis: { gapSecPerKm: an.gapSecPerKm, decoupling: an.decoupling } }
-    : rest;
+  if (!an) return rest;
+  const zones = an.hrHist ? hrZones(profile, familyOf(sport)) : null;
+  const trimp = zones && an.hrHist ? edwardsTrimp(distribute(an.hrHist, zones)) : null;
+  return { ...rest, analysis: { gapSecPerKm: an.gapSecPerKm, decoupling: an.decoupling, trimp } };
 }
 
 /** Hidden from the app: deleted, or a worse copy of another activity (e.g. Strava's). */
@@ -90,9 +95,15 @@ function docChange(d: DocRow, profile: Profile, last: LastChanges = new Map()): 
   return { entity: d.entity, id: d.id, op: "upsert", version: d.version, data };
 }
 
-function activityChange(a: ActivityRow): SyncChange {
+function activityChange(a: ActivityRow, profile: Profile): SyncChange {
   return activityVisible(a)
-    ? { entity: "activity", id: a.id, op: "upsert", version: a.version, data: activityData(a) }
+    ? {
+      entity: "activity",
+      id: a.id,
+      op: "upsert",
+      version: a.version,
+      data: activityData(a, profile),
+    }
     : { entity: "activity", id: a.id, op: "delete", version: a.version };
 }
 
@@ -142,7 +153,7 @@ export async function syncPage(
     return {
       changes: [
         ...docs.map((d) => docChange(d, profile, last)),
-        ...acts.map(activityChange),
+        ...acts.map((a) => activityChange(a, profile)),
         ...lifts.map((s) => strengthChange(s)),
       ],
       cursor: String(cursor),
@@ -184,7 +195,7 @@ export async function syncPage(
     }
   }
   const acts = await deps.activities.getMany(userId, [...actIds]);
-  changes.push(...acts.map(activityChange));
+  changes.push(...acts.map((a) => activityChange(a, profile)));
   const lifts = await deps.strength.getMany(userId, [...liftIds], { includeDeleted: true });
   changes.push(...lifts.map(strengthChange));
   return { changes, cursor: String(cursor), hasMore, snapshot: false, serverTime };

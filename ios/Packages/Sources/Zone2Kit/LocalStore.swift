@@ -244,8 +244,14 @@ public final class LocalStore: Sendable {
         }
     }
 
+    /// A cached copy in the current format: curves cached before the route columns (lat/lon)
+    /// were added are fetched again once, so the map appears.
     public func hasStreams(_ activityId: String) throws -> Bool {
-        try db.read { db in try Bool.fetchOne(db, sql: "SELECT 1 FROM stream_cache WHERE activityId = ?", arguments: [activityId]) ?? false }
+        try db.read { db in
+            try Data.fetchOne(db, sql: "SELECT data FROM stream_cache WHERE activityId = ?", arguments: [activityId])
+                .flatMap { try? JSONDecoder().decode(ActivityStreams.self, from: $0) }
+                .map { $0.columns["lat"] != nil } ?? false
+        }
     }
 
     public func observeStreams(_ activityId: String) -> AsyncValueObservation<ActivityStreams?> {
@@ -461,6 +467,15 @@ public final class LocalStore: Sendable {
     }
 
     /// Upcoming confirmed events (countdown on Today).
+    /// The athlete's profile (thresholds and zones screen).
+    public func observeProfile() -> AsyncValueObservation<Profile> {
+        ValueObservation.tracking { db in
+            try Self.decode(Profile.self, db, sql: "SELECT data FROM record WHERE entity = 'profile'", []).first ?? Profile()
+        }
+        .removeDuplicates()
+        .values(in: db)
+    }
+
     public func observeEvents() -> AsyncValueObservation<[PlanEvent]> {
         ValueObservation.tracking { db in
             try Self.decode(PlanEvent.self, db, sql: "SELECT data FROM record WHERE entity = 'event' ORDER BY date", [])

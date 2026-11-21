@@ -24,12 +24,21 @@ public struct GymView: View {
         let s = current
         List {
             Section {
-                HStack {
-                    Text(workout.title).font(.headline)
-                    Spacer()
-                    Text("\(s.doneCount) / \(s.sets.count)").font(.headline.monospacedDigit())
-                        .foregroundStyle(s.doneCount == s.sets.count && !s.sets.isEmpty ? .green : .secondary)
+                HStack(spacing: Space.l) {
+                    ProgressRing(fraction: s.sets.isEmpty ? 0 : Double(s.doneCount) / Double(s.sets.count),
+                                 color: Sport.strength.color, lineWidth: 7) {
+                        VStack(spacing: 0) {
+                            Text(verbatim: "\(s.doneCount)").font(.title3.weight(.bold).monospacedDigit())
+                            Text(verbatim: "/ \(s.sets.count)").font(.caption2.monospacedDigit()).foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(width: 64, height: 64)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Eyebrow(Sport.strength.title, color: Sport.strength.color)
+                        Text(workout.title).font(.title3.weight(.bold))
+                    }
                 }
+                .padding(.vertical, Space.xs)
                 if let goal = workout.goal {
                     MarkdownText(goal, style: .compact).font(.subheadline).foregroundStyle(.secondary)
                 }
@@ -114,9 +123,10 @@ struct SetRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Text("\(set.setIndex + 1)")
-                .font(.subheadline.monospacedDigit())
+                .font(.footnote.weight(.semibold).monospacedDigit())
                 .foregroundStyle(.secondary)
-                .frame(width: 20)
+                .frame(width: 26, height: 26)
+                .background(Circle().fill(Color.secondary.opacity(0.12)))
             if let actual = set.actual {
                 Text(actual.formatted()).font(.title3.weight(.semibold).monospacedDigit())
                 if let planned = set.planned, planned != actual {
@@ -127,8 +137,10 @@ struct SetRow: View {
             }
             Spacer()
             Image(systemName: set.done ? "checkmark.circle.fill" : "circle")
-                .font(.title2)
-                .foregroundStyle(set.done ? .green : Color.secondary.opacity(0.5))
+                .font(.system(size: 30, weight: .regular))
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(set.done ? Sport.strength.color : Color.secondary.opacity(0.5))
+                .contentTransition(.symbolEffect(.replace))
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)

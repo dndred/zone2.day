@@ -17,13 +17,26 @@ extension Sport {
         }
     }
 
+    /// Sport colours: badges, plan rows, volume. Kept apart from the zone scale's hues where it
+    /// matters (run is orange like the brand, bike teal, swim sky blue, strength violet).
     public var color: Color {
         switch self {
-        case .run: .orange
-        case .bike: .green
-        case .swim: .cyan
-        case .strength: .purple
-        case .other: .gray
+        case .run: Color(light: 0xFF6B1A, dark: 0xFF7F3A)
+        case .bike: Color(light: 0x0E9384, dark: 0x2ED3B7)
+        case .swim: Color(light: 0x0BA5EC, dark: 0x36BFFA)
+        case .strength: Color(light: 0x7A5AF8, dark: 0x9B8AFB)
+        case .other: Color(light: 0x667085, dark: 0x98A2B3)
+        }
+    }
+
+    /// "Run", "Ride", … for eyebrows.
+    var title: String {
+        switch self {
+        case .run: L("Run")
+        case .bike: L("Ride")
+        case .swim: L("Swim")
+        case .strength: L("Strength")
+        case .other: L("Other")
         }
     }
 

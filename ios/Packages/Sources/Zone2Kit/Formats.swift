@@ -45,10 +45,16 @@ public enum Formats {
 
     /// 400 → "400 m", 1000 → "1 km", 5063 → "5.06 km", 12345 → "12.3 km".
     public static func distance(_ m: Double, locale: Locale = .current, units u: Units = .current) -> String {
-        if m < 1000 { return "\(Int(m.rounded())) \(u.m)" }
+        let p = distanceParts(m, locale: locale, units: u)
+        return p.value + " " + p.unit
+    }
+
+    /// The number and the unit apart, for big numbers with a small unit: ("11.1", "km").
+    public static func distanceParts(_ m: Double, locale: Locale = .current, units u: Units = .current) -> (value: String, unit: String) {
+        if m < 1000 { return ("\(Int(m.rounded()))", u.m) }
         let km = m / 1000
         let digits = km.rounded() == km ? 0 : km < 10 ? 2 : 1
-        return km.formatted(.number.precision(.fractionLength(digits)).locale(locale)) + " " + u.km
+        return (km.formatted(.number.precision(.fractionLength(digits)).locale(locale)), u.km)
     }
 
     /// km/h with one decimal in the user's locale: "31,2 km/h".

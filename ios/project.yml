@@ -39,7 +39,10 @@ targetTemplates:
       properties:
         CFBundleDisplayName: $(ZONE2_DISPLAY_NAME)
         CFBundleLocalizations: [en, ru]
-        UILaunchScreen: {}
+        # Brand launch: the white "2" from the icon on its orange (App/Assets.xcassets).
+        UILaunchScreen:
+          UIColorName: LaunchBackground
+          UIImageName: LaunchMark
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
         UIApplicationSceneManifest:
           UIApplicationSupportsMultipleScenes: false

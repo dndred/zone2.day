@@ -121,7 +121,11 @@ final class AppModel: ObservableObject {
         let hr: [Double?] = t.map { x in effort(x) ? 150 + 10 * min((x - 2408) / 600, 1) + 2 * sin(x / 60) : 115 + 8 * sin(x / 300) + (x > 3934 ? 15 : 0) }
         let speed: [Double?] = t.map { x in x < 600 ? 0.2 : effort(x) ? 3.33 + 0.1 * sin(x / 90) : 2.7 + 0.2 * sin(x / 200) }
         let power: [Double?] = speed.map { $0.map { $0 * 75 } }
-        return ActivityStreams(bucketSec: dur / Double(n), columns: ["t": t, "heartRate": hr, "speed": speed, "runningPower": power])
+        // A park loop (two laps of ~2.5 km) for the route map.
+        let lat: [Double?] = t.map { x in 53.3480 + 0.0062 * sin(x / dur * 4 * .pi) }
+        let lon: [Double?] = t.map { x in 83.7960 + 0.0105 * cos(x / dur * 4 * .pi) + 0.002 * sin(x / dur * 12 * .pi) }
+        return ActivityStreams(bucketSec: dur / Double(n), columns: ["t": t, "heartRate": hr, "speed": speed, "runningPower": power,
+                                                                     "lat": lat, "lon": lon])
     }
 
     /// Health metrics changed (sleep observer, background): aggregate the recent days and send.

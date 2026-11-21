@@ -226,14 +226,18 @@ Deno.test("analytics tools: load, zones, efficiency trend, activity view", async
     assert(act.activity.analysis.decoupling.pct < 1);
     assert(act.activity.gapSecPerKm > 0);
 
-    // The app feed carries only GAP and decoupling.
+    // The app feed carries only GAP, decoupling and the HR load (no histograms or segments).
     const feed = await (await h.app.request("/v1/sync", {
       headers: { authorization: `Bearer ${h.appToken}` },
     })).json();
     const a = feed.changes.find((c: { entity: string; id: string }) =>
       c.entity === "activity" && c.id === ids[5]
     );
-    assertEquals(Object.keys(a.data.summary.analysis).sort(), ["decoupling", "gapSecPerKm"]);
+    assertEquals(Object.keys(a.data.summary.analysis).sort(), [
+      "decoupling",
+      "gapSecPerKm",
+      "trimp",
+    ]);
 
     // Isolation: another athlete sees none of this.
     const other = crypto.randomUUID();

@@ -31,3 +31,6 @@ build/
 .build/
 .swiftpm/
 ios/Config/
+
+# UI snapshot mismatches (just snapshots)
+ios/Packages/Tests/Zone2UITests/__Snapshots__/*.failed.png

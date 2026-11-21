@@ -6,7 +6,9 @@ import Testing
     #expect(Gzip.crc32(Data("123456789".utf8)) == 0xCBF4_3926)
 }
 
+#if os(macOS)
 /// Round-trip through the system gzip — the same format the server's DecompressionStream expects.
+/// macOS only (no `Process` on iOS, where the package also builds for UI snapshot tests).
 @Test func gzipIsReadableBySystemGzip() throws {
     let text = String(repeating: "{\"heartRate\":[0,5,140]} ", count: 2000)
     let gz = try Gzip.compress(Data(text.utf8))
@@ -25,3 +27,4 @@ import Testing
     #expect(p.terminationStatus == 0)
     #expect(String(decoding: out, as: UTF8.self) == text)
 }
+#endif

@@ -22,6 +22,7 @@
 | `just test-mcp` | Контрактные тесты MCP + проверка снапшота инструментов |
 | `just test-kit` | `swift test` для SPM-пакетов на macOS (быстро, без симулятора) |
 | `just test-ios` | `xcodebuild test` в симуляторе (UI-тесты, снапшоты) |
+| `just snapshots` | Снапшоты UI на iOS-симуляторе (запущенном или `ZONE2_SIM=<udid>`) |
 | `just snapshots-update` | Перезаписать эталонные снапшоты UI (осознанно) |
 | `just mcp <tool> '<json>'` | Вызвать MCP-инструмент на staging от служебного пользователя `smoke` (его данные изолированы от реальных) |
 | `just smoke-token` | Один раз: создать пользователя `smoke` и долгоживущий токен (кэш в `.env.staging.local`) |
@@ -49,7 +50,7 @@
 
 ### iOS / watchOS
 - **SPM-пакеты (`swift test` на macOS):** модели, GRDB store и миграции, SyncEngine (фейковый транспорт: лента, ошибки, 410, повторы), outbox, маппинг в WorkoutKit (через промежуточную модель), `StepEngine`, `HRGuard` (последовательности пульса → сигналы), форматтеры.
-- **Snapshot-тесты (`swift-snapshot-testing`):** все компоненты и экраны в light/dark × Dynamic Type × en/ru. PNG в репозитории — **агент открывает их и видит UI**.
+- **Snapshot-тесты** (`ios/Packages/Tests/Zone2UITests/SnapshotTests.swift`, без зависимостей): `ImageRenderer` на iOS-симуляторе, эталоны PNG в `__Snapshots__/` рядом — **агент открывает их и видит UI**. Компоненты дизайн-системы в light/dark (карточка тренировки — и в XXXL), данные — демо-лента на 17.11.2026 и синтетическая кривая пульса. Сравнение попиксельное с допуском 0,2 %; при расхождении рядом пишется `<имя>.failed.png`. `ImageRenderer` не рисует `NavigationStack`, `ScrollView` и карты, поэтому экраны целиком (`screen-*.png`: тренировка, активность) снимаются иначе: `UIHostingController` в `UIWindow` высотой с экран, ~1,2 с на `.task`-подписки к демо-хранилищу, затем `layer.render(in:)` (в тестах без приложения-хоста нет `UIWindowScene`, `drawHierarchy` даёт пустой кадр). Карты MapKit не рисуются и так. Язык — системный язык симулятора (en). На macOS (`swift test`) снапшоты пропускаются.
 - **UI-тесты (XCUITest) в симуляторе:** смоук-сценарии с фикстурным сервером (`-ServerURL http://localhost:8787`, `-SeedFixture week1`).
 - **HealthKit в симуляторе:** debug-сборка умеет записывать фикстурные тренировки в HealthKit симулятора (`-SeedHealthKit run_10k`), чтобы проверять экспорт целиком.
 - **Что нельзя проверить без устройства:** WorkoutScheduler на реальных часах, фоновые пробуждения, GPS и пульс. Для этого — чек-листы ручной проверки и удалённые логи (ниже).

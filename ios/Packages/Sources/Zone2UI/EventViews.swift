@@ -89,7 +89,7 @@ struct EventRow: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(event.name).font(.subheadline.weight(.medium))
-                    if let p = event.priority, !event.isClosed { Chip(text: p, color: .accentColor) }
+                    if let p = event.priority, !event.isClosed { Chip(text: p, color: .brand) }
                 }
                 Text(event.dateLabel(today: today)).font(.caption).foregroundStyle(.secondary)
             }
@@ -165,6 +165,7 @@ public struct EventView: View {
     public init(event: PlanEvent) { self.event = event }
 
     public var body: some View {
+        let today = LocalDate.today(in: .current)
         List {
             Section {
                 VStack(alignment: .leading, spacing: 8) {
@@ -175,7 +176,24 @@ public struct EventView: View {
                             Chip(text: status, color: event.statusColor)
                         }
                     }
-                    if let d = event.distanceM { Text(Formats.distance(d)).font(.headline.monospacedDigit()) }
+                    HStack(alignment: .firstTextBaseline, spacing: Space.l) {
+                        if event.isConfirmed && event.isUpcoming(today: today) {
+                            let days = today.days(until: event.dateFrom)
+                            VStack(alignment: .leading, spacing: 0) {
+                                Text(verbatim: "\(days)")
+                                    .font(.system(size: 56, weight: .bold).monospacedDigit())
+                                    .foregroundStyle(Color.brand.gradient)
+                                Text("days to go", bundle: .module).font(.footnote).foregroundStyle(.secondary)
+                            }
+                        }
+                        if let d = event.distanceM {
+                            let p = Formats.distanceParts(d)
+                            StatTile(label: L("Distance"), value: p.value, unit: p.unit, size: 28)
+                        }
+                        if let t = event.result?.timeSec {
+                            StatTile(label: L("Time"), value: Formats.clock(t), size: 28)
+                        }
+                    }
                     if let goal = event.goal { MarkdownText(goal, style: .compact) }
                     if let text = event.dateText {
                         Label(text, systemImage: "calendar.badge.clock").font(.caption).foregroundStyle(.secondary)

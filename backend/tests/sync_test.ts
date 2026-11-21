@@ -82,6 +82,9 @@ Deno.test("sync feed: snapshot, increments, deletes, profile re-resolves upcomin
     assertEquals(curves.columns.t.length, 50);
     assert(curves.columns.heartRate.some((x: number | null) => x !== null));
     assert(curves.columns.speed.some((x: number | null) => (x ?? 0) > 3)); // ~3.3 m/s in the dump
+    // Route columns for the map: present even when the dump has no route (then all null).
+    assertEquals(curves.columns.lat.length, 50);
+    assertEquals(curves.columns.lon.length, 50);
     const missing = await h.app.request(`/v1/activities/${crypto.randomUUID()}/streams`, {
       headers: { authorization: `Bearer ${h.appToken}` },
     });
@@ -90,6 +93,9 @@ Deno.test("sync feed: snapshot, increments, deletes, profile re-resolves upcomin
     const act = find(changes, "activity", activityId)[0];
     assertEquals(act.data.date, "2026-11-13");
     assertEquals(act.data.summary.v, SUMMARY_VERSION);
+    // HR load for the app's fitness/form chart (profile LTHR 160 → Friel zones); no histograms.
+    assert(act.data.summary.analysis.trimp > 0, JSON.stringify(act.data.summary.analysis));
+    assertEquals(act.data.summary.analysis.hrHist, undefined);
     assert(Array.isArray(act.data.laps));
     const cursor = snap.body.cursor;
 

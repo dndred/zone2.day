@@ -2,7 +2,7 @@ import SwiftUI
 import Zone2Kit
 
 /// Workout card on Today. Plan and fact are one object (principle 4): once done, the card
-/// shows the result under the plan.
+/// shows the result under the plan. Expanded: the next open workout of the day.
 struct WorkoutCard: View {
     let item: PlannedItem
     var expanded = true
@@ -10,25 +10,26 @@ struct WorkoutCard: View {
 
     var body: some View {
         let w = item.workout
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                Image(systemName: Sport.symbol(w.sport, subSport: w.subSport))
-                    .foregroundStyle(w.sport.color)
-                Text(w.title).font(expanded ? .title3.weight(.semibold) : .headline)
-                if w.key { Image(systemName: "star.fill").font(.caption).foregroundStyle(.yellow) }
-                Spacer()
-                StatusBadge(status: item.status)
+        VStack(alignment: .leading, spacing: Space.m) {
+            HStack(alignment: .center, spacing: Space.m) {
+                SportBadge(sport: w.sport, subSport: w.subSport, size: expanded ? 44 : 36, muted: item.status == .skipped)
+                VStack(alignment: .leading, spacing: 2) {
+                    Eyebrow(eyebrow, color: w.key ? .brand : .secondary)
+                    Text(w.title)
+                        .font(expanded ? .title3.weight(.bold) : .headline)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.leading)
+                }
+                Spacer(minLength: 0)
+                StatusBadge(status: item.status).font(.title2)
             }
             if let goal = w.goal, expanded {
                 MarkdownText(goal, style: .compact).font(.subheadline).foregroundStyle(.secondary)
             }
             if let s = w.resolved {
-                StructureBar(structure: s, sport: w.sport, height: expanded ? 28 : 16)
-                if expanded {
-                    Text(structureSummary(s, sport: w.sport))
-                        .font(.footnote.monospacedDigit())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(3)
+                StructureBar(structure: s, sport: w.sport, height: expanded ? 40 : 20)
+                if expanded && item.activities.isEmpty {
+                    PlanStats(estimate: PlanEstimate(s, sport: w.sport), sport: w.sport, size: 20)
                 }
             } else if let s = w.strength, expanded {
                 Text(s.items.compactMap { $0.exercise?.exercise ?? $0.items?.map(\.exercise).joined(separator: " + ") }
@@ -36,20 +37,53 @@ struct WorkoutCard: View {
                     .font(.footnote).foregroundStyle(.secondary).lineLimit(3)
             }
             if let skipped = w.skipped {
-                Text(skipped.reason).font(.footnote).foregroundStyle(.secondary)
+                Label(skipped.reason, systemImage: "minus.circle").font(.footnote).foregroundStyle(.secondary)
             }
             if !item.activities.isEmpty {
                 Divider()
                 if item.activities.count > 1 { PartsTotal(item: item) }
-                ForEach(item.activities) { ActivityHeadline(activity: $0) }
+                ForEach(item.activities) { ActivityHeadline(activity: $0, size: expanded ? 22 : 18) }
             } else if expanded, item.status == .planned {
                 DeliveryLabel(execution: w.execution, onWatch: onWatch)
             }
         }
-        .padding(14)
-        .background(Color.card, in: RoundedRectangle(cornerRadius: 14))
-        .opacity(item.status == .skipped ? 0.55 : 1)
+        .card()
+        .opacity(item.status == .skipped ? 0.6 : 1)
+        .contentShape(Rectangle())
     }
+
+    private var eyebrow: String {
+        let w = item.workout
+        return ([w.sport.title] + (w.key ? [L("Key workout")] : [])).joined(separator: " · ")
+    }
+}
+
+/// Planned time, distance and main target as small headline stats.
+struct PlanStats: View {
+    let estimate: PlanEstimate
+    let sport: Sport
+    var size: CGFloat = 22
+
+    var body: some View {
+        HStack(alignment: .top, spacing: Space.m) {
+            StatTile(label: L("Time"), value: "≈" + Formats.clock(estimate.seconds), size: size)
+            if let d = estimate.distanceM {
+                let p = Formats.distanceParts(d)
+                StatTile(label: L("Distance"), value: p.value, unit: p.unit, size: size)
+            }
+            if let t = estimate.mainTarget {
+                let p = targetParts(t, sport: sport)
+                StatTile(label: L("Target"), value: p.value, unit: p.unit, size: size)
+            }
+        }
+    }
+}
+
+/// "≤ 150" + "bpm": the target's number apart from its unit (RPE stays whole).
+func targetParts(_ t: Target, sport: Sport) -> (value: String, unit: String?) {
+    let s = Formats.target(t, sport: sport)
+    guard t.metric != .rpe, let space = s.lastIndex(of: " ") else { return (s, nil) }
+    return (String(s[..<space]), String(s[s.index(after: space)...]))
 }
 
 /// "Total · 19.0 km · 1:52:10" when one workout was recorded in several parts.
@@ -57,12 +91,12 @@ struct PartsTotal: View {
     let item: PlannedItem
 
     var body: some View {
-        HStack(spacing: 12) {
-            Text(L("Total")).font(.subheadline.weight(.semibold))
+        HStack(spacing: Space.m) {
+            Eyebrow(L("Total"))
             if let d = item.totalDistanceM { Text(Formats.distance(d)) }
             if let t = item.totalMovingSec { Text(Formats.clock(t)) }
         }
-        .font(.subheadline.monospacedDigit())
+        .font(.subheadline.weight(.semibold).monospacedDigit())
     }
 }
 
@@ -96,15 +130,12 @@ struct DeliveryLabel: View {
     var body: some View {
         if execution == "workoutkit" {
             if onWatch {
-                Label(L("On watch"), systemImage: "applewatch.radiowaves.left.and.right")
-                    .font(.caption.weight(.medium)).foregroundStyle(.green)
+                Pill(text: L("On watch"), systemImage: "applewatch.radiowaves.left.and.right", color: .green)
             } else {
-                Label(L("Not on watch yet"), systemImage: "applewatch.slash")
-                    .font(.caption).foregroundStyle(.secondary)
+                Pill(text: L("Not on watch yet"), systemImage: "applewatch.slash")
             }
         } else if let exec = executionLabel(execution) {
-            Label(exec, systemImage: execution == "mywhoosh" ? "laptopcomputer" : "applewatch")
-                .font(.caption).foregroundStyle(.secondary)
+            Pill(text: exec, systemImage: execution == "mywhoosh" ? "laptopcomputer" : "applewatch")
         }
     }
 }
@@ -113,8 +144,8 @@ struct StatusBadge: View {
     let status: WorkoutStatus
     var body: some View {
         if status != .planned {
-            Label(status.title, systemImage: status.symbol)
-                .labelStyle(.iconOnly)
+            Image(systemName: status.symbol)
+                .symbolRenderingMode(.hierarchical)
                 .foregroundStyle(status.color)
                 .accessibilityLabel(status.title)
         }
@@ -133,69 +164,125 @@ public struct PlannedWorkoutView: View {
 
     public var body: some View {
         let w = item.workout
-        List {
-            Section {
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Text(w.date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
-                            .font(.subheadline).foregroundStyle(.secondary)
-                        if w.key { Chip(text: L("Key workout"), color: .yellow) }
-                        Spacer()
-                        if item.status != .planned { Chip(text: item.status.title, color: item.status.color) }
+        ScrollView {
+            VStack(alignment: .leading, spacing: Space.l) {
+                header(w)
+
+                if let s = w.resolved {
+                    VStack(alignment: .leading, spacing: Space.l) {
+                        StructureBar(structure: s, sport: w.sport, height: 84, showsAxis: true)
+                        PlanStats(estimate: PlanEstimate(s, sport: w.sport), sport: w.sport, size: 24)
+                        if item.status == .planned {
+                            DeliveryLabel(execution: w.execution, onWatch: onWatch)
+                        }
                     }
-                    if let goal = w.goal { MarkdownText(goal, style: .compact) }
-                    if let s = w.resolved { StructureBar(structure: s, sport: w.sport, height: 40) }
-                    if item.status == .planned {
-                        DeliveryLabel(execution: w.execution, onWatch: onWatch)
-                    }
+                    .card()
+                } else if item.status == .planned, w.sport != .strength {
+                    DeliveryLabel(execution: w.execution, onWatch: onWatch)
                 }
-                .padding(.vertical, 4)
-            }
-            if let skipped = w.skipped {
-                Section(L("Skipped")) { Text(skipped.reason) }
-            }
-            if let s = w.resolved {
-                Section(L("Steps")) { StepList(structure: s, sport: w.sport) }
-            }
-            if w.sport == .strength && item.status != .skipped {
-                Section {
+
+                if let skipped = w.skipped {
+                    Label(skipped.reason, systemImage: "minus.circle")
+                        .font(.subheadline)
+                        .card()
+                }
+
+                if w.sport == .strength && item.status != .skipped {
                     NavigationLink {
                         GymView(workout: w)
                     } label: {
                         Label(item.status == .done ? L("Open gym log") : L("Start in the gym"),
                               systemImage: "figure.strengthtraining.traditional")
                             .font(.headline)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 6)
                     }
+                    .buttonStyle(.borderedProminent)
+                    .buttonBorderShape(.capsule)
+                    .controlSize(.large)
                 }
-            }
-            if let s = w.strength {
-                Section(L("Exercises")) { StrengthList(structure: s) }
-            }
-            if let notes = w.notes {
-                Section(L("Notes")) { MarkdownText(notes) }
-            }
-            if !item.activities.isEmpty {
-                Section(L("Result")) {
-                    if item.activities.count > 1 { PartsTotal(item: item) }
+
+                if let s = w.resolved {
+                    SectionTitle(L("Steps"))
+                    StepList(structure: s, sport: w.sport).card(padding: Space.l)
+                }
+                if let s = w.strength {
+                    SectionTitle(L("Exercises"))
+                    StrengthList(structure: s).card()
+                }
+                if let notes = w.notes {
+                    SectionTitle(L("Notes"))
+                    MarkdownText(notes).card()
+                }
+                if !item.activities.isEmpty {
+                    SectionTitle(L("Result"))
+                    if item.activities.count > 1 { PartsTotal(item: item).padding(.horizontal, Space.xs) }
                     ForEach(item.activities) { a in
                         NavigationLink {
-                            ActivityView(activity: a)
+                            ActivityView(activity: a, planned: w, linkToPlan: false)
                         } label: {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(a.title ?? "").font(.subheadline.weight(.medium))
-                                ActivityHeadline(activity: a)
-                            }
+                            ActivityResultCard(activity: a)
                         }
+                        .buttonStyle(.plain)
                     }
                 }
+                // The coach's change log is history, not the plan: last, below the result.
+                if let change = w.lastChange, let why = change.why, !why.isEmpty {
+                    LastChangeLine(change: change).padding(.horizontal, Space.xs).padding(.top, Space.s)
+                }
             }
-            // The coach's change log is history, not the plan: last, below the result.
-            if let change = w.lastChange, let why = change.why, !why.isEmpty {
-                Section { LastChangeLine(change: change) }
+            .padding(.horizontal, Space.l)
+            .padding(.bottom, Space.xl)
+        }
+        .background(Color.groupedBackground)
+        .navigationTitle(w.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
+        .inlineTitle()
+    }
+
+    private func header(_ w: PlannedWorkout) -> some View {
+        VStack(alignment: .leading, spacing: Space.m) {
+            HStack(alignment: .center, spacing: Space.m) {
+                SportBadge(sport: w.sport, subSport: w.subSport, size: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    Eyebrow(w.date.formatted(.dateTime.weekday(.wide).day().month(.wide)))
+                    Text(w.title).font(.title2.weight(.bold)).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            HStack(spacing: Space.s) {
+                if w.key { Pill(text: L("Key workout"), systemImage: "star.fill", color: .brand) }
+                if item.status != .planned {
+                    Pill(text: item.status.title, systemImage: item.status.symbol, color: item.status.color)
+                }
+            }
+            if let goal = w.goal {
+                MarkdownText(goal, style: .compact).font(.body).foregroundStyle(.secondary)
             }
         }
-        .navigationTitle(w.title)
-        .inlineTitle()
+        .padding(.top, Space.s)
+    }
+}
+
+/// A recorded activity under its plan: title, time of day and the headline numbers.
+struct ActivityResultCard: View {
+    let activity: Activity
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: Space.m) {
+            HStack(spacing: Space.m) {
+                SportBadge(sport: activity.sport, subSport: activity.subSport, size: 32)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text(activity.title ?? activity.sport.title).font(.headline).lineLimit(1)
+                    if let start = activity.startLocal {
+                        Text(start).font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+            }
+            ActivityHeadline(activity: activity, size: 22)
+        }
+        .card()
+        .contentShape(Rectangle())
     }
 }
 
@@ -226,6 +313,7 @@ struct SyncStatusLine: View {
         }
         .font(.caption)
         .foregroundStyle(.secondary)
+        .lineLimit(1)
     }
 
     static func watchError(_ err: String) -> String {

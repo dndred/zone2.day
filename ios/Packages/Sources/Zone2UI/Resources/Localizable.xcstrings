@@ -966,6 +966,526 @@
     },
     "· ": {
       "shouldTranslate": false
+    },
+    "Average": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Среднее"
+          }
+        }
+      }
+    },
+    "Avg heart rate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ср. пульс"
+          }
+        }
+      }
+    },
+    "Avg pace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ср. темп"
+          }
+        }
+      }
+    },
+    "Avg power": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ср. мощность"
+          }
+        }
+      }
+    },
+    "Avg speed": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ср. скорость"
+          }
+        }
+      }
+    },
+    "Best": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Лучший"
+          }
+        }
+      }
+    },
+    "Details": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Подробнее"
+          }
+        }
+      }
+    },
+    "Elevation": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Высота"
+          }
+        }
+      }
+    },
+    "Heart rate zones": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пульсовые зоны"
+          }
+        }
+      }
+    },
+    "Max": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Макс."
+          }
+        }
+      }
+    },
+    "Max heart rate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Макс. пульс"
+          }
+        }
+      }
+    },
+    "Max power": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Макс. мощность"
+          }
+        }
+      }
+    },
+    "Other": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Другое"
+          }
+        }
+      }
+    },
+    "Range": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Диапазон"
+          }
+        }
+      }
+    },
+    "Recovery is part of the plan.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановление — тоже часть плана."
+          }
+        }
+      }
+    },
+    "Ride": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вело"
+          }
+        }
+      }
+    },
+    "Run": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Бег"
+          }
+        }
+      }
+    },
+    "Strength": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Силовая"
+          }
+        }
+      }
+    },
+    "Swim": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Плавание"
+          }
+        }
+      }
+    },
+    "Target": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Цель"
+          }
+        }
+      }
+    },
+    "of ≈%@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "из ≈%@"
+          }
+        }
+      }
+    },
+    "days to go": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "дн. до старта"
+          }
+        }
+      }
+    },
+    "Thresholds & zones": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пороги и зоны"
+          }
+        }
+      }
+    },
+    "Thresholds and zones are set by the coach; ask in the chat to change them.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пороги и зоны задаёт тренер; чтобы изменить — напишите в чат."
+          }
+        }
+      }
+    },
+    "No thresholds yet": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порогов пока нет"
+          }
+        }
+      }
+    },
+    "Threshold heart rate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пороговый пульс"
+          }
+        }
+      }
+    },
+    "Threshold pace": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пороговый темп"
+          }
+        }
+      }
+    },
+    "Resting heart rate": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пульс покоя"
+          }
+        }
+      }
+    },
+    "Active recovery": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Активное восстановление"
+          }
+        }
+      }
+    },
+    "Endurance": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выносливость"
+          }
+        }
+      }
+    },
+    "Tempo": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Темп"
+          }
+        }
+      }
+    },
+    "Threshold": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Порог"
+          }
+        }
+      }
+    },
+    "VO₂max": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "МПК"
+          }
+        }
+      }
+    },
+    "Anaerobic": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Анаэробная"
+          }
+        }
+      }
+    },
+    "Neuromuscular": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нейромышечная"
+          }
+        }
+      }
+    },
+    "Aerobic base": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Аэробная база"
+          }
+        }
+      }
+    },
+    "Power zones": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Зоны мощности"
+          }
+        }
+      }
+    },
+    "Recovery zone": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановление"
+          }
+        }
+      }
+    },
+    "Day off": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отдых"
+          }
+        }
+      }
+    },
+    "Load": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нагрузка"
+          }
+        }
+      }
+    },
+    "Progress": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прогресс"
+          }
+        }
+      }
+    },
+    "Metric": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Показатель"
+          }
+        }
+      }
+    },
+    "12-week average": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "В среднем за 12 недель"
+          }
+        }
+      }
+    },
+    "GAP": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Темп с уклоном"
+          }
+        }
+      }
+    },
+    "Pa:HR drift": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дрейф Pa:HR"
+          }
+        }
+      }
+    },
+    "Pw:HR drift": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дрейф Pw:HR"
+          }
+        }
+      }
+    },
+    "Fitness": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Форма"
+          }
+        }
+      }
+    },
+    "Fatigue": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Усталость"
+          }
+        }
+      }
+    },
+    "Form": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Готовность"
+          }
+        }
+      }
+    },
+    "Load is TRIMP from heart-rate zones; fitness averages 42 days, fatigue 7.": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нагрузка — TRIMP по пульсовым зонам; форма — среднее за 42 дня, усталость — за 7."
+          }
+        }
+      }
+    },
+    "Training load": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Нагрузка и форма"
+          }
+        }
+      }
+    },
+    "Power curve": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Кривая мощности"
+          }
+        }
+      }
     }
   },
   "version": "1.0"
