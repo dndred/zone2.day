@@ -84,11 +84,13 @@ struct OverlayView: View {
             } label: {
                 HStack(spacing: 4) {
                     Image(systemName: model.workout == nil ? "bicycle" : "calendar")
-                    Text(model.workout.map(pickerTitle) ?? String(localized: "Free ride")).lineLimit(1)
+                    Text(model.workout.map(pickerTitle) ?? String(localized: "Free ride"))
+                        .lineLimit(1).truncationMode(.tail)
                 }
             }
             .menuStyle(.borderlessButton)
-            .fixedSize()
+            // A long title truncates inside the overlay's width instead of widening it.
+            .frame(maxWidth: .infinity, alignment: .leading)
             .font(.caption)
             if let w = model.workout?.workout, let line = summary(w) {
                 Text(line).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
