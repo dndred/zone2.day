@@ -156,7 +156,7 @@
 | `goal?`, `url?`, `notes?` (markdown ≤20000: план, раскладка, питание) | место — в тексте (`name`/`notes`) |
 | `timezone?` | пояс места старта (Нови-Сад, СПб…) |
 | `course_id?`, `notebook_refs[]` | трасса; страницы блокнота |
-| `result?` (`{timeSec, place, notes}`), `activity_id?` | |
+| `result?` (`{timeSec, place, notes}`), `activity_id?` | `result.timeSec` — официальное время, `result.notes` ≤1000 — краткий итог; `activity_id` — активность самого старта (проверяется, что она есть у атлета), подробный разбор — в её `coach_notes`. Прошедшие старты заводятся так же: `status: done`/`dnf` с датой в прошлом |
 
 Пример: `{ "name": "Brevet 200", "sport": "brevet", "status": "idea", "date_precision": "month_part", "date_from": "2027-06-01", "date_to": "2027-06-10", "date_text": "начало июня 2027", "distance_m": 200000 }`.
 В UI и `get_context` идеи показываются отдельно от принятых стартов; обратный отсчёт — только для стартов с точной датой.

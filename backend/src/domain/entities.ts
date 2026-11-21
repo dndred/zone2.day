@@ -269,6 +269,8 @@ export const Event = z.object({
     place: z.string().max(40).optional(),
     notes: z.string().max(1000).optional(),
   }).optional(),
+  /** The race's own activity (finish line recording); the detailed race analysis lives in its coachNotes. */
+  activityId: z.uuid().optional(),
   notebookRefs: NotebookRefs,
 }).refine((e) => e.dateFrom <= e.dateTo, { message: "dateFrom must be ≤ dateTo" })
   .refine((e) => e.datePrecision !== "day" || e.dateFrom === e.dateTo, {

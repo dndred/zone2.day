@@ -119,10 +119,10 @@ Endpoint: `https://api.zone2.day/mcp` (Streamable HTTP, stateless; проток�
 | Tool | Тип | Параметры | Назначение |
 |---|---|---|---|
 | `list_events` | R | `status?` (по умолчанию все, кроме `cancelled`), `includePast?` | Старты и идеи стартов; неточные даты — окном `date_from`…`date_to` + `date_text`; пояс старта |
-| `upsert_event` | W | `id?` + поля события (см. [03-data-model §2.8](03-data-model.md#28-старты--events)) | Создать или изменить; идея → решение = смена `status`, уточнение даты = смена `date_precision` |
+| `upsert_event` | W | `id?` + поля события (см. [03-data-model §2.8](03-data-model.md#28-старты--events)), `null` очищает поле | Создать или изменить; идея → решение = смена `status`, уточнение даты = смена `date_precision`; после старта (или для прошлого) — `done`/`dnf`, `result`, `activityId` (несуществующая или чужая активность → `not_found`) |
 | `delete_event` | W | `id`, `why` | Удалить (откатывается) |
 
-`notes` старта — markdown ≤20 000 (план, раскладка, питание); у старта — `notebookRefs`, `courseId`, `timezone`.
+`notes` старта — markdown ≤20 000 (план, раскладка, питание); у старта — `notebookRefs`, `activityId`, `timezone` (`courseId` — когда появятся трассы).
 
 ### 3.8a Журнал атлета
 | Tool | Тип | Параметры | Назначение |

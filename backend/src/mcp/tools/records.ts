@@ -116,18 +116,34 @@ export function registerRecordTools(server: McpServer, ctx: McpContext): void {
   defineTool(server, ctx, "upsert_event", {
     title: "Create or update event",
     description:
-      "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Texts: goal = the target for this race (time, place, 'finish healthy'); notes (≤20000, markdown) = this race's plan: course, pacing, fueling, logistics, place; result.notes = how the race went, after it. The season picture (which races and why) belongs in the notebook. Sources go to why.",
+      "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Texts: goal = the target for this race (time, place, 'finish healthy'); notes (≤20000, markdown) = this race's plan: course, pacing, fueling, logistics, place; result = {timeSec: official time, place, notes ≤1000: short summary of how it went}. After the race set status done/dnf and activityId = the race's activity (must exist; null unlinks); the detailed analysis goes to that activity's coachNotes (update_activity). Past races can be added the same way. null clears an optional field. The season picture (which races and why) belongs in the notebook. Sources go to why.",
     input: {
       id: z.uuid().optional(),
       fields: z.record(z.string(), z.unknown()).describe(
-        "Event fields: name, sport, status, datePrecision, dateFrom, dateTo, dateText, startTime, timezone, distanceM, format, priority, goal, url, notes, result, notebookRefs",
+        "Event fields: name, sport, status, datePrecision, dateFrom, dateTo, dateText, startTime, timezone, distanceM, format, priority, goal, url, notes, result, activityId, notebookRefs",
       ),
       why: Why.optional(),
     },
   }, async ({ id, fields, why }, env) => {
     const cur = id ? await ctx.docs.get<Event>(env.userId, "event", id) : null;
     if (id && !cur) throw new ToolError("not_found", `event ${id} not found`);
-    const event = Event.parse({ ...(cur?.data ?? {}), ...fields, id: id ?? crypto.randomUUID() });
+    const merged: Record<string, unknown> = {
+      ...(cur?.data ?? {}),
+      ...fields,
+      id: id ?? crypto.randomUUID(),
+    };
+    for (const k of Object.keys(merged)) if (merged[k] === null) delete merged[k];
+    const event = Event.parse(merged);
+    if (event.activityId && event.activityId !== cur?.data.activityId) {
+      const a = await ctx.activities.get(env.userId, event.activityId);
+      if (!a) {
+        throw new ToolError(
+          "not_found",
+          `activity ${event.activityId} not found`,
+          "Find the race activity with list_activities (tags race) or create it first",
+        );
+      }
+    }
     const meta = await env.meta("upsert_event", why);
     const r = await ctx.docs.transaction((tx) =>
       ctx.docs.mutate(tx, env.userId, "event", event.id, event, meta)

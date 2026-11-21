@@ -1710,7 +1710,7 @@
     {
       "name": "upsert_event",
       "title": "Create or update event",
-      "description": "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Texts: goal = the target for this race (time, place, 'finish healthy'); notes (≤20000, markdown) = this race's plan: course, pacing, fueling, logistics, place; result.notes = how the race went, after it. The season picture (which races and why) belongs in the notebook. Sources go to why.",
+      "description": "Create (no id) or partially update an event. Idea → decision = change status. Exact date: datePrecision 'day' with dateFrom = dateTo. Texts: goal = the target for this race (time, place, 'finish healthy'); notes (≤20000, markdown) = this race's plan: course, pacing, fueling, logistics, place; result = {timeSec: official time, place, notes ≤1000: short summary of how it went}. After the race set status done/dnf and activityId = the race's activity (must exist; null unlinks); the detailed analysis goes to that activity's coachNotes (update_activity). Past races can be added the same way. null clears an optional field. The season picture (which races and why) belongs in the notebook. Sources go to why.",
       "annotations": {
         "readOnlyHint": false,
         "destructiveHint": false,
@@ -1731,7 +1731,7 @@
               "type": "string"
             },
             "additionalProperties": {},
-            "description": "Event fields: name, sport, status, datePrecision, dateFrom, dateTo, dateText, startTime, timezone, distanceM, format, priority, goal, url, notes, result, notebookRefs"
+            "description": "Event fields: name, sport, status, datePrecision, dateFrom, dateTo, dateText, startTime, timezone, distanceM, format, priority, goal, url, notes, result, activityId, notebookRefs"
           },
           "why": {
             "type": "string",
