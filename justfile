@@ -120,6 +120,16 @@ ios-device app="prod":
       stg) scheme=Zone2Stg; bundle=day.zone2.app.stg ;;
       *) echo "app: prod | stg"; exit 1 ;;
     esac
+    # Xcode reuses a cached profile until it expires: drop ours if it has < 5 days left, so every
+    # install gives the full 7 days.
+    profiles=~/Library/Developer/Xcode/UserData/Provisioning\ Profiles
+    for f in $profiles/*.mobileprovision(N); do
+      plist=$(security cms -D -i "$f" 2>/dev/null) || continue
+      name=$(plutil -extract Name raw -o - - <<< "$plist" 2>/dev/null) || continue
+      [[ $name == "iOS Team Provisioning Profile: $bundle" || $name == "iOS Team Provisioning Profile: $bundle.watchkitapp" ]] || continue
+      exp=$(plutil -extract ExpirationDate raw -o - - <<< "$plist")
+      (( $(date -j -u -f "%Y-%m-%dT%H:%M:%SZ" "$exp" +%s) - $(date +%s) < 5 * 86400 )) && rm "$f" && echo "renewing profile for $name"
+    done
     xcodebuild -project Zone2.xcodeproj -scheme $scheme -configuration Debug -destination "id=$udid" -derivedDataPath ../build/DerivedData -allowProvisioningUpdates -allowProvisioningDeviceRegistration build -quiet
     xcrun devicectl device install app --device "$udid" ../build/DerivedData/Build/Products/Debug-iphoneos/$scheme.app >/dev/null
     xcrun devicectl device process launch --device "$udid" $bundle >/dev/null && echo "installed and launched $bundle on $udid"
