@@ -84,7 +84,7 @@
 | `estimate` | `{durationSec, distanceM, load}` — считает сервер. Без порогов (нет CSS/FTP) — по истории атлета (его реальные темпы/мощности в похожих шагах), а не по «стандартным» значениям |
 | `notebook_refs[]` | ссылки на страницы блокнота (несколько) |
 | `last_change` | `{at, why}` — последний `why` из журнала изменений; показывается на карточке («изменено 10.11: …») |
-| `execution` | `workoutkit` (по умолчанию) \| `zone2_watch` (ф.2) \| `mywhoosh` \| `none` |
+| `execution` | `workoutkit` (по умолчанию) \| `zone2_watch` (ф.2) \| `zone2_trainer` (ф.1.5, станок — [11-trainer](11-trainer.md)) \| `mywhoosh` (запасной для станка) \| `none` |
 | `matched_activity_id?` | связь с выполненной активностью |
 | `skipped?` | `{reason, at}` — **явный** пропуск, ставит AI с причиной |
 | `status` | `skipped` — если задан `skipped`; иначе вычисляется: `planned` \| `done` \| `partial` \| `missed`. Замена тренировки = удалить одну и создать другую |

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+<key>CFBundleIdentifier</key><string>day.zone2.blescout</string>
+<key>CFBundleExecutable</key><string>scan</string><key>CFBundlePackageType</key><string>APPL</string><key>LSUIElement</key><true/><key>CFBundleName</key><string>zone2 BLE scout</string>
+<key>NSBluetoothAlwaysUsageDescription</key><string>Find the smart trainer and read power and cadence.</string>
+</dict></plist>

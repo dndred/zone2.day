@@ -124,6 +124,20 @@ ios-device app="prod":
     xcrun devicectl device install app --device "$udid" ../build/DerivedData/Build/Products/Debug-iphoneos/$scheme.app >/dev/null
     xcrun devicectl device process launch --device "$udid" $bundle >/dev/null && echo "installed and launched $bundle on $udid"
 
+# BLE scout for the smart trainer (spike S8): builds a tiny .app (macOS asks for Bluetooth once),
+# scans, connects to FTMS/power/HR devices and decodes their data. Turn the trainer on first: it
+# advertises only 1–2 minutes after power-on. Log: tools/ble-scout/build/scan.log
+ble-scout seconds="60":
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    d=tools/ble-scout; app=$d/build/Scout.app
+    mkdir -p $app/Contents/MacOS
+    cp $d/Info.plist $app/Contents/Info.plist
+    swiftc -O $d/scan.swift -o $app/Contents/MacOS/scan
+    codesign -s - -f --deep $app >/dev/null 2>&1
+    open -W -n --stdout $PWD/$d/build/scan.log --stderr $PWD/$d/build/scan.log $app --args {{seconds}}
+    grep -v " props " $d/build/scan.log | tail -60
+
 # Pull a file from the app container on the iPhone, e.g. just ios-pull Documents/wakes.jsonl
 ios-pull path dest="build/device" app="prod":
     #!/usr/bin/env zsh
@@ -361,3 +375,17 @@ _guard target:
       prod) [[ "${ZONE2_ALLOW_PROD:-}" == "1" ]] || { echo "Refusing to touch prod: set ZONE2_ALLOW_PROD=1"; exit 1; } ;;
       *) echo "Unknown target {{target}} (staging|prod)"; exit 1 ;;
     esac
+
+# zone2 Ride (Mac): floating overlay for trainer rides (power, cadence, HeartCast heart rate) that
+# records the ride to ~/zone2/rides/*.json. docs/11-trainer.md
+ride:
+    #!/usr/bin/env zsh
+    set -euo pipefail
+    cd ios && xcodegen generate --quiet
+    xcodebuild -project Zone2.xcodeproj -scheme Zone2Ride -configuration Debug -derivedDataPath ../build/DerivedData build -quiet
+    pkill -x Zone2Ride || true
+    open ../build/DerivedData/Build/Products/Debug/Zone2Ride.app
+
+# Ride record (json from zone2 Ride) → FIT next to it: just ride-fit ~/zone2/rides/2026-11-20-1800-ride.json
+ride-fit file:
+    deno run -A backend/scripts/ride_fit.ts {{file}}

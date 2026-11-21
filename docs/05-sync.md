@@ -101,6 +101,8 @@ GET /v1/sync?cursor=<seq>&limit=500
 
 ## 7. MyWhoosh → сервер → Health
 
+> **Заморожено (D48, 2026-11-20).** Станок переходит на своё приложение ([11-trainer](11-trainer.md)): заезд пишется в Health нашими часами и приходит на сервер обычным экспортом (§6). `intervals-poll` и запись заездов MyWhoosh в Health не делаем; ручной импорт FIT (ниже) остаётся.
+
 Как реально устроен станок: пульс с часов идёт через **HeartCast** в MyWhoosh, поэтому **FIT MyWhoosh уже содержит пульс** (и мощность, каденс). Запись, которую HeartCast оставляет в Health, атлет удаляет. Часы на станке заняты HeartCast — тренировку WorkoutKit для indoor bike не ставим.
 
 1. Job `intervals-poll` (pg_cron, каждые 15 минут): `GET /api/v1/athlete/{id}/activities?oldest=<cursor>` → новые заезды → скачивание **оригинального файла** → `fit_original`.

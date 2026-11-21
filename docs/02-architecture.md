@@ -157,7 +157,7 @@ backend/src/
   ios/
     project.yml               # XcodeGen
     App/                      # iOS-таргет (тонкий)
-    Watch/                    # watchOS-таргет (фаза 2)
+    Watch/                    # watchOS-таргет (ф.1.5 — компаньон станка, ф.2 — раннер)
     Packages/                 # один SPM-пакет Zone2Core, модули — его targets
       Package.swift
       Sources/Zone2Kit/       # модели, API-клиент, GRDB store, SyncEngine, форматирование
@@ -165,7 +165,10 @@ backend/src/
       Sources/HealthBridge/   # (S1) HealthKit: чтение/запись, формат дампа
       Sources/WorkoutBridge/  # (S1) маппинг структуры → WorkoutKit
       Sources/HRGuard/        # (ф.2) машина состояний сторожа пульса
+      Sources/TrainerKit/     # станок по BLE FTMS и пульсометр: разбор данных, RideRecorder (1 Гц → дамп); позже Control Point
+    Shared/WorkoutLink.swift  # сообщения часы ↔ iPhone в зеркальной сессии (S9)
+    Ride/                     # zone2 Ride — оверлей заезда на Mac (D51), `just ride`
       Tests/…                 # `swift test` на macOS
   fixtures/                   # дампы HealthKit, FIT, ожидаемые результаты
-  tools/                      # скрипты: mcp-cli, resign, seed, генераторы
+  tools/                      # скрипты: mcp-cli, resign, seed, генераторы; ble-scout (сканер станка)
 ```

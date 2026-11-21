@@ -13,6 +13,7 @@
 - [docs/08-dev-harness.md](docs/08-dev-harness.md) — команды, тесты, отладка
 - [docs/09-roadmap.md](docs/09-roadmap.md) — фазы и задачи
 - [docs/10-risks-decisions.md](docs/10-risks-decisions.md) — риски, решения, открытые вопросы
+- [docs/11-trainer.md](docs/11-trainer.md) — свой станок (FTMS) и компаньон на часах вместо MyWhoosh/HeartCast
 
 ## Жёсткие правила
 1. **Офлайн-first:** UI на iOS читает только из GRDB. Сеть — только в SyncEngine/outbox.

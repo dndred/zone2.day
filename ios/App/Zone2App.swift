@@ -10,6 +10,7 @@ struct Zone2App: App {
     init() {
         #if DEBUG
         WakeMonitor.start()
+        S9Mirror.shared.install()
         #endif
     }
 

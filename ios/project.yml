@@ -4,6 +4,8 @@ options:
   bundleIdPrefix: day.zone2
   deploymentTarget:
     iOS: "26.0"
+    watchOS: "26.0"
+    macOS: "26.0"
   createIntermediateGroups: true
   developmentLanguage: en
 settings:
@@ -26,6 +28,7 @@ targetTemplates:
     platform: iOS
     sources:
       - path: App
+      - path: Shared
     dependencies:
       - package: Zone2Core
         product: Zone2Kit
@@ -73,6 +76,8 @@ targets:
         ZONE2_SERVER_URL: https:/$()/api.zone2.day
         ZONE2_WATCH_DELIVERY: YES
         ZONE2_APP_ICON: AppIcon
+    dependencies:
+      - target: Zone2Watch
   Zone2Stg:
     templates: [App]
     settings:
@@ -83,3 +88,60 @@ targets:
         ZONE2_WATCH_DELIVERY: NO
         # Same stencil mark with a graphite upper-right corner to distinguish staging.
         ZONE2_APP_ICON: AppIconStg
+
+  # Zone2 Watch: heart-rate companion for the trainer (docs/11-trainer.md §4, spike S9). Embedded in
+  # the prod copy only (Personal Team: 10 app IDs a week).
+  Zone2Watch:
+    type: application
+    platform: watchOS
+    sources:
+      - path: Watch
+      - path: Shared
+    info:
+      path: Config/Zone2Watch-Info.plist
+      properties:
+        CFBundleDisplayName: zone2
+        WKApplication: true
+        WKCompanionAppBundleIdentifier: day.zone2.app
+        WKBackgroundModes: [workout-processing]
+        NSHealthShareUsageDescription: zone2.day reads your heart rate during a ride to show it on the iPhone.
+        NSHealthUpdateUsageDescription: zone2.day saves your rides with heart rate, power and cadence to Apple Health.
+    entitlements:
+      path: Config/Zone2Watch.entitlements
+      properties:
+        com.apple.developer.healthkit: true
+        com.apple.developer.healthkit.access: []
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: day.zone2.app.watchkitapp
+
+  # zone2 Ride (Mac): overlay for trainer rides — power/cadence from the trainer (FTMS), heart rate
+  # from HeartCast on the iPhone (BLE 0x180D), 1 Hz record. docs/11-trainer.md. `just ride`.
+  Zone2Ride:
+    type: application
+    platform: macOS
+    sources:
+      - path: Ride
+    dependencies:
+      - package: Zone2Core
+        product: TrainerKit
+    info:
+      path: Config/Zone2Ride-Info.plist
+      properties:
+        CFBundleDisplayName: zone2 Ride
+        CFBundleLocalizations: [en, ru]
+        LSApplicationCategoryType: public.app-category.healthcare-fitness
+        # Accessory app: no Dock icon, so the overlay can sit over other apps' full-screen video.
+        LSUIElement: true
+        NSBluetoothAlwaysUsageDescription: zone2 Ride connects to your smart trainer and heart-rate sensor.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: day.zone2.ride
+        # Runs locally only, no sandbox, no provisioning profile. Signed with the Apple Development
+        # certificate (not ad-hoc) so macOS keeps the Bluetooth permission across rebuilds.
+        CODE_SIGN_IDENTITY: Apple Development
+        CODE_SIGN_STYLE: Manual
+        DEVELOPMENT_TEAM: HNC3JK7XK2
+        PROVISIONING_PROFILE_SPECIFIER: ""
+        ENABLE_HARDENED_RUNTIME: NO
+        SWIFT_EMIT_LOC_STRINGS: YES

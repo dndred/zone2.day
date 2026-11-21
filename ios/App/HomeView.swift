@@ -123,6 +123,7 @@ struct HomeView: View {
                 Section("Debug") {
                     NavigationLink("S1 · HealthKit & WorkoutKit") { S1SpikeView() }
                     NavigationLink("S4 · Background wakes") { S4WakeView() }
+                    NavigationLink("S9 · Watch heart rate") { S9MirrorView() }
                 }
                 #endif
             }

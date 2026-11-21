@@ -10,6 +10,7 @@ let package = Package(
     products: [
         .library(name: "Zone2Kit", targets: ["Zone2Kit"]),
         .library(name: "Zone2UI", targets: ["Zone2UI"]),
+        .library(name: "TrainerKit", targets: ["TrainerKit"]),
     ],
     dependencies: [
         .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.0.0"),
@@ -27,6 +28,10 @@ let package = Package(
             dependencies: ["Zone2Kit"],
             resources: [.process("Resources")]
         ),
+        // Smart trainer and BLE heart rate: byte parsers and the 1 Hz ride recorder (docs/11-trainer.md).
+        // No CoreBluetooth here, so it is tested on raw bytes.
+        .target(name: "TrainerKit", dependencies: ["Zone2Kit"]),
+        .testTarget(name: "TrainerKitTests", dependencies: ["TrainerKit"]),
         .testTarget(name: "Zone2KitTests", dependencies: ["Zone2Kit"]),
         .testTarget(name: "Zone2UITests", dependencies: ["Zone2UI"]),
     ]
