@@ -44,6 +44,7 @@ export async function ingestHealthKit(
   return await saveDump(deps, userId, dump, {
     source: "healthkit",
     sourceId: dump.workout.uuid,
+    plannedWorkoutId: await chosenPlan(deps, userId, dump),
     file: (opts.storeOriginal ?? true)
       ? {
         kind: "healthkit_dump",
@@ -53,6 +54,17 @@ export async function ingestHealthKit(
       }
       : undefined,
   });
+}
+
+/**
+ * The planned workout the recording app was following (`zone2.plannedWorkoutId` in the workout
+ * metadata: zone2 Ride, later our watch runner). Ignored unless it is this athlete's workout.
+ */
+async function chosenPlan(deps: IngestDeps, userId: string, dump: HealthKitDump) {
+  const id = dump.workout.metadata["zone2.plannedWorkoutId"];
+  if (typeof id !== "string" || !/^[0-9a-f-]{36}$/i.test(id)) return undefined;
+  const doc = await deps.docs.get<PlannedWorkout>(userId, "planned_workout", id);
+  return doc && !doc.deletedAt ? id : undefined;
 }
 
 export interface DumpSource {

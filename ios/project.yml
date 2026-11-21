@@ -125,6 +125,8 @@ targets:
     dependencies:
       - package: Zone2Core
         product: TrainerKit
+      - package: Zone2Core
+        product: Zone2Kit
     info:
       path: Config/Zone2Ride-Info.plist
       properties:
@@ -134,6 +136,8 @@ targets:
         # Accessory app: no Dock icon, so the overlay can sit over other apps' full-screen video.
         LSUIElement: true
         NSBluetoothAlwaysUsageDescription: zone2 Ride connects to your smart trainer and heart-rate sensor.
+        # Prod by default; `defaults write day.zone2.ride ServerURL https://api-staging.zone2.day` for staging.
+        Zone2ServerURL: https://api.zone2.day
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: day.zone2.ride

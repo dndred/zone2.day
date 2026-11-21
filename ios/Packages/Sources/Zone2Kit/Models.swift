@@ -352,6 +352,8 @@ public struct ActivitySummary: Decodable, Sendable, Equatable {
     public let swim: Swim?
     /// The athlete's manual intervals (markers during the workout); the real effort when set.
     public let intervals: [Lap]?
+    /// Bundle id of the recording app ("day.zone2.ride" for the Mac overlay).
+    public let sourceBundle: String?
 }
 
 public struct Activity: Decodable, Sendable, Equatable, Identifiable {

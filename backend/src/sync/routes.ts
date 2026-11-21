@@ -227,6 +227,26 @@ export function syncRoutes(config: Config, deps: AppDeps): Hono<AppEnv> {
     }
   });
 
+  /**
+   * The whole recording as a HealthKit dump. The phone copies zone2 Ride rides (recorded on the
+   * Mac, which has no HealthKit) into Apple Health from it (docs/11-trainer.md §2a).
+   */
+  app.get("/v1/activities/:id/dump", async (c) => {
+    const auth = c.get("auth")!;
+    const id = c.req.param("id");
+    if (!/^[0-9a-f-]{36}$/i.test(id)) return c.json({ error: "not_found" }, 404);
+    try {
+      const dump = await loadDump(deps.activities, deps.blobs, auth.userId, id);
+      if (!dump) return c.json({ error: "not_found" }, 404);
+      return c.json(dump);
+    } catch (err) {
+      if (err instanceof NoStreamsError) {
+        return c.json({ error: "no_streams", message: err.message }, 404);
+      }
+      throw err;
+    }
+  });
+
   /** Workouts deleted in Apple Health (anchored query deletedObjects). */
   app.post("/v1/health-deletions", async (c) => {
     const auth = c.get("auth")!;

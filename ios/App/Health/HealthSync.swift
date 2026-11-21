@@ -141,7 +141,8 @@ final class HealthSync: ObservableObject {
         let result = try await HKAnchoredObjectQueryDescriptor(predicates: [.workout()], anchor: anchor)
             .result(for: store)
         let known = Set(state.pending.map(\.uuid))
-        for w in result.addedSamples where !known.contains(w.uuid.uuidString) {
+        // Rides from the Mac that RideImport wrote are on the server already.
+        for w in result.addedSamples where !known.contains(w.uuid.uuidString) && w.metadata?[RideImport.activityKey] == nil {
             state.pending.append(Pending(uuid: w.uuid.uuidString, start: w.startDate))
         }
         let deleted = Set(result.deletedObjects.map(\.uuid.uuidString))

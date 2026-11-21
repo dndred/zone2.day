@@ -1,13 +1,16 @@
 import Foundation
 import Security
-import Zone2Kit
 
 /// Tokens in the Keychain, readable after first unlock (background sync runs while locked).
-final class KeychainTokenStore: TokenStore, @unchecked Sendable {
-    private let service = "day.zone2.app.oauth"
+/// The Mac overlay keeps its own item (`service`): it signs in separately from the phone.
+public final class KeychainTokenStore: TokenStore, @unchecked Sendable {
+    private let service: String
     private let account: String
 
-    init(account: String) { self.account = account }
+    public init(account: String, service: String = "day.zone2.app.oauth") {
+        self.account = account
+        self.service = service
+    }
 
     private var query: [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -15,7 +18,7 @@ final class KeychainTokenStore: TokenStore, @unchecked Sendable {
          kSecAttrAccount as String: account]
     }
 
-    func load() -> TokenSet? {
+    public func load() -> TokenSet? {
         var q = query
         q[kSecReturnData as String] = true
         q[kSecMatchLimit as String] = kSecMatchLimitOne
@@ -26,7 +29,7 @@ final class KeychainTokenStore: TokenStore, @unchecked Sendable {
 
     /// Replaces the item in place: delete-then-add would lose the tokens if the app is suspended
     /// or killed between the two calls (background wakes) — a sign-out with nothing on the server.
-    func save(_ tokens: TokenSet?) {
+    public func save(_ tokens: TokenSet?) {
         guard let tokens else {
             SecItemDelete(query as CFDictionary)
             return

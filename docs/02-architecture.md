@@ -165,9 +165,9 @@ backend/src/
       Sources/HealthBridge/   # (S1) HealthKit: чтение/запись, формат дампа
       Sources/WorkoutBridge/  # (S1) маппинг структуры → WorkoutKit
       Sources/HRGuard/        # (ф.2) машина состояний сторожа пульса
-      Sources/TrainerKit/     # станок по BLE FTMS и пульсометр: разбор данных, RideRecorder (1 Гц → дамп); позже Control Point
+      Sources/TrainerKit/     # станок по BLE FTMS и пульсометр: разбор данных, RideRecorder (1 Гц → дамп), StepPlayer (шаги плана); позже Control Point
     Shared/WorkoutLink.swift  # сообщения часы ↔ iPhone в зеркальной сессии (S9)
-    Ride/                     # zone2 Ride — оверлей заезда на Mac (D51), `just ride`
+    Ride/                     # zone2 Ride — оверлей заезда на Mac (D51, D52): вход, план, запись → сервер, `just ride`
       Tests/…                 # `swift test` на macOS
   fixtures/                   # дампы HealthKit, FIT, ожидаемые результаты
   tools/                      # скрипты: mcp-cli, resign, seed, генераторы; ble-scout (сканер станка)

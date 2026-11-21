@@ -6,6 +6,8 @@ import Zone2Kit
 /// `dumpToFit` treat it like any other workout (docs/11-trainer.md §4, D50).
 public struct RideRecorder: Sendable {
     public struct Second: Codable, Equatable, Sendable {
+        /// Seconds since the start on the wall clock (pauses leave gaps), so samples written to
+        /// Apple Health line up with the watch's own heart rate.
         public var t: Int
         public var powerW: Int?
         public var cadenceRpm: Double?
@@ -13,9 +15,20 @@ public struct RideRecorder: Sendable {
         public var heartRate: Int?
     }
 
+    /// A step of the planned workout as it was ridden: becomes a segment (lap) in the record.
+    public struct Segment: Codable, Equatable, Sendable {
+        public var start: Date
+        public var end: Date
+        public var stepId: String
+        public var label: String
+    }
+
     public private(set) var start: Date?
+    public private(set) var end: Date?
     public private(set) var seconds: [Second] = []
     public private(set) var distanceM: Double = 0
+    /// Pause and resume moments, in order.
+    public private(set) var pauses: [(pause: Date, resume: Date?)] = []
 
     // Latest readings with their time; stale readings are not recorded.
     private var power: (Int, Date)?
@@ -89,23 +102,45 @@ public struct RideRecorder: Sendable {
 
     public mutating func begin(at now: Date) {
         start = now
+        end = nil
         seconds = []
         distanceM = 0
+        pauses = []
     }
 
-    /// Call once a second while recording.
+    public mutating func pause(at now: Date) {
+        guard start != nil, end == nil, pauses.last.map({ $0.resume != nil }) ?? true else { return }
+        pauses.append((now, nil))
+    }
+
+    public mutating func resume(at now: Date) {
+        guard let last = pauses.indices.last, pauses[last].resume == nil else { return }
+        pauses[last].resume = now
+    }
+
+    public mutating func finish(at now: Date) {
+        guard start != nil, end == nil else { return }
+        resume(at: now)
+        end = now
+    }
+
+    /// Call once a second while recording (not while paused).
     public mutating func tick(at now: Date) {
-        guard start != nil else { return }
-        let s = Second(t: seconds.count, powerW: powerNow(now), cadenceRpm: cadenceNow(now),
+        guard let start, end == nil else { return }
+        // Wall-clock second; a late or early timer fire never doubles or reorders seconds.
+        let t = max(Int(now.timeIntervalSince(start)), (seconds.last?.t ?? -1) + 1)
+        let s = Second(t: t, powerW: powerNow(now), cadenceRpm: cadenceNow(now),
                        speedKmh: speedNow(now), heartRate: heartNow(now))
         distanceM += (s.speedKmh ?? 0) / 3.6
         seconds.append(s)
     }
 
-    /// The ride as a HealthKit-shaped dump: one sample per second per metric.
-    public func dump(trainer: String?, heartSource: String?, appVersion: String) -> HealthKitDump? {
-        guard let start, !seconds.isEmpty else { return nil }
-        let end = start.addingTimeInterval(Double(seconds.count))
+    /// The ride as a HealthKit-shaped dump: one sample per second per metric; pauses and the
+    /// plan's steps (`segments`) as workout events; the followed workout in the metadata.
+    public func dump(trainer: String?, heartSource: String?, appVersion: String,
+                     plannedWorkoutId: String? = nil, segments: [Segment] = []) -> HealthKitDump? {
+        guard let start, let lastT = seconds.last?.t else { return nil }
+        let end = self.end ?? start.addingTimeInterval(Double(lastT + 1))
         func series(_ unit: String, _ value: (Second) -> Double?) -> HealthKitDump.SampleSeries? {
             let vs = seconds.compactMap { s in value(s).map { [Double(s.t), Double(s.t + 1), $0] } }
             return vs.isEmpty ? nil : .init(unit: unit, values: vs)
@@ -124,16 +159,28 @@ public struct RideRecorder: Sendable {
         ]
         if let trainer { meta["zone2.trainer"] = .string(trainer) }
         if let heartSource { meta["zone2.heartRateSource"] = .string(heartSource) }
+        if let plannedWorkoutId { meta["zone2.plannedWorkoutId"] = .string(plannedWorkoutId) }
+        var events: [HealthKitDump.Event] = []
+        for p in pauses {
+            events.append(.init(type: "pause", start: iso.string(from: p.pause), end: iso.string(from: p.pause), metadata: [:]))
+            if let r = p.resume {
+                events.append(.init(type: "resume", start: iso.string(from: r), end: iso.string(from: r), metadata: [:]))
+            }
+        }
+        for g in segments where g.end > g.start {
+            events.append(.init(type: "segment", start: iso.string(from: g.start), end: iso.string(from: min(g.end, end)),
+                                metadata: ["zone2.stepId": .string(g.stepId), "zone2.step": .string(g.label)]))
+        }
         let id = "zone2-ride-\(Int(start.timeIntervalSince1970))"
         return HealthKitDump(
             exportedAt: iso.string(from: Date()),
             app: .init(version: appVersion),
             workout: .init(
                 uuid: id, activityType: 13, start: iso.string(from: start), end: iso.string(from: end),
-                durationSec: Double(seconds.count), totalDistanceM: distanceM > 0 ? distanceM : nil,
+                durationSec: end.timeIntervalSince(start).rounded(), totalDistanceM: distanceM > 0 ? distanceM : nil,
                 totalEnergyKcal: energyKcal, source: .init(name: "zone2 Ride (Mac)", bundleId: "day.zone2.ride"),
                 device: .init(name: trainer, model: nil, hardwareVersion: nil, softwareVersion: nil),
-                metadata: meta, activities: [], events: []),
+                metadata: meta, activities: [], events: events),
             samples: samples, route: [])
     }
 

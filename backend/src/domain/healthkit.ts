@@ -557,7 +557,12 @@ export function defaultTitle(s: Summary): string {
 }
 
 /** Lower = preferred source when two records describe the same session. */
+/** Bundle id of zone2 Ride (Mac): the phone copies these rides into Apple Health. */
+export const RIDE_BUNDLE = "day.zone2.ride";
+
 export function sourcePriority(bundleId: string): number {
+  // zone2 Ride on the Mac: trainer power + BLE heart rate, the plan's steps as laps (docs/11-trainer.md).
+  if (bundleId === RIDE_BUNDLE) return -2;
   if (bundleId.startsWith("fit.")) return -1; // original FIT (e.g. MyWhoosh): power + HR inside (D33)
   if (bundleId.startsWith("com.apple.health")) return 0; // Apple Watch / Workout app
   if (bundleId.includes("strava")) return 9; // Strava copies lose detail (D33)

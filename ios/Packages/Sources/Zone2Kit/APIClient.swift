@@ -88,6 +88,16 @@ public struct APIClient: Sendable {
         }
     }
 
+    /// The whole recording (HealthKit dump): the phone writes zone2 Ride rides into Apple Health.
+    public func activityDump(_ activityId: String, auth: AuthSession) async throws -> HealthKitDump {
+        let data = try await authorized(auth, method: "GET", path: "v1/activities/\(activityId)/dump", body: nil, contentType: nil)
+        do {
+            return try JSONDecoder().decode(HealthKitDump.self, from: data)
+        } catch {
+            throw APIError.decoding(String(describing: error))
+        }
+    }
+
     public func reportHealthDeletions(_ uuids: [String], auth: AuthSession) async throws {
         let body = try JSONEncoder().encode(["uuids": uuids])
         _ = try await authorized(auth, method: "POST", path: "v1/health-deletions", body: body, contentType: "application/json")

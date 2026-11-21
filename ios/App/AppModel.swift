@@ -9,6 +9,8 @@ final class AppModel: ObservableObject {
     let oauth: OAuthClient
     let health: HealthSync
     let metrics: DailyMetricsSync
+    /// Mac overlay rides → Apple Health.
+    let rides: RideImport
     /// Offline store: every screen reads from here; only `sync` writes (via SyncEngine).
     let store: LocalStore
     let syncEngine: SyncEngine
@@ -26,6 +28,7 @@ final class AppModel: ObservableObject {
         oauth = OAuthClient(config: .app(baseURL: baseURL))
         auth = AuthSession(client: oauth, store: KeychainTokenStore(account: baseURL.host() ?? "default"))
         health = HealthSync(api: api, auth: auth)
+        rides = RideImport(api: api, auth: auth)
         // A broken database file must not brick the app: fall back to memory, resync from server.
         // The fallback is visible: Profile → Plan sync shows "in memory".
         if let demo = Self.demoStore() {
@@ -81,7 +84,11 @@ final class AppModel: ObservableObject {
         }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: budget > 60)
-        if budget > 60 { await metrics.requestMissingAuthorization() }
+        if budget > 60 {
+            await metrics.requestMissingAuthorization()
+            await rides.requestAuthorizationIfNeeded()
+        }
+        await rides.run(local: store)
         await metrics.collect()
         await outbox.flush()
         let before = health.state.uploaded
@@ -140,6 +147,7 @@ final class AppModel: ObservableObject {
         }
         await syncEngine.pull()
         await WatchSync.run(store: store, interactive: true)
+        await rides.run(local: store)
         await metrics.collect()
         await outbox.flush()
     }

@@ -1,23 +1,12 @@
 {
   "sourceLanguage": "en",
-  "version": "1.0",
   "strings": {
-    "Turn the trainer on": {
+    "%lld %%": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Включи станок"
-          }
-        }
-      }
-    },
-    "Start HeartCast": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Запусти HeartCast"
+            "value": "%lld %%"
           }
         }
       }
@@ -32,42 +21,12 @@
         }
       }
     },
-    "Saved — show in Finder": {
+    "Cool-down": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Сохранено — показать в Finder"
-          }
-        }
-      }
-    },
-    "Opacity": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Прозрачность"
-          }
-        }
-      }
-    },
-    "Find devices again": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Найти устройства заново"
-          }
-        }
-      }
-    },
-    "Open rides folder": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "Открыть папку заездов"
+            "value": "Заминка"
           }
         }
       }
@@ -82,62 +41,52 @@
         }
       }
     },
-    "Quit": {
+    "Drill": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Выйти"
+            "value": "Упражнение"
           }
         }
       }
     },
-    "Start recording": {
+    "Find devices again": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Начать запись"
+            "value": "Найти устройства заново"
           }
         }
       }
     },
-    "Pause": {
+    "Finder": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Пауза"
+            "value": "Finder"
           }
         }
       }
     },
-    "Stop and save": {
+    "Free ride": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Стоп и сохранить"
+            "value": "Свободный заезд"
           }
         }
       }
     },
-    "Resume": {
+    "Last step": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "Продолжить"
-          }
-        }
-      }
-    },
-    "avg %lld W": {
-      "localizations": {
-        "ru": {
-          "stringUnit": {
-            "state": "translated",
-            "value": "ср. %lld Вт"
+            "value": "Последний шаг"
           }
         }
       }
@@ -152,15 +101,326 @@
         }
       }
     },
-    "%lld %%": {
+    "Next step": {
       "localizations": {
         "ru": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld %%"
+            "value": "Следующий шаг"
+          }
+        }
+      }
+    },
+    "Next: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Дальше: %@"
+          }
+        }
+      }
+    },
+    "No bike workouts this week": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "На неделе нет велотренировок"
+          }
+        }
+      }
+    },
+    "Opacity": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Прозрачность"
+          }
+        }
+      }
+    },
+    "Open rides folder": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Открыть папку заездов"
+          }
+        }
+      }
+    },
+    "Pause": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Пауза"
+          }
+        }
+      }
+    },
+    "Plan done — ride on or stop": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "План пройден — катайся дальше или стоп"
+          }
+        }
+      }
+    },
+    "Quit": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выйти"
+          }
+        }
+      }
+    },
+    "Recovery": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Восстановление"
+          }
+        }
+      }
+    },
+    "Refresh plan": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Обновить план"
+          }
+        }
+      }
+    },
+    "Rest": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отдых"
+          }
+        }
+      }
+    },
+    "Resume": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Продолжить"
+          }
+        }
+      }
+    },
+    "Send unsent rides": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправить неотправленные заезды"
+          }
+        }
+      }
+    },
+    "Sending…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправляю…"
+          }
+        }
+      }
+    },
+    "Sent": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено"
+          }
+        }
+      }
+    },
+    "Sent: %@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Отправлено: %@"
+          }
+        }
+      }
+    },
+    "Sign in to load the plan": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти, чтобы загрузить план"
+          }
+        }
+      }
+    },
+    "Sign in to send the ride": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войди, чтобы отправить заезд"
+          }
+        }
+      }
+    },
+    "Sign in…": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Войти…"
+          }
+        }
+      }
+    },
+    "Sign out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Выйти"
+          }
+        }
+      }
+    },
+    "Signed in: %@%@": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход: %1$@%2$@"
+          }
+        }
+      }
+    },
+    "Signed out": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Вход сброшен"
+          }
+        }
+      }
+    },
+    "Start HeartCast": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Запусти HeartCast"
+          }
+        }
+      }
+    },
+    "Start recording": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Начать запись"
+          }
+        }
+      }
+    },
+    "Stop and save": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Стоп и сохранить"
+          }
+        }
+      }
+    },
+    "Turn the trainer on": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Включи станок"
+          }
+        }
+      }
+    },
+    "Warm-up": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Разминка"
+          }
+        }
+      }
+    },
+    "Work": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Работа"
+          }
+        }
+      }
+    },
+    "avg %lld W": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ср. %lld Вт"
+          }
+        }
+      }
+    },
+    "today": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "сегодня"
+          }
+        }
+      }
+    },
+    "tomorrow": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "завтра"
+          }
+        }
+      }
+    },
+    "yesterday": {
+      "localizations": {
+        "ru": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "вчера"
           }
         }
       }
     }
-  }
+  },
+  "version": "1.0"
 }

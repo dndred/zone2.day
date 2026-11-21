@@ -426,3 +426,96 @@ Deno.test("auto-match: a recording split in two joins the same workout; other sp
     await h.drop();
   }
 });
+
+Deno.test("zone2 Ride: the chosen workout, beats HeartCast's copy, whole dump for the phone", async () => {
+  const h = await mcpHarness({ now: "2026-11-21T15:00:00Z" });
+  try {
+    await h.call("update_profile", { patch: { timezone: "Asia/Barnaul" }, why: "пояс" });
+    const planned = await h.call("plan_workouts", {
+      items: [
+        {
+          date: "2026-11-21",
+          sport: "bike",
+          subSport: "indoor_bike",
+          title: "Станок Z2",
+          order: 1,
+        },
+        {
+          date: "2026-11-21",
+          sport: "bike",
+          subSport: "indoor_bike",
+          title: "Станок 4×4",
+          order: 2,
+        },
+      ],
+      why: "план",
+    });
+    const [easyId, intervalsId] = planned.data.created.map((c: { id: string }) => c.id);
+
+    // HeartCast's own watch workout lands first and takes the first plan by auto-match.
+    const watch = makeDump({
+      start: "2026-11-21T12:00:00Z",
+      activityType: 13,
+      indoor: true,
+      minutes: 60,
+      uuid: "HEARTCAST-1",
+      sourceName: "HeartCast",
+      bundleId: "com.heartcast.app",
+    });
+    const w = await (await h.api("/v1/activities/healthkit", enc(watch))).json();
+
+    // The Mac ride followed the second workout: it says so, takes over, and hides the watch copy.
+    const ride = makeDump({
+      start: "2026-11-21T12:00:30Z",
+      activityType: 13,
+      indoor: true,
+      minutes: 59,
+      uuid: "zone2-ride-1",
+      sourceName: "zone2 Ride (Mac)",
+      bundleId: "day.zone2.ride",
+      metadata: { "zone2.plannedWorkoutId": intervalsId },
+    });
+    const res = await h.api("/v1/activities/healthkit", enc(ride));
+    assertEquals(res.status, 201);
+    const r = await res.json();
+    assertEquals(r.plannedWorkoutId, intervalsId);
+    assertEquals(r.duplicateOf, null);
+    const list = (await h.call("list_activities", {})).data.activities;
+    assertEquals(list.map((a: { id: string }) => a.id), [r.activityId]);
+    assert(w.activityId !== r.activityId);
+    const day = (await h.call("get_plan", { from: "2026-11-21", to: "2026-11-21" })).data.days[0];
+    const status = Object.fromEntries(
+      day.workouts.map((x: { id: string; status: string }) => [x.id, x.status]),
+    );
+    assertEquals(status[intervalsId], "done");
+    assertEquals(status[easyId], "planned"); // the watch copy gave its auto-match up
+
+    // Someone else's or unknown workout id in the metadata is ignored (auto-match instead).
+    const stray = makeDump({
+      start: "2026-11-21T02:00:00Z",
+      activityType: 13,
+      indoor: true,
+      minutes: 30,
+      uuid: "zone2-ride-2",
+      bundleId: "day.zone2.ride",
+      metadata: { "zone2.plannedWorkoutId": crypto.randomUUID() },
+    });
+    const s = await (await h.api("/v1/activities/healthkit", enc(stray))).json();
+    assert(s.plannedWorkoutId !== intervalsId);
+
+    // The phone fetches the whole recording to write it into Apple Health.
+    const auth = { headers: { authorization: `Bearer ${h.appToken}` } };
+    const dump = await h.app.request(`/v1/activities/${r.activityId}/dump`, auth);
+    assertEquals(dump.status, 200);
+    const body = await dump.json();
+    assertEquals(body.workout.uuid, "zone2-ride-1");
+    assertEquals(body.workout.source.bundleId, "day.zone2.ride");
+    assertEquals(body.samples.heartRate.values.length, ride.samples.heartRate.values.length);
+    const missing = await h.app.request(`/v1/activities/${crypto.randomUUID()}/dump`, auth);
+    assertEquals(missing.status, 404);
+    const noAuth = await h.app.request(`/v1/activities/${r.activityId}/dump`);
+    assertEquals(noAuth.status, 401);
+  } finally {
+    await h.drop();
+  }
+});

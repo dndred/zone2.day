@@ -1,6 +1,7 @@
 import Foundation
 import Testing
 @testable import TrainerKit
+import Zone2Kit
 
 // Raw bytes from the ThinkRider X2Max (docs/spikes/S8-ftms-trainer.md) and HeartCast on iPhone.
 @Test func indoorBikeDataIdle() {
@@ -92,4 +93,86 @@ import Testing
     #expect(r.heartNow(t0) == 120)
     r.heartRate(nil, at: t0.addingTimeInterval(1))
     #expect(r.heartNow(t0.addingTimeInterval(1)) == nil)
+}
+
+// MARK: - Plan player
+
+private func workout(_ steps: String) throws -> PlannedWorkout {
+    let json = """
+    {"id":"11111111-1111-1111-1111-111111111111","date":"2026-11-21","sport":"bike","title":"4×4",
+     "resolved":{"steps":\(steps)}}
+    """
+    return try JSONDecoder().decode(PlannedWorkout.self, from: Data(json.utf8))
+}
+
+@Test func planUnrollsRepeats() throws {
+    let w = try workout("""
+    [{"type":"step","id":"wu","kind":"warmup","duration":{"type":"time","sec":600},
+      "target":{"metric":"power","low":120,"high":150,"unit":"W"}},
+     {"type":"repeat","id":"r","count":2,"steps":[
+       {"type":"step","id":"on","kind":"work","duration":{"type":"time","sec":240},"target":{"metric":"power","low":250,"high":265}},
+       {"type":"step","id":"off","kind":"recovery","duration":{"type":"time","sec":120}}]},
+     {"type":"step","id":"cd","kind":"cooldown","duration":{"type":"open","estimateSec":300}}]
+    """)
+    let plan = RidePlan(w)
+    #expect(plan.steps.map(\.id) == ["wu", "on#1", "off#1", "on#2", "off#2", "cd"])
+    #expect(plan.steps[3].rep == 2 && plan.steps[3].reps == 2)
+    #expect(plan.steps[1].target?.low == 250)
+    #expect(plan.plannedSec == 600 + 2 * 360 + 300)
+}
+
+@Test func playerAdvancesByTimeWaitsOnOpenAndRecordsSegments() throws {
+    let w = try workout("""
+    [{"type":"step","id":"a","kind":"warmup","duration":{"type":"time","sec":60}},
+     {"type":"step","id":"b","kind":"work","duration":{"type":"distance","m":500}},
+     {"type":"step","id":"c","kind":"cooldown","duration":{"type":"open"}}]
+    """)
+    var p = StepPlayer(plan: RidePlan(w))
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    p.begin(at: t0)
+    #expect(p.current?.id == "a")
+    #expect(p.remaining(20) == 40)
+    do { let changed = p.update(elapsed: 59, distanceM: 590, at: t0.addingTimeInterval(59)); #expect(!changed) }
+    do { let changed = p.update(elapsed: 60, distanceM: 600, at: t0.addingTimeInterval(60)); #expect(changed) }
+    #expect(p.current?.id == "b")
+    #expect(p.remainingM(800) == 300) // 500 m from 600 m
+    do { let changed = p.update(elapsed: 110, distanceM: 1100, at: t0.addingTimeInterval(110)); #expect(changed) }
+    #expect(p.current?.id == "c")
+    // Open step: never ends by itself.
+    do { let changed = p.update(elapsed: 5000, distanceM: 50000, at: t0.addingTimeInterval(5000)); #expect(!changed) }
+    #expect(p.stepElapsed(170) == 60)
+    p.skip(elapsed: 170, distanceM: 1700, at: t0.addingTimeInterval(170))
+    #expect(p.isFinished)
+    p.finish(at: t0.addingTimeInterval(200)) // nothing in progress
+    #expect(p.segments.map(\.stepId) == ["a", "b", "c"])
+    #expect(p.segments[1].start == t0.addingTimeInterval(60))
+    #expect(p.segments[2].end == t0.addingTimeInterval(170))
+}
+
+@Test func recorderKeepsWallClockAcrossPausesAndWritesEvents() throws {
+    var r = RideRecorder()
+    let t0 = Date(timeIntervalSince1970: 1_800_000_000)
+    r.begin(at: t0)
+    for s in 0..<30 {
+        let now = t0.addingTimeInterval(Double(s))
+        r.trainer(IndoorBikeData(speedKmh: 36, cadenceRpm: 90, powerW: 200), at: now)
+        r.tick(at: now)
+    }
+    r.pause(at: t0.addingTimeInterval(30))
+    r.resume(at: t0.addingTimeInterval(90))
+    for s in 90..<120 {
+        let now = t0.addingTimeInterval(Double(s))
+        r.trainer(IndoorBikeData(speedKmh: 36, cadenceRpm: 90, powerW: 200), at: now)
+        r.tick(at: now)
+    }
+    r.finish(at: t0.addingTimeInterval(120))
+    #expect(r.elapsed == 60) // active time
+    let seg = RideRecorder.Segment(start: t0, end: t0.addingTimeInterval(200), stepId: "a", label: "warmup")
+    let dump = try #require(r.dump(trainer: nil, heartSource: nil, appVersion: "test",
+                                   plannedWorkoutId: "pw-1", segments: [seg]))
+    #expect(dump.workout.durationSec == 120)
+    #expect(dump.samples["cyclingPower"]?.values[30].first == 90) // first second after the pause
+    #expect(dump.workout.events.map(\.type) == ["pause", "resume", "segment"])
+    #expect(dump.workout.events[2].end == dump.workout.end) // clipped to the ride's end
+    #expect(dump.workout.metadata["zone2.plannedWorkoutId"] == .string("pw-1"))
 }

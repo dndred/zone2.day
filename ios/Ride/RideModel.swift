@@ -2,6 +2,7 @@ import AppKit
 import Foundation
 import Observation
 import TrainerKit
+import Zone2Kit
 
 /// The ride: live numbers for the overlay, 1 Hz recording, saving the record.
 @MainActor @Observable
@@ -9,7 +10,14 @@ final class RideModel {
     enum State { case idle, recording, paused }
 
     let link = TrainerLink()
+    let account = RideAccount()
     private(set) var recorder = RideRecorder()
+    /// The planned workout to follow (chosen before the start); nil — free ride.
+    private(set) var chosen: PlannedItem?
+    /// The plan's steps while riding (nil for a free ride or a workout without structure).
+    private(set) var player: StepPlayer?
+    /// Free ride on purpose, so the suggestion does not come back.
+    private var freeRide = false
     private(set) var state: State = .idle
     private(set) var now = Date()
     private(set) var lastSaved: URL?
@@ -38,7 +46,37 @@ final class RideModel {
 
     private func tick() {
         now = Date()
-        if state == .recording { recorder.tick(at: now) }
+        if state == .idle, Int(now.timeIntervalSince1970) % 600 == 0 { Task { await account.refresh() } }
+        guard state == .recording else { return }
+        recorder.tick(at: now)
+        guard var p = player else { return }
+        let before = p.remaining(recorder.elapsed)
+        if p.update(elapsed: recorder.elapsed, distanceM: recorder.distanceM, at: now) {
+            NSSound(named: "Glass")?.play()
+        } else if let left = p.remaining(recorder.elapsed), left != before, (1...3).contains(left) {
+            NSSound(named: "Tink")?.play()
+        }
+        player = p
+    }
+
+    // MARK: Plan
+
+    /// The workout the overlay will follow: the athlete's choice, else today's suggestion.
+    var workout: PlannedItem? {
+        if state != .idle { return chosen }
+        return chosen ?? (freeRide ? nil : account.suggested)
+    }
+
+    func choose(_ item: PlannedItem?) {
+        guard state == .idle else { return }
+        chosen = item
+        freeRide = item == nil
+    }
+
+    func nextStep() {
+        guard state != .idle, var p = player else { return }
+        p.skip(elapsed: recorder.elapsed, distanceM: recorder.distanceM, at: Date())
+        player = p
     }
 
     // MARK: Live values
@@ -53,32 +91,54 @@ final class RideModel {
     func start() {
         switch state {
         case .idle:
-            recorder.begin(at: Date())
+            let now = Date()
+            chosen = workout
+            let plan = chosen.map { RidePlan($0.workout) }
+            player = plan.flatMap { $0.steps.isEmpty ? nil : StepPlayer(plan: $0) }
+            player?.begin(at: now)
+            recorder.begin(at: now)
             lastSaved = nil
             saveError = nil
             state = .recording
-        case .paused: state = .recording
+        case .paused:
+            recorder.resume(at: Date())
+            state = .recording
         case .recording: break
         }
     }
 
-    func pause() { if state == .recording { state = .paused } }
+    func pause() {
+        guard state == .recording else { return }
+        recorder.pause(at: Date())
+        state = .paused
+    }
 
     func stop() {
         guard state != .idle else { return }
+        let now = Date()
+        recorder.finish(at: now)
+        player?.finish(at: now)
         state = .idle
         save()
+        if let lastSaved { Task { await account.upload(lastSaved) } }
+        chosen = nil
+        freeRide = false
     }
 
     func discard() {
         state = .idle
         recorder = RideRecorder()
+        player = nil
+        chosen = nil
+        freeRide = false
     }
 
     private func save() {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
         guard let dump = recorder.dump(trainer: link.trainer.name, heartSource: link.heart.name,
-                                       appVersion: "ride-mac \(version)") else { return }
+                                       appVersion: "ride-mac \(version)",
+                                       plannedWorkoutId: chosen?.workout.id,
+                                       segments: player?.segments ?? []) else { return }
         do {
             try FileManager.default.createDirectory(at: Self.ridesFolder, withIntermediateDirectories: true)
             let f = DateFormatter()

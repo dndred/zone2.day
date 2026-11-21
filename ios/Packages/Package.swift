@@ -31,7 +31,7 @@ let package = Package(
         // Smart trainer and BLE heart rate: byte parsers and the 1 Hz ride recorder (docs/11-trainer.md).
         // No CoreBluetooth here, so it is tested on raw bytes.
         .target(name: "TrainerKit", dependencies: ["Zone2Kit"]),
-        .testTarget(name: "TrainerKitTests", dependencies: ["TrainerKit"]),
+        .testTarget(name: "TrainerKitTests", dependencies: ["TrainerKit", "Zone2Kit"]),
         .testTarget(name: "Zone2KitTests", dependencies: ["Zone2Kit"]),
         .testTarget(name: "Zone2UITests", dependencies: ["Zone2UI"]),
     ]

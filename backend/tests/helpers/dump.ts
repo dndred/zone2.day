@@ -17,6 +17,7 @@ export interface DumpOpts {
   standStartSec?: number; // standing still at the start (e.g. waiting for a parkrun start)
   markers?: number[]; // manual interval markers (Action button), seconds from start
   autoSplits?: boolean; // Apple's parallel km and mile split segments
+  metadata?: Record<string, unknown>; // extra workout metadata
 }
 
 export function makeDump(o: DumpOpts = {}): HealthKitDump {
@@ -130,6 +131,7 @@ export function makeDump(o: DumpOpts = {}): HealthKitDump {
         HKWeatherTemperature: { value: 25.9, unit: "degF" },
         HKWeatherHumidity: { value: 0.88, unit: "%" },
         HKElevationAscended: { value: 4200, unit: "cm" },
+        ...o.metadata,
       },
       activities: [],
       events,
